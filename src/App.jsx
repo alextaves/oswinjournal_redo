@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 // Pulsing gradient logo component
-const PulsingLogo = ({ variant = 'vibrant' }) => {
+const PulsingLogo = ({ variant = 'navy' }) => {
   const [interacted, setInteracted] = useState(false);
 
   const handleInteraction = () => {
@@ -12,11 +12,11 @@ const PulsingLogo = ({ variant = 'vibrant' }) => {
   // Color configurations
   const colorSchemes = {
     navy: {
-    color1: 'rgb(10, 75, 120)',      // Richer navy blue
-    color2: 'rgb(25, 45, 80)',       // Mid blue
-    color3: 'rgb(10, 20, 40)',       // Deep blue-black
-    accent: 'rgb(60, 90, 140)'       // Bright accent
-  },
+      color1: 'rgb(30, 50, 80)',
+      color2: 'rgb(15, 25, 45)',
+      color3: 'rgb(5, 10, 20)',
+      accent: 'rgb(40, 60, 100)'
+    },
     vibrant: {
       color1: 'rgb(255, 215, 0)',    // Canary yellow
       color2: 'rgb(200, 150, 50)',   // Mid transition
@@ -66,7 +66,7 @@ const PulsingLogo = ({ variant = 'vibrant' }) => {
             cy="100" 
             r="90" 
             fill={`url(#gradient-${variant})`}
-            opacity={interacted ? "0.7" : ".9"}
+            opacity={interacted ? "0.95" : "1"}
             style={{ transition: 'opacity 1s ease' }}
           >
             <animateTransform
@@ -117,7 +117,7 @@ const PulsingLogo = ({ variant = 'vibrant' }) => {
   );
 };
 
-// Floating Audio Player
+// Floating Audio Player with gentle pulsing glow
 const FloatingAudioPlayer = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(0);
@@ -164,14 +164,32 @@ const FloatingAudioPlayer = () => {
 
   return (
     <>
-      {/* Collapsed: Play Button */}
+      {/* Collapsed: Play Button with gentle pulsing glow */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed z-50 flex items-center justify-center w-16 h-16 transition-all duration-300 bg-gray-800 rounded-full shadow-lg bottom-8 right-8 hover:bg-gray-700"
-        >
-          <div className="w-0 h-0 ml-1 border-t-8 border-b-8 border-t-transparent border-l-12 border-l-white border-b-transparent" />
-        </button>
+        <div className="fixed z-50 bottom-8 right-8">
+          {/* Pulsing glow rings */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div 
+              className="absolute w-16 h-16 bg-blue-400 rounded-full opacity-20"
+              style={{
+                animation: 'pulse-glow 4s ease-in-out infinite'
+              }}
+            />
+            <div 
+              className="absolute w-16 h-16 bg-blue-400 rounded-full opacity-20"
+              style={{
+                animation: 'pulse-glow 4s ease-in-out infinite 2s'
+              }}
+            />
+          </div>
+          
+          <button
+            onClick={() => setIsOpen(true)}
+            className="relative flex items-center justify-center w-16 h-16 transition-all duration-300 bg-gray-800 rounded-full shadow-lg hover:bg-gray-700"
+          >
+            <div className="w-0 h-0 ml-1 border-t-8 border-b-8 border-t-transparent border-l-12 border-l-white border-b-transparent" />
+          </button>
+        </div>
       )}
 
       {/* Expanded: Full Player */}
@@ -268,37 +286,78 @@ const FloatingAudioPlayer = () => {
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
       />
+
+      {/* CSS for the pulsing glow animation */}
+      <style>{`
+        @keyframes pulse-glow {
+          0% {
+            transform: scale(1);
+            opacity: 0.2;
+          }
+          50% {
+            transform: scale(1.4);
+            opacity: 0;
+          }
+          100% {
+            transform: scale(1);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </>
   );
 };
 
-// Hero section
+// Hero section with ambient slideshow
 const HeroSection = ({ onScrollPrompt }) => {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  const images = [
+    '/images/tokyo-09.jpg',
+    '/images/tokyo-10.jpg',
+    '/images/tokyo-11.jpg'
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }, 8000); // 8 seconds per image
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <section className="relative flex flex-col items-center justify-center min-h-screen bg-white">
       <div className="absolute z-50 top-8 right-8">
         <button className="flex flex-col gap-1.5" aria-label="Menu">
-          <span className="w-8 h-0.5 bg-black"></span>
-          <span className="w-8 h-0.5 bg-black"></span>
-          <span className="w-8 h-0.5 bg-black"></span>
+          <span className="w-8 h-1 bg-black rounded-sm"></span>
+          <span className="w-8 h-1 bg-black rounded-sm"></span>
+          <span className="w-8 h-1 bg-black rounded-sm"></span>
         </button>
       </div>
 
       <PulsingLogo variant="navy" />
-      {/* To switch to vibrant: <PulsingLogo variant="vibrant" /> */}
+      {/* To switch back to navy: <PulsingLogo variant="navy" /> */}
       
-      <div className="w-full max-w-4xl px-6 mt-16">
-        <div className="flex items-start justify-between mb-4 text-sm tracking-wider text-gray-500">
+      <div className="w-full max-w-4xl px-3 mt-16">
+        <div className="flex items-start justify-between mb-1 ml-3 mr-3 text-sm tracking-wider text-gray-500" style={{ paddingLeft: '3px', paddingRight: '3px' }}>
           <span>ISSUE 1</span>
           <span>TOKYO OLYMPICS 1964</span>
         </div>
         
-        <div className="w-full overflow-hidden bg-gray-100 aspect-square">
-          <img 
-            src="/images/tokyo-09.jpg"
-            alt="Tokyo Olympics 1964"
-            className="object-cover w-full h-full"
-          />
+        <div className="relative w-full overflow-hidden bg-gray-100 aspect-square">
+          {images.map((src, index) => (
+            <img 
+              key={src}
+              src={src}
+              alt={`Tokyo Olympics 1964 - Image ${index + 1}`}
+              className="absolute inset-0 object-cover w-full h-full transition-opacity duration-2000"
+              style={{
+                opacity: currentImageIndex === index ? 1 : 0,
+                transitionDuration: '5000ms'
+              }}
+            />
+          ))}
         </div>
       </div>
 
@@ -314,10 +373,10 @@ const HeroSection = ({ onScrollPrompt }) => {
   );
 };
 
-// Manifesto section
-const ManifestoSection = () => {
+// Manifesto section with Enter button
+const ManifestoSection = ({ onEnter }) => {
   return (
-    <section className="flex items-center justify-center min-h-screen px-6 py-24 bg-white">
+    <section className="flex items-center justify-center min-h-screen px-3 py-24 bg-white">
       <div className="max-w-3xl">
         <div className="space-y-6 text-base leading-relaxed text-gray-800">
           <p>
@@ -335,27 +394,17 @@ const ManifestoSection = () => {
             audio elements hold equal weight. Use the audio player in the bottom right corner to select your soundtrack.
           </p>
         </div>
-      </div>
-    </section>
-  );
-};
-
-// Enter section
-const EnterSection = ({ onEnter }) => {
-  return (
-    <section className="relative flex items-center justify-center min-h-screen px-6 bg-white">
-      <div className="text-center">
-        <button
-          onClick={onEnter}
-          className="flex items-center justify-center gap-4 mx-auto transition-all duration-500 group"
-        >
-          <span className="text-sm tracking-widest">ENTER</span>
-          <div className="w-0 h-0 border-t-[20px] border-t-transparent border-l-[30px] border-b-[20px] border-b-transparent border-l-blue-500 group-hover:border-l-blue-600 transition-colors duration-300" />
-        </button>
-      </div>
-
-      <div className="fixed text-xs tracking-wider text-gray-400 bottom-8 left-8">
-        OSWIN JOURNAL ©
+        
+        {/* Enter button 75px below manifesto text */}
+        <div className="text-center" style={{ marginTop: '75px' }}>
+          <button
+            onClick={onEnter}
+            className="flex items-center justify-center gap-4 mx-auto transition-all duration-500 group"
+          >
+            <span className="text-sm tracking-widest">ENTER</span>
+            <div className="w-0 h-0 border-t-[20px] border-t-transparent border-l-[30px] border-b-[20px] border-b-transparent border-l-blue-500 group-hover:border-l-blue-600 transition-colors duration-300" />
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -407,7 +456,7 @@ const VideoSection = ({ src, title, index }) => {
         }}
       />
       
-      <div className="relative z-10 w-full max-w-6xl px-6">
+      <div className="relative z-10 w-full max-w-6xl px-3">
         <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
           <video
             ref={videoRef}
@@ -503,6 +552,11 @@ function App() {
             >
               RETURN TO START
             </button>
+            
+            {/* OSWIN JOURNAL at bottom of experience */}
+            <div className="mt-12 text-xs tracking-wider text-gray-400">
+              OSWIN JOURNAL ©
+            </div>
           </div>
         </footer>
       </div>
@@ -513,10 +567,16 @@ function App() {
     <div className="relative">
       <FloatingAudioPlayer />
       <HeroSection onScrollPrompt={scrollToNextSection} />
-      <ManifestoSection />
-      <EnterSection onEnter={handleEnterExperience} />
+      <ManifestoSection onEnter={handleEnterExperience} />
+      
+      {/* Footer at bottom of landing page */}
+      <footer className="px-8 py-8 bg-white">
+        <div className="text-xs tracking-wider text-gray-400">
+          OSWIN JOURNAL ©
+        </div>
+      </footer>
     </div>
   );
 }
 
-export default App;
+export default App;    
