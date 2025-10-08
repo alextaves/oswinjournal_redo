@@ -1,123 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
 
-// Pulsing gradient logo component
-const PulsingLogo = ({ variant = 'navy' }) => {
-  const [interacted, setInteracted] = useState(false);
-
-  const handleInteraction = () => {
-    setInteracted(true);
-    setTimeout(() => setInteracted(false), 3000);
-  };
-
-  // Color configurations
-  const colorSchemes = {
-    navy: {
-      color1: 'rgb(30, 50, 80)',
-      color2: 'rgb(15, 25, 45)',
-      color3: 'rgb(5, 10, 20)',
-      accent: 'rgb(40, 60, 100)'
-    },
-    vibrant: {
-      color1: 'rgb(255, 215, 0)',    // Canary yellow
-      color2: 'rgb(200, 150, 50)',   // Mid transition
-      color3: 'rgb(65, 105, 225)',   // Royal blue
-      accent: 'rgb(100, 150, 255)'
-    }
-  };
-
-  const colors = colorSchemes[variant];
-
+// Simple breathing circle logo with viewport-based responsive sizing
+const PulsingLogo = ({ headerHeight, isPhone }) => {
+  const logoSize = isPhone ? headerHeight * 0.5 : headerHeight * 0.75;
+  
   return (
     <div 
-      className="relative w-48 h-48 mx-auto cursor-pointer"
-      onClick={handleInteraction}
-      onTouchStart={handleInteraction}
+      className="relative mx-auto"
+      style={{
+        width: `${logoSize}px`,
+        height: `${logoSize}px`
+      }}
     >
       <svg viewBox="0 0 200 200" className="w-full h-full">
-        <defs>
-          <radialGradient id={`gradient-${variant}`}>
-            <stop offset="0%" stopColor={colors.color1}>
-              <animate
-                attributeName="stop-color"
-                values={`${colors.color1};${colors.color2};${colors.color3};${colors.color2};${colors.color1}`}
-                dur="12s"
-                repeatCount="indefinite"
-              />
-            </stop>
-            <stop offset="100%" stopColor={colors.color3}>
-              <animate
-                attributeName="stop-color"
-                values={`${colors.color3};${colors.color2};${colors.color1};${colors.color2};${colors.color3}`}
-                dur="16s"
-                repeatCount="indefinite"
-              />
-            </stop>
-          </radialGradient>
-
-          <filter id={`softBlur-${variant}`}>
-            <feGaussianBlur stdDeviation={interacted ? "3" : "1.5"} result="blur"/>
-            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 1 0"/>
-          </filter>
-        </defs>
-
-        <g filter={`url(#softBlur-${variant})`}>
-          <circle 
-            cx="100" 
-            cy="100" 
-            r="90" 
-            fill={`url(#gradient-${variant})`}
-            opacity={interacted ? "0.95" : "1"}
-            style={{ transition: 'opacity 1s ease' }}
-          >
-            <animateTransform
-              attributeName="transform"
-              attributeType="XML"
-              type="rotate"
-              from="0 100 100"
-              to="360 100 100"
-              dur="180s"
-              repeatCount="indefinite"
-            />
-          </circle>
-
-          <circle 
-            cx="100" 
-            cy="100" 
-            r="85"
-            fill="none"
-            stroke={colors.accent}
-            strokeWidth="0.5"
-            opacity="0.4"
-          >
-            <animateTransform
-              attributeName="transform"
-              attributeType="XML"
-              type="rotate"
-              from="360 100 100"
-              to="0 100 100"
-              dur="140s"
-              repeatCount="indefinite"
-            />
-          </circle>
-
-          <circle 
-            cx="100" 
-            cy="100" 
-            r="40" 
-            fill="white"
-            style={{
-              transform: interacted ? 'scale(1.05)' : 'scale(1)',
-              transformOrigin: 'center',
-              transition: 'transform 1s ease'
-            }}
-          />
-        </g>
+        <circle 
+          cx="100" 
+          cy="100" 
+          r="90" 
+          fill="#4C4C58"
+          style={{
+            transformOrigin: 'center',
+            animation: 'breathe 10s ease-in-out infinite'
+          }}
+        />
       </svg>
+      
+      <style>{`
+        @keyframes breathe {
+          0%, 100% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.05);
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
-// Floating Audio Player with gentle pulsing glow
+// Floating Audio Player with soft pulsing white button
 const FloatingAudioPlayer = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState(0);
@@ -164,37 +86,42 @@ const FloatingAudioPlayer = () => {
 
   return (
     <>
-      {/* Collapsed: Play Button with gentle pulsing glow */}
+      {/* Collapsed: Play Button with soft pulsing white */}
       {!isOpen && (
         <div className="fixed z-50 bottom-8 right-8">
-          {/* Pulsing glow rings */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div 
-              className="absolute w-16 h-16 bg-blue-400 rounded-full opacity-20"
-              style={{
-                animation: 'pulse-glow 4s ease-in-out infinite'
-              }}
-            />
-            <div 
-              className="absolute w-16 h-16 bg-blue-400 rounded-full opacity-20"
-              style={{
-                animation: 'pulse-glow 4s ease-in-out infinite 2s'
-              }}
-            />
-          </div>
-          
           <button
             onClick={() => setIsOpen(true)}
-            className="relative flex items-center justify-center w-16 h-16 transition-all duration-300 bg-gray-800 rounded-full shadow-lg hover:bg-gray-700"
+            className="relative flex items-center justify-center w-16 h-16 overflow-hidden transition-all duration-300 rounded-full shadow-lg"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.15)'
+            }}
           >
-            <div className="w-0 h-0 ml-1 border-t-8 border-b-8 border-t-transparent border-l-12 border-l-white border-b-transparent" />
+            {/* Triangle with subtle transparency - appears as cutout */}
+            <svg width="24" height="24" viewBox="0 0 24 24" className="relative z-10">
+              <polygon points="8,6 8,18 18,12" fill="rgba(56, 56, 69, 0.8)" />
+            </svg>
+            
+            {/* Pulsing effect */}
+            <div 
+              className="absolute inset-0 rounded-full pointer-events-none"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                animation: 'soft-pulse 4s ease-in-out infinite'
+              }}
+            />
           </button>
         </div>
       )}
 
       {/* Expanded: Full Player */}
       {isOpen && (
-        <div className="fixed z-50 overflow-hidden bg-gray-900 rounded-lg shadow-2xl bottom-8 right-8 w-96">
+        <div 
+          className="fixed z-50 overflow-hidden bg-gray-900 rounded-lg shadow-2xl bottom-8 right-8"
+          style={{
+            width: 'min(384px, 95vw)',
+            right: 'max(32px, 2.5vw)'
+          }}
+        >
           {/* Header with album art and close button */}
           <div className="flex items-center justify-between p-4 bg-black">
             <div className="flex items-center gap-3">
@@ -287,20 +214,16 @@ const FloatingAudioPlayer = () => {
         onPause={() => setIsPlaying(false)}
       />
 
-      {/* CSS for the pulsing glow animation */}
+      {/* CSS for soft pulsing animation */}
       <style>{`
-        @keyframes pulse-glow {
-          0% {
+        @keyframes soft-pulse {
+          0%, 100% {
+            opacity: 0.15;
             transform: scale(1);
-            opacity: 0.2;
           }
           50% {
-            transform: scale(1.4);
-            opacity: 0;
-          }
-          100% {
-            transform: scale(1);
-            opacity: 0;
+            opacity: 0.3;
+            transform: scale(1.05);
           }
         }
       `}</style>
@@ -308,65 +231,171 @@ const FloatingAudioPlayer = () => {
   );
 };
 
-// Hero section with ambient slideshow
+// Hero section with ambient slideshow and responsive aspect ratios
 const HeroSection = ({ onScrollPrompt }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isPhone, setIsPhone] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
+  const [imageHeight, setImageHeight] = useState(0);
   
-  const images = [
-    '/images/tokyo-09.jpg',
-    '/images/tokyo-10.jpg',
-    '/images/tokyo-11.jpg'
-  ];
+  const images = {
+    desktop: [
+      '/images/tokyo-09.jpg',
+      '/images/tokyo-10.jpg',
+      '/images/tokyo-11.jpg'
+    ],
+    mobile: [
+      '/images/tokyo-09-mobile.jpg',
+      '/images/tokyo-10-mobile.jpg',
+      '/images/tokyo-11-mobile.jpg'
+    ]
+  };
+
+  useEffect(() => {
+    const calculateLayout = () => {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      
+      // Phone: < 768px uses 4:5 ratio
+      // iPad: 768-1439px uses 1:1 ratio
+      // Desktop: >= 1440px uses desktop layout
+      const phone = width < 768;
+      const mobile = width < 1440;
+      
+      setIsPhone(phone);
+      setIsMobile(mobile);
+      
+      if (mobile) {
+        // Calculate image height based on aspect ratio and viewport width
+        const aspectRatio = phone ? 4/5 : 1/1;
+        // Add space for the text label (approximately 25px for text + margin)
+        const textLabelHeight = 25;
+        const calculatedImageHeight = width / aspectRatio;
+        
+        // Header is remaining space (including the text label area)
+        const calculatedHeaderHeight = height - calculatedImageHeight - textLabelHeight;
+        
+        setImageHeight(calculatedImageHeight);
+        setHeaderHeight(calculatedHeaderHeight);
+      }
+    };
+    
+    calculateLayout();
+    window.addEventListener('resize', calculateLayout);
+    
+    return () => window.removeEventListener('resize', calculateLayout);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % images.length);
-    }, 8000); // 8 seconds per image
+      setCurrentImageIndex((prev) => (prev + 1) % images.desktop.length);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, []);
 
+  const currentImages = (isMobile && isPhone) ? images.mobile : images.desktop;
+
+  // Mobile/iPad layout
+  if (isMobile) {
+    return (
+      <section className="relative flex flex-col h-screen overflow-hidden" style={{ backgroundColor: '#383845' }}>
+        {/* Hamburger menu */}
+        <div className="absolute z-50 top-8 right-8">
+          <button className="flex flex-col gap-1.5" aria-label="Menu">
+            <span className="w-8 h-1 rounded-sm" style={{ backgroundColor: '#4C4C58' }}></span>
+            <span className="w-8 h-1 rounded-sm" style={{ backgroundColor: '#4C4C58' }}></span>
+            <span className="w-8 h-1 rounded-sm" style={{ backgroundColor: '#4C4C58' }}></span>
+          </button>
+        </div>
+
+        {/* Header area with logo */}
+        <div 
+          className="flex items-center justify-center"
+          style={{ height: `${headerHeight}px` }}
+        >
+          <PulsingLogo headerHeight={headerHeight} isPhone={isPhone} />
+        </div>
+
+        {/* Image fixed to bottom - no margins */}
+        <div className="w-full" style={{ height: `${imageHeight}px` }}>
+          <div 
+            className="flex items-start justify-between mb-1 text-sm tracking-wider" 
+            style={{ 
+              paddingLeft: '12px', 
+              paddingRight: '12px', 
+              color: '#4C4C58'
+            }}
+          >
+            <span>ISSUE 1</span>
+            <span>TOKYO OLYMPICS 1964</span>
+          </div>
+          
+          <div className="relative w-full h-full overflow-hidden bg-gray-100">
+            {currentImages.map((src, index) => (
+              <img 
+                key={src}
+                src={src}
+                alt={`Tokyo Olympics 1964 - Image ${index + 1}`}
+                className="absolute inset-0 object-cover w-full h-full transition-opacity"
+                style={{
+                  opacity: currentImageIndex === index ? 1 : 0,
+                  transitionDuration: '5000ms'
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Desktop layout (unchanged)
   return (
-    <section className="relative flex flex-col items-center justify-center min-h-screen bg-white">
+    <section className="relative flex flex-col items-center min-h-screen" style={{ backgroundColor: '#383845' }}>
       <div className="absolute z-50 top-8 right-8">
         <button className="flex flex-col gap-1.5" aria-label="Menu">
-          <span className="w-8 h-1 bg-black rounded-sm"></span>
-          <span className="w-8 h-1 bg-black rounded-sm"></span>
-          <span className="w-8 h-1 bg-black rounded-sm"></span>
+          <span className="w-8 h-1 rounded-sm" style={{ backgroundColor: '#4C4C58' }}></span>
+          <span className="w-8 h-1 rounded-sm" style={{ backgroundColor: '#4C4C58' }}></span>
+          <span className="w-8 h-1 rounded-sm" style={{ backgroundColor: '#4C4C58' }}></span>
         </button>
       </div>
 
-      <PulsingLogo variant="navy" />
-      {/* To switch back to navy: <PulsingLogo variant="navy" /> */}
+      <div style={{ flex: '1' }} />
+
+      <div>
+        <PulsingLogo headerHeight={180} isPhone={false} />
+      </div>
       
-      <div className="w-full max-w-4xl px-3 mt-16">
-        <div className="flex items-start justify-between mb-1 ml-3 mr-3 text-sm tracking-wider text-gray-500" style={{ paddingLeft: '3px', paddingRight: '3px' }}>
+      <div style={{ flex: '1' }} />
+
+      <div className="w-full max-w-4xl">
+        <div 
+          className="flex items-start justify-between mb-1 text-sm tracking-wider" 
+          style={{ 
+            paddingLeft: '6px', 
+            paddingRight: '6px', 
+            color: '#4C4C58'
+          }}
+        >
           <span>ISSUE 1</span>
           <span>TOKYO OLYMPICS 1964</span>
         </div>
         
         <div className="relative w-full overflow-hidden bg-gray-100 aspect-square">
-          {images.map((src, index) => (
+          {images.desktop.map((src, index) => (
             <img 
               key={src}
               src={src}
               alt={`Tokyo Olympics 1964 - Image ${index + 1}`}
-              className="absolute inset-0 object-cover w-full h-full transition-opacity duration-2000"
+              className="absolute inset-0 object-cover w-full h-full transition-opacity"
               style={{
                 opacity: currentImageIndex === index ? 1 : 0,
                 transitionDuration: '5000ms'
               }}
             />
           ))}
-        </div>
-      </div>
-
-      <div 
-        className="absolute transform -translate-x-1/2 cursor-pointer bottom-12 left-1/2 animate-bounce"
-        onClick={onScrollPrompt}
-      >
-        <div className="flex items-start justify-center w-6 h-10 p-2 border-2 border-gray-400 rounded-full">
-          <div className="w-1 h-2 bg-gray-400 rounded-full"></div>
         </div>
       </div>
     </section>
@@ -376,9 +405,9 @@ const HeroSection = ({ onScrollPrompt }) => {
 // Manifesto section with Enter button
 const ManifestoSection = ({ onEnter }) => {
   return (
-    <section className="flex items-center justify-center min-h-screen px-3 py-24 bg-white">
+    <section className="flex items-center justify-center min-h-screen px-3 py-24" style={{ backgroundColor: '#383845' }}>
       <div className="max-w-3xl">
-        <div className="space-y-6 text-base leading-relaxed text-gray-800">
+        <div className="space-y-6 text-base leading-relaxed" style={{ color: '#4C4C58' }}>
           <p>
             Tokyo Olympics 1964 by Criterion is a mesmerising collection of footage that depicts the games in 
             beautifully curated sequence. The footage on its own merit is flawless and needs no help to bring 
@@ -399,10 +428,10 @@ const ManifestoSection = ({ onEnter }) => {
         <div className="text-center" style={{ marginTop: '75px' }}>
           <button
             onClick={onEnter}
-            className="flex items-center justify-center gap-4 mx-auto transition-all duration-500 group"
+            className="text-lg tracking-widest transition-opacity duration-500 hover:opacity-60"
+            style={{ color: '#4C4C58' }}
           >
-            <span className="text-sm tracking-widest">ENTER</span>
-            <div className="w-0 h-0 border-t-[20px] border-t-transparent border-l-[30px] border-b-[20px] border-b-transparent border-l-blue-500 group-hover:border-l-blue-600 transition-colors duration-300" />
+            ENTER
           </button>
         </div>
       </div>
@@ -410,11 +439,11 @@ const ManifestoSection = ({ onEnter }) => {
   );
 };
 
-// Video section component
-const VideoSection = ({ src, title, index }) => {
+// Video/Image section component with friction scroll
+const MediaSection = ({ src, type, title, index }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
-  const videoRef = useRef(null);
+  const mediaRef = useRef(null);
   const sectionRef = useRef(null);
 
   useEffect(() => {
@@ -422,11 +451,11 @@ const VideoSection = ({ src, title, index }) => {
       ([entry]) => {
         setIsVisible(entry.isIntersecting);
         
-        if (videoRef.current) {
+        if (mediaRef.current && type === 'video') {
           if (entry.isIntersecting) {
-            videoRef.current.play().catch(e => console.log('Play prevented:', e));
+            mediaRef.current.play().catch(e => console.log('Play prevented:', e));
           } else {
-            videoRef.current.pause();
+            mediaRef.current.pause();
           }
         }
       },
@@ -438,12 +467,12 @@ const VideoSection = ({ src, title, index }) => {
     }
 
     return () => observer.disconnect();
-  }, []);
+  }, [type]);
 
   return (
     <section 
       ref={sectionRef}
-      className="relative flex items-center justify-center min-h-screen overflow-hidden"
+      className="relative flex items-center justify-center w-full h-screen overflow-hidden snap-start snap-always"
       style={{
         background: `linear-gradient(${index * 137}deg, rgba(0,0,0,0.95), rgba(20,20,40,0.95))`
       }}
@@ -456,39 +485,44 @@ const VideoSection = ({ src, title, index }) => {
         }}
       />
       
-      <div className="relative z-10 w-full max-w-6xl px-3">
-        <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
-          <video
-            ref={videoRef}
-            className="absolute inset-0 object-cover w-full h-full transition-opacity opacity-0 duration-2000"
-            style={{ opacity: isLoaded ? 1 : 0 }}
-            loop
-            muted
-            playsInline
-            preload="metadata"
-            onLoadedData={() => setIsLoaded(true)}
-          >
-            <source src={src} type="video/mp4" />
-          </video>
+      {/* Media container - 4:5 ratio, centered and fills screen */}
+      <div className="relative flex items-center justify-center w-full h-full">
+        <div 
+          className="relative w-full h-full"
+          style={{
+            maxWidth: '100vw',
+            aspectRatio: '4/5'
+          }}
+        >
+          {type === 'video' ? (
+            <video
+              ref={mediaRef}
+              className="absolute inset-0 object-cover w-full h-full transition-opacity"
+              style={{ opacity: isLoaded ? 1 : 0 }}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              onLoadedData={() => setIsLoaded(true)}
+            >
+              <source src={src} type="video/mp4" />
+            </video>
+          ) : (
+            <img
+              ref={mediaRef}
+              src={src}
+              alt={title}
+              className="absolute inset-0 object-cover w-full h-full transition-opacity"
+              style={{ opacity: isLoaded ? 1 : 0 }}
+              onLoad={() => setIsLoaded(true)}
+            />
+          )}
           
           {!isLoaded && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-16 h-16 border-2 border-white opacity-20 animate-pulse" />
             </div>
           )}
-        </div>
-        
-        <div 
-          className="mt-8 text-center transition-all duration-2000"
-          style={{
-            opacity: isVisible ? 1 : 0,
-            transform: isVisible ? 'translateY(0)' : 'translateY(20px)'
-          }}
-        >
-          <h2 className="text-4xl font-light tracking-widest text-white">
-            {title}
-          </h2>
-          <div className="w-24 h-px mx-auto mt-4 bg-white opacity-30" />
         </div>
       </div>
     </section>
@@ -498,6 +532,33 @@ const VideoSection = ({ src, title, index }) => {
 // Main App
 function App() {
   const [showExperience, setShowExperience] = useState(false);
+  const [shuffledContent, setShuffledContent] = useState([]);
+  const scrollContainerRef = useRef(null);
+
+  // Content pool - mix of videos and images
+  const contentPool = [
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', title: 'THRESHOLD' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', title: 'SUSPENSION' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', title: 'DISSOLUTION' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', title: 'EMERGENCE' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', title: 'RESONANCE' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', title: 'INTERVALS' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4', title: 'FRAGMENTS' },
+    { type: 'video', src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4', title: 'APERTURE' },
+    { type: 'image', src: '/images/tokyo-09.jpg', title: 'STILLNESS I' },
+    { type: 'image', src: '/images/tokyo-10.jpg', title: 'STILLNESS II' },
+    { type: 'image', src: '/images/tokyo-11.jpg', title: 'STILLNESS III' },
+  ];
+
+  // Fisher-Yates shuffle algorithm
+  const shuffleArray = (array) => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
 
   const scrollToNextSection = () => {
     window.scrollTo({
@@ -507,40 +568,62 @@ function App() {
   };
 
   const handleEnterExperience = () => {
+    // Shuffle content when entering
+    setShuffledContent(shuffleArray(contentPool));
     setShowExperience(true);
     window.scrollTo({ top: 0 });
   };
 
-  const sections = [
-    { 
-      title: 'THRESHOLD', 
-      src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' 
-    },
-    { 
-      title: 'SUSPENSION', 
-      src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' 
-    },
-    { 
-      title: 'DISSOLUTION', 
-      src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' 
-    }
-  ];
+  // Add friction scrolling effect
+  useEffect(() => {
+    if (!showExperience || !scrollContainerRef.current) return;
+
+    const container = scrollContainerRef.current;
+    let isScrolling = false;
+    let scrollTimeout;
+
+    const handleScroll = () => {
+      if (!isScrolling) {
+        isScrolling = true;
+      }
+
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        isScrolling = false;
+      }, 150);
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [showExperience]);
 
   if (showExperience) {
     return (
-      <div className="relative bg-black">
+      <div 
+        ref={scrollContainerRef}
+        className="relative h-screen overflow-y-scroll bg-black snap-y snap-mandatory"
+        style={{
+          scrollBehavior: 'smooth',
+          overscrollBehavior: 'none'
+        }}
+      >
         <FloatingAudioPlayer />
         
-        {sections.map((section, index) => (
-          <VideoSection
-            key={index}
-            src={section.src}
-            title={section.title}
+        {shuffledContent.map((content, index) => (
+          <MediaSection
+            key={`${content.type}-${index}`}
+            src={content.src}
+            type={content.type}
+            title={content.title}
             index={index}
           />
         ))}
         
-        <footer className="flex items-center justify-center min-h-screen bg-black">
+        <footer className="flex items-center justify-center h-screen bg-black snap-start snap-always">
           <div className="text-center text-white opacity-60">
             <p className="mb-4 text-sm tracking-widest">END ISSUE 01</p>
             <button 
@@ -570,8 +653,8 @@ function App() {
       <ManifestoSection onEnter={handleEnterExperience} />
       
       {/* Footer at bottom of landing page */}
-      <footer className="px-8 py-8 bg-white">
-        <div className="text-xs tracking-wider text-gray-400">
+      <footer className="px-8 py-8" style={{ backgroundColor: '#383845' }}>
+        <div className="text-xs tracking-wider" style={{ color: '#4C4C58' }}>
           OSWIN JOURNAL ©
         </div>
       </footer>
@@ -579,4 +662,4 @@ function App() {
   );
 }
 
-export default App;    
+export default App;
