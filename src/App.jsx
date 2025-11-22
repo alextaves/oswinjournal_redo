@@ -843,7 +843,10 @@ const VideoSection = ({ src, index, total }) => {
         muted
         playsInline
         preload="auto"
-        onLoadedData={() => setIsLoaded(true)}
+        onLoadedData={(e) => {
+          e.target.playbackRate = 0.75;
+          setIsLoaded(true);
+        }}
       />
       {/* Loading state */}
       {!isLoaded && (
