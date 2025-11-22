@@ -219,7 +219,7 @@ function App() {
               { name: 'tik tok', href: '#' },
               { name: 'instagram', href: 'https://www.instagram.com/more_flowers_please/' },
               { name: 'spotify', href: 'https://open.spotify.com/playlist/7juVwU9jg6dsYs9DwgR7ss?si=b098eb9263ab4e90' },
-              { name: 'alex...s@gmail.com', href: 'mailto:alex...s@gmail.com' }
+              { name: 'alextaves@gmail.com', href: 'mailto:alextaves@gmail.com' }
             ].map((item, i) => (
               <a
                 key={item.name}
