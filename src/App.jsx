@@ -258,11 +258,17 @@ function App() {
         </div>
 
         {/* Main Content */}
-        <div className="flex flex-col items-center justify-center min-h-screen px-6 pt-16 pb-32 text-center md:pb-24">
+        <div
+          className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
+          style={{
+            paddingTop: window.innerWidth <= 768 ? '3rem' : '4rem',
+            paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
+          }}
+        >
           {/* Title with refined spacing */}
-          <h1 
-            className="mb-3 font-semibold whitespace-nowrap" 
-            style={{ 
+          <h1
+            className="mb-3 font-semibold whitespace-nowrap"
+            style={{
               fontSize: 'clamp(1.75rem, 4.5vw, 4.5rem)',
               letterSpacing: '0.18em',
               color: '#1A1A1A',
@@ -272,9 +278,9 @@ function App() {
           >
             OSWIN JOURNAL
           </h1>
-          <p 
+          <p
             className="mb-24 text-lg italic"
-            style={{ 
+            style={{
               color: '#6B7280',
               fontWeight: 400,
               letterSpacing: '0.01em'
@@ -284,7 +290,12 @@ function App() {
           </p>
 
           {/* Issue Grid - 8px grid system */}
-          <div className="grid grid-cols-3 gap-12 mb-8 md:gap-16">
+          <div className="grid grid-cols-3 gap-12 mb-8 md:gap-16"
+            style={{
+              columnGap: window.innerWidth <= 1280 && window.innerWidth > 768 ? '2.82rem' : undefined,
+              rowGap: window.innerWidth <= 1280 && window.innerWidth > 768 ? '2.17rem' : undefined
+            }}
+          >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
@@ -293,7 +304,9 @@ function App() {
                 style={{
                   color: '#D1D1D1',
                   cursor: num === 1 ? 'pointer' : 'default',
-                  fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+                  fontSize: window.innerWidth > 1280 ? 'clamp(2.5rem, 5vw, 4rem)' :
+                           window.innerWidth > 768 ? 'clamp(1.546rem, 3.98vw, 3.98rem)' :
+                           'clamp(1.75rem, 4.5vw, 4.5rem)',
                   fontWeight: 500,
                   fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
                   letterSpacing: '-0.02em',
@@ -327,9 +340,9 @@ function App() {
             ))}
           </div>
 
-          <p 
+          <p
             className="text-base italic"
-            style={{ 
+            style={{
               color: '#6B7280',
               fontWeight: 400,
               letterSpacing: '0.02em'
@@ -445,6 +458,7 @@ function App() {
                     setSelectedTrack(null);
                     if (audioRef.current) {
                       audioRef.current.pause();
+                      audioRef.current.src = '';
                       setAudioPlaying(false);
                     }
                   }}
@@ -716,6 +730,7 @@ function App() {
                   setSelectedTrack(null);
                   if (audioRef.current) {
                     audioRef.current.pause();
+                    audioRef.current.src = '';
                     setAudioPlaying(false);
                   }
                 }}
@@ -798,8 +813,11 @@ function App() {
 // Video Section Component for scroll-snap experience
 const VideoSection = ({ src, index, total }) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showButton, setShowButton] = useState(true);
   const videoRef = useRef(null);
   const sectionRef = useRef(null);
+  const hideButtonTimeout = useRef(null);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -822,6 +840,78 @@ const VideoSection = ({ src, index, total }) => {
     return () => observer.disconnect();
   }, []);
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement || !!document.webkitFullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (!isFullscreen) return;
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+        // Scroll to next section
+        const nextSection = sectionRef.current?.nextElementSibling;
+        if (nextSection) {
+          nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+        // Scroll to previous section
+        const prevSection = sectionRef.current?.previousElementSibling;
+        if (prevSection) {
+          prevSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    };
+
+    if (isFullscreen) {
+      document.addEventListener('keydown', handleKeyPress);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyPress);
+    };
+  }, [isFullscreen]);
+
+  const handleMouseMove = () => {
+    if (isFullscreen) {
+      setShowButton(true);
+      clearTimeout(hideButtonTimeout.current);
+      hideButtonTimeout.current = setTimeout(() => {
+        setShowButton(false);
+      }, 2000);
+    }
+  };
+
+  const handleFullscreen = (e) => {
+    e.stopPropagation();
+
+    if (isFullscreen) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } else {
+      if (sectionRef.current) {
+        if (sectionRef.current.requestFullscreen) {
+          sectionRef.current.requestFullscreen();
+        } else if (sectionRef.current.webkitRequestFullscreen) {
+          sectionRef.current.webkitRequestFullscreen();
+        }
+      }
+    }
+  };
+
   return (
     <section
       ref={sectionRef}
@@ -830,6 +920,7 @@ const VideoSection = ({ src, index, total }) => {
         scrollSnapAlign: 'start',
         scrollSnapStop: 'always'
       }}
+      onMouseMove={handleMouseMove}
     >
       <video
         ref={videoRef}
@@ -848,6 +939,32 @@ const VideoSection = ({ src, index, total }) => {
           setIsLoaded(true);
         }}
       />
+
+      {/* Fullscreen button */}
+      {isLoaded && (
+        <button
+          onClick={handleFullscreen}
+          className="absolute top-6 right-6 z-50 transition-opacity duration-300 hover:opacity-100"
+          style={{
+            opacity: (!isFullscreen || showButton) ? 0.7 : 0,
+            padding: '8px',
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '4px',
+            pointerEvents: (!isFullscreen || showButton) ? 'auto' : 'none'
+          }}
+        >
+          {isFullscreen ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+          )}
+        </button>
+      )}
+
       {/* Loading state */}
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
