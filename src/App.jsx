@@ -11,6 +11,8 @@ function App() {
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showAudioMenu, setShowAudioMenu] = useState(false); // Mini audio menu in experience view
+  const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
+  const [showCreditInfo, setShowCreditInfo] = useState(false);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
 
@@ -25,6 +27,14 @@ function App() {
       }, 50);
     }, 400);
   };
+
+  // Check if user is a first-time visitor
+  useEffect(() => {
+    const hasVisited = localStorage.getItem('oswin-has-visited');
+    if (!hasVisited) {
+      setIsFirstTimeUser(true);
+    }
+  }, []);
 
   // Import refined fonts
   useEffect(() => {
@@ -124,7 +134,9 @@ function App() {
   };
 
   const handleEnterSite = () => {
-    if (!selectedTrack) return;
+    // Mark user as having visited
+    localStorage.setItem('oswin-has-visited', 'true');
+    setIsFirstTimeUser(false);
     setView('experience');
   };
 
@@ -440,13 +452,22 @@ function App() {
                       fontWeight: 600,
                       color: selectedTrack?.name === track.name ? '#1A1A1A' : 'rgba(40, 40, 40, 0.8)',
                       letterSpacing: '-0.01em',
-                      opacity: selectedTrack?.name === track.name ? 1 : 0.85
+                      opacity: selectedTrack?.name === track.name ? 1 : 0.85,
+                      cursor: 'pointer',
+                      transform: 'scale(1)',
+                      filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
                     }}
-                    onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                      e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                    }}
                     onMouseLeave={(e) => {
                       if (selectedTrack?.name !== track.name) {
                         e.currentTarget.style.opacity = '0.85';
                       }
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
                     }}
                   >
                     {track.name}
@@ -468,13 +489,22 @@ function App() {
                     fontWeight: 400,
                     color: !selectedTrack ? '#1A1A1A' : 'rgba(40, 40, 40, 0.6)',
                     letterSpacing: '-0.01em',
-                    opacity: !selectedTrack ? 1 : 0.7
+                    opacity: !selectedTrack ? 1 : 0.7,
+                    cursor: 'pointer',
+                    transform: 'scale(1)',
+                    filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
                   }}
-                  onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                  }}
                   onMouseLeave={(e) => {
                     if (selectedTrack) {
                       e.currentTarget.style.opacity = '0.7';
                     }
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
                   }}
                 >
                   silent mode
@@ -504,18 +534,47 @@ function App() {
 
             {/* CREDIT INFO */}
             <div>
-              <p
-                className="text-xs font-semibold tracking-widest uppercase"
-                style={{ color: 'rgba(50, 50, 50, 0.7)' }}
+              <button
+                onClick={() => setShowCreditInfo(true)}
+                className="text-xs font-semibold tracking-widest uppercase transition-all duration-300"
+                style={{
+                  color: 'rgba(50, 50, 50, 0.7)',
+                  cursor: 'pointer',
+                  transform: 'scale(1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'rgba(26, 26, 26, 0.9)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(50, 50, 50, 0.7)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
               >
                 CREDIT INFO
-              </p>
+              </button>
             </div>
           </div>
         </div>
 
         {/* Circle button at bottom - enter experience */}
-        <div className="fixed z-50 bottom-12 left-0 right-0 flex justify-center">
+        <div className="fixed z-50 bottom-12 left-0 right-0 flex flex-col items-center">
+          {/* Instructional text for first-time users */}
+          {isFirstTimeUser && (
+            <p
+              className="mb-3 text-sm italic transition-all duration-500"
+              style={{
+                color: 'rgba(255, 255, 255, 0.6)',
+                textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                fontWeight: 400,
+                letterSpacing: '0.01em',
+                opacity: isFirstTimeUser ? 1 : 0,
+                transform: isFirstTimeUser ? 'translateY(0)' : 'translateY(10px)'
+              }}
+            >
+              select audio, then click here to enter
+            </p>
+          )}
           <button
             onClick={handleEnterSite}
             className="transition-all duration-300"
@@ -524,18 +583,101 @@ function App() {
               height: '48px',
               borderRadius: '50%',
               backgroundColor: 'rgba(255, 255, 255, 0.5)',
-              cursor: selectedTrack ? 'pointer' : 'default',
-              opacity: selectedTrack ? 0.9 : 0.4
+              cursor: 'pointer',
+              opacity: 0.9
             }}
-            disabled={!selectedTrack}
             onMouseEnter={(e) => {
-              if (selectedTrack) e.currentTarget.style.opacity = '1';
+              e.currentTarget.style.opacity = '1';
             }}
             onMouseLeave={(e) => {
-              if (selectedTrack) e.currentTarget.style.opacity = '0.9';
+              e.currentTarget.style.opacity = '0.9';
             }}
           />
         </div>
+
+        {/* Credit Info Modal Overlay */}
+        {showCreditInfo && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={(e) => {
+              // Close modal if clicking outside the card
+              if (e.target === e.currentTarget) setShowCreditInfo(false);
+            }}
+          >
+            <div
+              className="relative w-full max-w-md px-8 py-10 mx-6 md:px-10 md:py-12"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                maxHeight: '80vh',
+                overflowY: 'auto'
+              }}
+            >
+              {/* X button - top right */}
+              <button
+                onClick={() => setShowCreditInfo(false)}
+                className="absolute transition-all duration-300"
+                style={{
+                  top: '20px',
+                  right: '20px',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  opacity: 0.7
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(40, 40, 40, 0.8)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+
+              {/* Title */}
+              <h3
+                className="mb-4 font-bold"
+                style={{
+                  fontSize: 'clamp(1.5rem, 3vw, 1.75rem)',
+                  color: '#2A2A2A',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2
+                }}
+              >
+                CREDIT INFO
+              </h3>
+
+              {/* Lorem ipsum text */}
+              <div
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  color: 'rgba(40, 40, 40, 0.85)',
+                  lineHeight: 1.6,
+                  letterSpacing: '0.01em'
+                }}
+              >
+                <p>
+                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                </p>
+                <p className="mt-3">
+                  Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Preload video for experience view */}
         <link
@@ -577,24 +719,17 @@ function App() {
     return scrollTop >= scrollHeight - clientHeight - 5;
   };
 
-  // Track when we reach the bottom to enable looping after 2 seconds
+  // Track when we reach the bottom to enable looping immediately
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
 
     const onScroll = () => {
       if (checkIfAtBottom()) {
-        if (!bottomTimerRef.current && !canLoopRef.current) {
-          bottomTimerRef.current = setTimeout(() => {
-            canLoopRef.current = true;
-          }, 2000);
-        }
+        // Enable looping immediately when at bottom
+        canLoopRef.current = true;
       } else {
         canLoopRef.current = false;
-        if (bottomTimerRef.current) {
-          clearTimeout(bottomTimerRef.current);
-          bottomTimerRef.current = null;
-        }
       }
     };
 
@@ -606,14 +741,29 @@ function App() {
   const handleWheel = (e) => {
     if (loopingRef.current || !canLoopRef.current) return;
 
-    // If can loop and scrolling down, loop to top
+    // If can loop and scrolling down, loop to top with smooth transition
     if (e.deltaY > 0) {
+      e.preventDefault();
       loopingRef.current = true;
       canLoopRef.current = false;
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        loopingRef.current = false;
-      }, 1000);
+
+      // Fade out, scroll instantly, fade in
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.style.transition = 'opacity 0.3s ease-out';
+        container.style.opacity = '0';
+
+        setTimeout(() => {
+          container.scrollTo({ top: 0, behavior: 'auto' });
+          setTimeout(() => {
+            container.style.opacity = '1';
+            setTimeout(() => {
+              loopingRef.current = false;
+              container.style.transition = '';
+            }, 300);
+          }, 50);
+        }, 300);
+      }
     }
   };
 
@@ -633,10 +783,24 @@ function App() {
     if (swipeUp) {
       loopingRef.current = true;
       canLoopRef.current = false;
-      scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        loopingRef.current = false;
-      }, 1000);
+
+      // Fade out, scroll instantly, fade in
+      const container = scrollContainerRef.current;
+      if (container) {
+        container.style.transition = 'opacity 0.3s ease-out';
+        container.style.opacity = '0';
+
+        setTimeout(() => {
+          container.scrollTo({ top: 0, behavior: 'auto' });
+          setTimeout(() => {
+            container.style.opacity = '1';
+            setTimeout(() => {
+              loopingRef.current = false;
+              container.style.transition = '';
+            }, 300);
+          }, 50);
+        }, 300);
+      }
     }
   };
 
@@ -666,7 +830,23 @@ function App() {
     >
       {/* Scroll-snap video sections */}
       {videos.map((videoSrc, index) => (
-        <VideoSection key={index} src={videoSrc} index={index} total={videos.length} />
+        <VideoSection
+          key={index}
+          src={videoSrc}
+          index={index}
+          total={videos.length}
+          showAudioMenu={showAudioMenu}
+          setShowAudioMenu={setShowAudioMenu}
+          selectedIssue={selectedIssue}
+          selectedTrack={selectedTrack}
+          handleTrackClick={handleTrackClick}
+          setSelectedTrack={setSelectedTrack}
+          audioRef={audioRef}
+          setAudioPlaying={setAudioPlaying}
+          handleBackToArchive={handleBackToArchive}
+          scrollContainerRef={scrollContainerRef}
+          setShowCreditInfo={setShowCreditInfo}
+        />
       ))}
 
       {/* Slideshow section */}
@@ -718,7 +898,22 @@ function App() {
                     fontWeight: 600,
                     color: selectedTrack?.name === track.name ? '#1A1A1A' : 'rgba(40, 40, 40, 0.8)',
                     letterSpacing: '-0.01em',
-                    opacity: selectedTrack?.name === track.name ? 1 : 0.85
+                    opacity: selectedTrack?.name === track.name ? 1 : 0.85,
+                    cursor: 'pointer',
+                    transform: 'scale(1)',
+                    filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedTrack?.name !== track.name) {
+                      e.currentTarget.style.opacity = '0.85';
+                    }
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
                   }}
                 >
                   {track.name}
@@ -740,23 +935,79 @@ function App() {
                   fontWeight: 400,
                   color: !selectedTrack ? '#1A1A1A' : 'rgba(40, 40, 40, 0.6)',
                   letterSpacing: '-0.01em',
-                  opacity: !selectedTrack ? 1 : 0.7
+                  opacity: !selectedTrack ? 1 : 0.7,
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedTrack) {
+                    e.currentTarget.style.opacity = '0.7';
+                  }
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
                 }}
               >
                 silent mode
               </button>
-              {/* Home option - smaller font */}
+              {/* Credit Info option */}
               <button
                 onClick={() => {
+                  setShowCreditInfo(true);
                   setShowAudioMenu(false);
-                  handleBackToArchive();
                 }}
                 className="block w-full text-left transition-all duration-300 mt-4"
                 style={{
                   fontSize: 'clamp(0.875rem, 2vw, 1rem)',
                   fontWeight: 500,
                   color: 'rgba(40, 40, 40, 0.6)',
-                  letterSpacing: '-0.01em'
+                  letterSpacing: '-0.01em',
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                }}
+              >
+                credit info
+              </button>
+
+              {/* Home option - smaller font */}
+              <button
+                onClick={() => {
+                  setShowAudioMenu(false);
+                  handleBackToArchive();
+                }}
+                className="block w-full text-left transition-all duration-300"
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  fontWeight: 500,
+                  color: 'rgba(40, 40, 40, 0.6)',
+                  letterSpacing: '-0.01em',
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
                 }}
               >
                 home
@@ -792,6 +1043,90 @@ function App() {
           }}
         />
       </div>
+
+      {/* Credit Info Modal Overlay - in experience view */}
+      {showCreditInfo && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={(e) => {
+            // Close modal if clicking outside the card
+            if (e.target === e.currentTarget) setShowCreditInfo(false);
+          }}
+        >
+          <div
+            className="relative w-full max-w-md px-8 py-10 mx-6 md:px-10 md:py-12"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}
+          >
+            {/* X button - top right */}
+            <button
+              onClick={() => setShowCreditInfo(false)}
+              className="absolute transition-all duration-300"
+              style={{
+                top: '20px',
+                right: '20px',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                opacity: 0.7
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+            >
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(40, 40, 40, 0.8)"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            {/* Title */}
+            <h3
+              className="mb-4 font-bold"
+              style={{
+                fontSize: 'clamp(1.5rem, 3vw, 1.75rem)',
+                color: '#2A2A2A',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2
+              }}
+            >
+              CREDIT INFO
+            </h3>
+
+            {/* Lorem ipsum text */}
+            <div
+              style={{
+                fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                color: 'rgba(40, 40, 40, 0.85)',
+                lineHeight: 1.6,
+                letterSpacing: '0.01em'
+              }}
+            >
+              <p>
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+              </p>
+              <p className="mt-3">
+                Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
     );
   };
@@ -811,7 +1146,22 @@ function App() {
 }
 
 // Video Section Component for scroll-snap experience
-const VideoSection = ({ src, index, total }) => {
+const VideoSection = ({
+  src,
+  index,
+  total,
+  showAudioMenu,
+  setShowAudioMenu,
+  selectedIssue,
+  selectedTrack,
+  handleTrackClick,
+  setSelectedTrack,
+  audioRef,
+  setAudioPlaying,
+  handleBackToArchive,
+  scrollContainerRef,
+  setShowCreditInfo
+}) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showButton, setShowButton] = useState(true);
@@ -858,18 +1208,16 @@ const VideoSection = ({ src, index, total }) => {
     const handleKeyPress = (e) => {
       if (!isFullscreen) return;
 
+      let targetSection;
+
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        // Scroll to next section
-        const nextSection = sectionRef.current?.nextElementSibling;
-        if (nextSection) {
-          nextSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        targetSection = sectionRef.current?.nextElementSibling;
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-        // Scroll to previous section
-        const prevSection = sectionRef.current?.previousElementSibling;
-        if (prevSection) {
-          prevSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        targetSection = sectionRef.current?.previousElementSibling;
+      }
+
+      if (targetSection) {
+        targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     };
 
@@ -892,6 +1240,9 @@ const VideoSection = ({ src, index, total }) => {
     }
   };
 
+  // Scroll/wheel and touch navigation work normally in fullscreen
+  // No special handlers needed - browser handles scrolling within fullscreen container
+
   const handleFullscreen = (e) => {
     e.stopPropagation();
 
@@ -902,11 +1253,12 @@ const VideoSection = ({ src, index, total }) => {
         document.webkitExitFullscreen();
       }
     } else {
-      if (sectionRef.current) {
-        if (sectionRef.current.requestFullscreen) {
-          sectionRef.current.requestFullscreen();
-        } else if (sectionRef.current.webkitRequestFullscreen) {
-          sectionRef.current.webkitRequestFullscreen();
+      // Make the scroll container fullscreen, not the individual section
+      if (scrollContainerRef?.current) {
+        if (scrollContainerRef.current.requestFullscreen) {
+          scrollContainerRef.current.requestFullscreen();
+        } else if (scrollContainerRef.current.webkitRequestFullscreen) {
+          scrollContainerRef.current.webkitRequestFullscreen();
         }
       }
     }
@@ -973,6 +1325,188 @@ const VideoSection = ({ src, index, total }) => {
             style={{
               borderTopColor: 'transparent',
               animation: 'spin 1s linear infinite'
+            }}
+          />
+        </div>
+      )}
+
+      {/* Audio menu overlay - only in fullscreen */}
+      {isFullscreen && showAudioMenu && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          onClick={(e) => {
+            // Close menu if clicking outside the card
+            if (e.target === e.currentTarget) setShowAudioMenu(false);
+          }}
+        >
+          <div
+            className="w-full max-w-xs px-8 py-8 mx-6"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255, 255, 255, 0.3)'
+            }}
+          >
+            {/* Track list only */}
+            <div className="space-y-3">
+              {selectedIssue.tracks.filter(t => t.available).map((track, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    handleTrackClick(track);
+                  }}
+                  className="block w-full text-left transition-all duration-300"
+                  style={{
+                    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                    fontWeight: 600,
+                    color: selectedTrack?.name === track.name ? '#1A1A1A' : 'rgba(40, 40, 40, 0.8)',
+                    letterSpacing: '-0.01em',
+                    opacity: selectedTrack?.name === track.name ? 1 : 0.85,
+                    cursor: 'pointer',
+                    transform: 'scale(1)',
+                    filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedTrack?.name !== track.name) {
+                      e.currentTarget.style.opacity = '0.85';
+                    }
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                  }}
+                >
+                  {track.name}
+                </button>
+              ))}
+              {/* Silent mode option */}
+              <button
+                onClick={() => {
+                  setSelectedTrack(null);
+                  if (audioRef.current) {
+                    audioRef.current.pause();
+                    audioRef.current.src = '';
+                    setAudioPlaying(false);
+                  }
+                }}
+                className="block w-full text-left transition-all duration-300 italic"
+                style={{
+                  fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                  fontWeight: 400,
+                  color: !selectedTrack ? '#1A1A1A' : 'rgba(40, 40, 40, 0.6)',
+                  letterSpacing: '-0.01em',
+                  opacity: !selectedTrack ? 1 : 0.7,
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  if (selectedTrack) {
+                    e.currentTarget.style.opacity = '0.7';
+                  }
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                }}
+              >
+                silent mode
+              </button>
+              {/* Credit Info option */}
+              <button
+                onClick={() => {
+                  setShowCreditInfo(true);
+                  setShowAudioMenu(false);
+                }}
+                className="block w-full text-left transition-all duration-300 mt-4"
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  fontWeight: 500,
+                  color: 'rgba(40, 40, 40, 0.6)',
+                  letterSpacing: '-0.01em',
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                }}
+              >
+                credit info
+              </button>
+
+              {/* Home option - smaller font */}
+              <button
+                onClick={() => {
+                  setShowAudioMenu(false);
+                  handleBackToArchive();
+                }}
+                className="block w-full text-left transition-all duration-300"
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  fontWeight: 500,
+                  color: 'rgba(40, 40, 40, 0.6)',
+                  letterSpacing: '-0.01em',
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                }}
+              >
+                home
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Circle button - toggles audio menu in fullscreen */}
+      {isFullscreen && (
+        <div className="fixed z-50 bottom-12 left-0 right-0 flex justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAudioMenu(!showAudioMenu);
+            }}
+            className="transition-all duration-500"
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              cursor: 'pointer',
+              opacity: (showButton || showAudioMenu) ? 0.9 : 0,
+              transform: (showButton || showAudioMenu) ? 'scale(1)' : 'scale(0.8)',
+              pointerEvents: (showButton || showAudioMenu) ? 'auto' : 'none'
+            }}
+            onMouseEnter={(e) => {
+              if (showButton || showAudioMenu) e.currentTarget.style.opacity = '1';
+            }}
+            onMouseLeave={(e) => {
+              if (showButton || showAudioMenu) e.currentTarget.style.opacity = '0.9';
             }}
           />
         </div>
