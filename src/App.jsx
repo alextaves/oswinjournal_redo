@@ -13,6 +13,7 @@ function App() {
   const [showAudioMenu, setShowAudioMenu] = useState(false); // Mini audio menu in experience view
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   const [showCreditInfo, setShowCreditInfo] = useState(false);
+  const [showNotesOnOswin, setShowNotesOnOswin] = useState(false);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
 
@@ -409,9 +410,14 @@ function App() {
         </button>
 
         {/* Centered frosted glass card */}
-        <div className="relative z-10 flex items-center justify-center min-h-screen px-6 pt-20 pb-32 md:py-24">
+        <div
+          className="relative z-10 flex items-center justify-center min-h-screen px-6 pt-20 pb-32 md:py-24"
+          style={{
+            transform: window.innerWidth <= 1280 ? 'translateY(-15px)' : 'none'
+          }}
+        >
           <div
-            className="w-full max-w-sm px-8 py-10 md:max-w-md md:px-10 md:py-12"
+            className="w-full max-w-md px-8 py-10 mx-6 md:px-10 md:py-12"
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.25)',
               backdropFilter: 'blur(40px)',
@@ -533,7 +539,7 @@ function App() {
             </div>
 
             {/* CREDIT INFO */}
-            <div>
+            <div className="mb-3">
               <button
                 onClick={() => setShowCreditInfo(true)}
                 className="text-xs font-semibold tracking-widest uppercase transition-all duration-300"
@@ -554,17 +560,45 @@ function App() {
                 CREDIT INFO
               </button>
             </div>
+
+            {/* NOTES ON OSWIN */}
+            <div>
+              <button
+                onClick={() => setShowNotesOnOswin(true)}
+                className="text-xs font-semibold tracking-widest uppercase transition-all duration-300"
+                style={{
+                  color: 'rgba(50, 50, 50, 0.7)',
+                  cursor: 'pointer',
+                  transform: 'scale(1)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = 'rgba(26, 26, 26, 0.9)';
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'rgba(50, 50, 50, 0.7)';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                NOTES ON OSWIN
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Circle button at bottom - enter experience */}
-        <div className="fixed z-50 bottom-12 left-0 right-0 flex flex-col items-center">
-          {/* Instructional text for first-time users */}
-          {isFirstTimeUser && (
+        <div
+          className="fixed z-50 left-0 right-0 flex flex-col items-center"
+          style={{
+            bottom: window.innerWidth <= 1280 ? 'calc(3rem - 17px)' : '3rem'
+          }}
+        >
+          {/* Instructional text for first-time users - above circle on larger screens */}
+          {isFirstTimeUser && window.innerWidth > 1280 && (
             <p
               className="mb-3 text-sm italic transition-all duration-500"
               style={{
-                color: 'rgba(255, 255, 255, 0.6)',
+                color: 'rgba(255, 255, 255, 0.48)',
                 textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
                 fontWeight: 400,
                 letterSpacing: '0.01em',
@@ -593,6 +627,22 @@ function App() {
               e.currentTarget.style.opacity = '0.9';
             }}
           />
+          {/* Instructional text for first-time users - below circle on smaller screens */}
+          {isFirstTimeUser && window.innerWidth <= 1280 && (
+            <p
+              className="mt-3 text-sm italic transition-all duration-500"
+              style={{
+                color: 'rgba(255, 255, 255, 0.48)',
+                textShadow: '0 1px 3px rgba(0, 0, 0, 0.2)',
+                fontWeight: 400,
+                letterSpacing: '0.01em',
+                opacity: isFirstTimeUser ? 1 : 0,
+                transform: isFirstTimeUser ? 'translateY(0)' : 'translateY(-10px)'
+              }}
+            >
+              select audio, then click here to enter
+            </p>
+          )}
         </div>
 
         {/* Credit Info Modal Overlay */}
@@ -674,6 +724,119 @@ function App() {
                 <p className="mt-3">
                   Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Notes on Oswin Modal Overlay */}
+        {showNotesOnOswin && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={(e) => {
+              // Close modal if clicking outside the card
+              if (e.target === e.currentTarget) setShowNotesOnOswin(false);
+            }}
+          >
+            <div
+              className="relative w-full max-w-md px-8 py-10 mx-6 md:px-10 md:py-12"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                maxHeight: '80vh',
+                overflowY: 'auto'
+              }}
+            >
+              {/* X button - top right */}
+              <button
+                onClick={() => setShowNotesOnOswin(false)}
+                className="absolute transition-all duration-300"
+                style={{
+                  top: '20px',
+                  right: '20px',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  opacity: 0.7
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="rgba(40, 40, 40, 0.8)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+
+              {/* Title */}
+              <h3
+                className="mb-4 font-bold"
+                style={{
+                  fontSize: 'clamp(1.5rem, 3vw, 1.75rem)',
+                  color: '#2A2A2A',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.2
+                }}
+              >
+                NOTES ON OSWIN
+              </h3>
+
+              {/* Content */}
+              <div
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  color: 'rgba(40, 40, 40, 0.85)',
+                  lineHeight: 1.6,
+                  letterSpacing: '0.01em'
+                }}
+              >
+                <p>
+                  For over 20 years, I've been obsessively returning to footage from the 1964 Tokyo Olympics—not as a sports fan or historian, but because something in those images demands to be watched differently. I've paired these moments with selected ambient and electronic music countless times, searching for combinations that amplify each other.
+                </p>
+                <p className="mt-3">
+                  What started as a private compulsion became a practice: screen recording segments, adjusting saturation, slowing motion, looping footage until the experience seemed seamless. When image and sound align, they stop being separate media. They become immersive space—the feeling of being at a gig without the gig, the atmosphere of presence without requiring you to go anywhere.
+                </p>
+                <p className="mt-3">
+                  Oswin Journal merges both art forms into something that doesn't exist yet—not music video, not background ambience, but a third thing. Each medium makes the other more itself. The music gives the images weight; the images give the sound a place to live. They become symbiotic, inseparable, greater than either alone.
+                </p>
+                <p className="mt-3">
+                  This is work that asks for your time and rewards it. Not content to scroll past, but digital space designed to pull you in and hold you there.
+                </p>
+                <a
+                  href="https://alextaves.substack.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-6 font-bold transition-all duration-300"
+                  style={{
+                    fontSize: 'clamp(2.625rem, 6vw, 3rem)',
+                    color: '#FF6600',
+                    letterSpacing: '0.02em',
+                    textTransform: 'uppercase',
+                    lineHeight: 1.2
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#FF8833';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#FF6600';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  For more words by Oswin Journal
+                </a>
               </div>
             </div>
           </div>
@@ -984,6 +1147,35 @@ function App() {
                 credit info
               </button>
 
+              {/* Notes on Oswin option */}
+              <button
+                onClick={() => {
+                  setShowNotesOnOswin(true);
+                  setShowAudioMenu(false);
+                }}
+                className="block w-full text-left transition-all duration-300"
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  fontWeight: 500,
+                  color: 'rgba(40, 40, 40, 0.6)',
+                  letterSpacing: '-0.01em',
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                }}
+              >
+                notes on oswin
+              </button>
+
               {/* Home option - smaller font */}
               <button
                 onClick={() => {
@@ -1123,6 +1315,119 @@ function App() {
               <p className="mt-3">
                 Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes on Oswin Modal Overlay - in experience view */}
+      {showNotesOnOswin && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={(e) => {
+            // Close modal if clicking outside the card
+            if (e.target === e.currentTarget) setShowNotesOnOswin(false);
+          }}
+        >
+          <div
+            className="relative w-full max-w-md px-8 py-10 mx-6 md:px-10 md:py-12"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              borderRadius: '24px',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}
+          >
+            {/* X button - top right */}
+            <button
+              onClick={() => setShowNotesOnOswin(false)}
+              className="absolute transition-all duration-300"
+              style={{
+                top: '20px',
+                right: '20px',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                opacity: 0.7
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.7'}
+            >
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="rgba(40, 40, 40, 0.8)"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+
+            {/* Title */}
+            <h3
+              className="mb-4 font-bold"
+              style={{
+                fontSize: 'clamp(1.5rem, 3vw, 1.75rem)',
+                color: '#2A2A2A',
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2
+              }}
+            >
+              NOTES ON OSWIN
+            </h3>
+
+            {/* Content */}
+            <div
+              style={{
+                fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                color: 'rgba(40, 40, 40, 0.85)',
+                lineHeight: 1.6,
+                letterSpacing: '0.01em'
+              }}
+            >
+              <p>
+                For over 20 years, I've been obsessively returning to footage from the 1964 Tokyo Olympics—not as a sports fan or historian, but because something in those images demands to be watched differently. I've paired these moments with selected ambient and electronic music countless times, searching for combinations that amplify each other.
+              </p>
+              <p className="mt-3">
+                What started as a private compulsion became a practice: screen recording segments, adjusting saturation, slowing motion, looping footage until the experience seemed seamless. When image and sound align, they stop being separate media. They become immersive space—the feeling of being at a gig without the gig, the atmosphere of presence without requiring you to go anywhere.
+              </p>
+              <p className="mt-3">
+                Oswin Journal merges both art forms into something that doesn't exist yet—not music video, not background ambience, but a third thing. Each medium makes the other more itself. The music gives the images weight; the images give the sound a place to live. They become symbiotic, inseparable, greater than either alone.
+              </p>
+              <p className="mt-3">
+                This is work that asks for your time and rewards it. Not content to scroll past, but digital space designed to pull you in and hold you there.
+              </p>
+              <a
+                href="https://alextaves.substack.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block mt-6 font-bold transition-all duration-300"
+                style={{
+                  fontSize: 'clamp(2.625rem, 6vw, 3rem)',
+                  color: '#FF6600',
+                  letterSpacing: '0.02em',
+                  textTransform: 'uppercase',
+                  lineHeight: 1.2
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#FF8833';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#FF6600';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                For more words by Oswin Journal
+              </a>
             </div>
           </div>
         </div>
@@ -1448,6 +1753,35 @@ const VideoSection = ({
                 }}
               >
                 credit info
+              </button>
+
+              {/* Notes on Oswin option */}
+              <button
+                onClick={() => {
+                  setShowNotesOnOswin(true);
+                  setShowAudioMenu(false);
+                }}
+                className="block w-full text-left transition-all duration-300"
+                style={{
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                  fontWeight: 500,
+                  color: 'rgba(40, 40, 40, 0.6)',
+                  letterSpacing: '-0.01em',
+                  cursor: 'pointer',
+                  transform: 'scale(1)',
+                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                }}
+              >
+                notes on oswin
               </button>
 
               {/* Home option - smaller font */}
