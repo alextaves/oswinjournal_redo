@@ -71,14 +71,14 @@ function App() {
   const issues = [
     {
       id: 1,
-      title: 'LOW FLUNG',
+      title: 'KARLA IS HERE',
       artist: 'Alex Taves',
       albumArt: '#D4FF00',
       tracks: [
-        { name: 'luke/eno', src: '/audio/luke-eno.mp3', available: true },
-        { name: 'plane', src: '/audio/plane.mp3', available: true },
-        { name: 'outside bubble', src: '/audio/outside-bubble.mp3', available: true },
-        { name: '[ no audio ]', src: null, available: false }
+        { name: 'begin', src: '/audio/begin.mp3', available: true },
+        { name: 'automobile', src: '/audio/automobile.mp3', available: true },
+        { name: 'float', src: '/audio/float.mp3', available: true },
+        { name: 'night walk', src: '/audio/night walk.mp3', available: true }
       ],
       videos: {
         desktop: [
@@ -902,32 +902,8 @@ function App() {
 
   // Check if at bottom and user is trying to scroll down
   const handleWheel = (e) => {
-    if (loopingRef.current || !canLoopRef.current) return;
-
-    // If can loop and scrolling down, loop to top with smooth transition
-    if (e.deltaY > 0) {
-      e.preventDefault();
-      loopingRef.current = true;
-      canLoopRef.current = false;
-
-      // Fade out, scroll instantly, fade in
-      const container = scrollContainerRef.current;
-      if (container) {
-        container.style.transition = 'opacity 0.3s ease-out';
-        container.style.opacity = '0';
-
-        setTimeout(() => {
-          container.scrollTo({ top: 0, behavior: 'auto' });
-          setTimeout(() => {
-            container.style.opacity = '1';
-            setTimeout(() => {
-              loopingRef.current = false;
-              container.style.transition = '';
-            }, 300);
-          }, 50);
-        }, 300);
-      }
-    }
+    // Auto-loop disabled to allow viewing slideshow
+    return;
   };
 
   // Handle touch swipe for mobile
@@ -938,33 +914,8 @@ function App() {
   };
 
   const handleTouchEnd = (e) => {
-    if (loopingRef.current || !canLoopRef.current) return;
-
-    const touchEndY = e.changedTouches[0].clientY;
-    const swipeUp = touchStartY.current - touchEndY > 50;
-
-    if (swipeUp) {
-      loopingRef.current = true;
-      canLoopRef.current = false;
-
-      // Fade out, scroll instantly, fade in
-      const container = scrollContainerRef.current;
-      if (container) {
-        container.style.transition = 'opacity 0.3s ease-out';
-        container.style.opacity = '0';
-
-        setTimeout(() => {
-          container.scrollTo({ top: 0, behavior: 'auto' });
-          setTimeout(() => {
-            container.style.opacity = '1';
-            setTimeout(() => {
-              loopingRef.current = false;
-              container.style.transition = '';
-            }, 300);
-          }, 50);
-        }, 300);
-      }
-    }
+    // Auto-loop disabled to allow viewing slideshow
+    return;
   };
 
   const renderExperienceView = () => {
@@ -1031,7 +982,7 @@ function App() {
       {showAudioMenu && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
           onClick={(e) => {
             // Close menu if clicking outside the card
             if (e.target === e.currentTarget) setShowAudioMenu(false);
@@ -1639,7 +1590,7 @@ const VideoSection = ({
       {isFullscreen && showAudioMenu && (
         <div
           className="fixed inset-0 z-40 flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.3)' }}
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
           onClick={(e) => {
             // Close menu if clicking outside the card
             if (e.target === e.currentTarget) setShowAudioMenu(false);
