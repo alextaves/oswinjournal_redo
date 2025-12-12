@@ -14,6 +14,7 @@ function App() {
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
   const [showCreditInfo, setShowCreditInfo] = useState(false);
   const [showNotesOnOswin, setShowNotesOnOswin] = useState(false);
+  const [showContactForm, setShowContactForm] = useState(false);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
 
@@ -71,7 +72,7 @@ function App() {
   const issues = [
     {
       id: 1,
-      title: 'KARLA IS HERE',
+      title: 'KARLA',
       artist: 'Alex Taves',
       albumArt: '#D4FF00',
       tracks: [
@@ -229,21 +230,28 @@ function App() {
           <div className="space-y-6">
             {[
               { name: 'substack', href: 'https://alextaves.substack.com/' },
-              { name: 'tik tok', href: '#' },
               { name: 'instagram', href: 'https://www.instagram.com/more_flowers_please/' },
-              { name: 'spotify', href: 'https://open.spotify.com/playlist/7juVwU9jg6dsYs9DwgR7ss?si=b098eb9263ab4e90' },
-              { name: 'alextaves@gmail.com', href: 'mailto:alextaves@gmail.com' }
+              { name: 'spotify', href: 'https://open.spotify.com/playlist/2YTALr5Kb0SgLZ0xP8mt66?si=78bc2529159f4b49' },
+              { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
               <a
                 key={item.name}
                 href={item.href}
                 target={item.href.startsWith('http') ? '_blank' : undefined}
                 rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                  if (item.isContact) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    setShowContactForm(true);
+                  }
+                }}
                 className="relative block overflow-hidden text-left group"
                 style={{
                   opacity: menuOpen ? 1 : 0,
                   transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
-                  transition: `all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) ${i * 0.05}s`
+                  transition: `all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) ${i * 0.05}s`,
+                  cursor: 'pointer'
                 }}
               >
                 <span
@@ -364,6 +372,144 @@ function App() {
             issue
           </p>
         </div>
+
+        {/* Contact Form Modal */}
+        {showContactForm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backgroundColor: '#F7F7F5' }}
+          >
+            {/* X button - top right */}
+            <button
+              onClick={() => setShowContactForm(false)}
+              className="fixed z-50 transition-all duration-500"
+              style={{
+                top: '40px',
+                right: '40px',
+                width: '56px',
+                height: '56px',
+                cursor: 'pointer',
+                opacity: 0.6
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+            >
+              <span
+                className="absolute h-0.5 rounded-full transition-all duration-500"
+                style={{
+                  width: '28px',
+                  backgroundColor: '#1A1A1A',
+                  transform: 'rotate(45deg)',
+                  transformOrigin: 'center',
+                  top: '50%',
+                  left: '50%',
+                  marginLeft: '-14px',
+                  marginTop: '-0.5px'
+                }}
+              />
+              <span
+                className="absolute h-0.5 rounded-full transition-all duration-500"
+                style={{
+                  width: '28px',
+                  backgroundColor: '#1A1A1A',
+                  transform: 'rotate(-45deg)',
+                  transformOrigin: 'center',
+                  top: '50%',
+                  left: '50%',
+                  marginLeft: '-14px',
+                  marginTop: '-0.5px'
+                }}
+              />
+            </button>
+
+            <div className="w-full max-w-md px-6">
+              <h2
+                className="mb-8 font-semibold text-center"
+                style={{
+                  fontSize: 'clamp(2rem, 4vw, 3rem)',
+                  letterSpacing: '0.02em',
+                  color: '#1A1A1A',
+                  fontWeight: 600,
+                  lineHeight: 1
+                }}
+              >
+                CONTACT
+              </h2>
+
+              <form
+                action="https://formspree.io/f/xvgevdda"
+                method="POST"
+                className="space-y-6"
+              >
+                <div>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="name"
+                    required
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="email"
+                    required
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <div>
+                  <textarea
+                    name="message"
+                    placeholder="message"
+                    required
+                    rows="6"
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none resize-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 text-lg font-medium transition-all duration-300"
+                  style={{
+                    backgroundColor: '#1A1A1A',
+                    color: '#F7F7F5',
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    letterSpacing: '0.05em'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333333'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
+                >
+                  SEND
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
   );
 
@@ -709,7 +855,7 @@ function App() {
                 CREDIT INFO
               </h3>
 
-              {/* Lorem ipsum text */}
+              {/* Credit Info text */}
               <div
                 style={{
                   fontSize: 'clamp(0.875rem, 2vw, 1rem)',
@@ -718,11 +864,31 @@ function App() {
                   letterSpacing: '0.01em'
                 }}
               >
+                <h4 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Audio</h4>
                 <p>
-                  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                  Yoni Newman is a musician, artist, and sound designer based in Toronto. As one half of the electronic music and arts duo Karla, he has performed frequently since 2019. As an organizer, he produces the monthly live electronic performance series Hitplay and Rogue Waves festival, and serves as a coordinator for Technowalk Toronto. Following the album "Karla Is Here" in 2019, Karla expanded beyond live music into installation art with the Music Gallery Residency project "Temple Block" in 2022, which rigged actuator motors onto the wooden joists of an old meditation hall and sequenced the playing of the structure itself. He holds a background in fine arts through an MFA studio program at Pennsylvania Academy of the Fine Arts, where he built an AI-driven drawbot and expanded his studio practice. He still maintains a painting and drawing practice, most recently as Resident Artist at the MERZ residency program in Scotland in August 2024.
                 </p>
-                <p className="mt-3">
-                  Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
+                <a
+                  href="https://oswinjournal.substack.com/p/a-thousand-entry-points"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block mt-3 font-semibold transition-all duration-300"
+                  style={{
+                    color: '#FF6600',
+                    fontSize: 'clamp(0.875rem, 2vw, 1rem)'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#FF8833';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = '#FF6600';
+                  }}
+                >
+                  Read: A Thousand Entry Points →
+                </a>
+                <h4 style={{ fontWeight: 600, marginTop: '1rem', marginBottom: '0.5rem' }}>Visuals</h4>
+                <p>
+                  Alex Taves is a writer, illustrator, painter, and web developer working at the intersection of visual art, sound, and digital experience. He founded Oswald Gallery in Hamilton, Ontario, which earned mention in The New York Times within six months of opening. For the past three years, he has been an instructor at Whitehouse Institute of Design, a prestigious fashion school in Australia. His roots trace back to a small farm in southern Ontario, but his creative consciousness came online through the warehouse parties of 1990s Detroit—an influence that continues to shape his work exploring the liminal space between music, atmosphere, and image.
                 </p>
               </div>
             </div>
@@ -882,28 +1048,67 @@ function App() {
     return scrollTop >= scrollHeight - clientHeight - 5;
   };
 
-  // Track when we reach the bottom to enable looping immediately
+  // Check if at top
+  const checkIfAtTop = () => {
+    const container = scrollContainerRef.current;
+    if (!container) return false;
+    return container.scrollTop <= 5;
+  };
+
+  // Initialize scroll position to first real video (skip clone at start)
   useEffect(() => {
     const container = scrollContainerRef.current;
-    if (!container) return;
+    if (!container || view !== 'experience') return;
+
+    // Start at first real video (second section, index 1)
+    const sections = container.querySelectorAll('section');
+    if (sections.length > 1) {
+      sections[1].scrollIntoView({ behavior: 'auto', block: 'start' });
+    }
+  }, [view]);
+
+  // Detect when user scrolls to a clone and reposition to real content
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || view !== 'experience') return;
 
     const onScroll = () => {
-      if (checkIfAtBottom()) {
-        // Enable looping immediately when at bottom
-        canLoopRef.current = true;
-      } else {
-        canLoopRef.current = false;
-      }
+      if (loopingRef.current) return;
+
+      const sections = container.querySelectorAll('section');
+      const containerRect = container.getBoundingClientRect();
+
+      sections.forEach((section) => {
+        const rect = section.getBoundingClientRect();
+        const isInView = rect.top <= containerRect.top + 10 && rect.bottom >= containerRect.bottom - 10;
+
+        if (isInView) {
+          // If we're viewing the cloned slideshow at start, jump to real slideshow
+          if (section.dataset.clone === 'slideshow-start') {
+            loopingRef.current = true;
+            const realSlideshow = container.querySelector('[data-original="slideshow"]');
+            if (realSlideshow) {
+              realSlideshow.scrollIntoView({ behavior: 'auto', block: 'start' });
+              setTimeout(() => { loopingRef.current = false; }, 100);
+            }
+          }
+          // If we're viewing the cloned first video at end, jump to real first video
+          else if (section === sections[sections.length - 1] && sections.length > 2) {
+            loopingRef.current = true;
+            sections[1].scrollIntoView({ behavior: 'auto', block: 'start' });
+            setTimeout(() => { loopingRef.current = false; }, 100);
+          }
+        }
+      });
     };
 
     container.addEventListener('scroll', onScroll);
     return () => container.removeEventListener('scroll', onScroll);
   }, [view]);
 
-  // Check if at bottom and user is trying to scroll down
+  // Let natural scroll happen - repositioning is handled by scroll detection
   const handleWheel = (e) => {
-    // Auto-loop disabled to allow viewing slideshow
-    return;
+    // Natural scrolling - clones will be detected and repositioned automatically
   };
 
   // Handle touch swipe for mobile
@@ -914,8 +1119,7 @@ function App() {
   };
 
   const handleTouchEnd = (e) => {
-    // Auto-loop disabled to allow viewing slideshow
-    return;
+    // Natural scrolling - clones will be detected and repositioned automatically
   };
 
   const renderExperienceView = () => {
@@ -942,6 +1146,22 @@ function App() {
         if (!showAudioMenu) handleInteraction();
       }}
     >
+      {/* Clone of slideshow at the beginning for seamless loop */}
+      {selectedIssue?.slideshow && (
+        <section
+          data-clone="slideshow-start"
+          className="relative w-full flex items-center justify-center"
+          style={{
+            height: '100vh',
+            scrollSnapAlign: 'start',
+            scrollSnapStop: 'always',
+            backgroundColor: '#000'
+          }}
+        >
+          <Slideshow images={selectedIssue.slideshow} />
+        </section>
+      )}
+
       {/* Scroll-snap video sections */}
       {videos.map((videoSrc, index) => (
         <VideoSection
@@ -966,6 +1186,7 @@ function App() {
       {/* Slideshow section */}
       {selectedIssue?.slideshow && (
         <section
+          data-original="slideshow"
           className="relative w-full flex items-center justify-center"
           style={{
             height: '100vh',
@@ -976,6 +1197,28 @@ function App() {
         >
           <Slideshow images={selectedIssue.slideshow} />
         </section>
+      )}
+
+      {/* Clone of first video at the end for seamless loop */}
+      {videos.length > 0 && (
+        <VideoSection
+          key="clone-first"
+          src={videos[0]}
+          index={0}
+          total={videos.length}
+          showAudioMenu={showAudioMenu}
+          setShowAudioMenu={setShowAudioMenu}
+          selectedIssue={selectedIssue}
+          selectedTrack={selectedTrack}
+          handleTrackClick={handleTrackClick}
+          setSelectedTrack={setSelectedTrack}
+          audioRef={audioRef}
+          setAudioPlaying={setAudioPlaying}
+          handleBackToArchive={handleBackToArchive}
+          scrollContainerRef={scrollContainerRef}
+          setShowCreditInfo={setShowCreditInfo}
+          isClone={true}
+        />
       )}
 
       {/* Mini Audio Menu Overlay */}
@@ -1251,7 +1494,7 @@ function App() {
               CREDIT INFO
             </h3>
 
-            {/* Lorem ipsum text */}
+            {/* Credit Info text */}
             <div
               style={{
                 fontSize: 'clamp(0.875rem, 2vw, 1rem)',
@@ -1260,11 +1503,31 @@ function App() {
                 letterSpacing: '0.01em'
               }}
             >
+              <h4 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Audio</h4>
               <p>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+                Yoni Newman is a musician, artist, and sound designer based in Toronto. As one half of the electronic music and arts duo Karla, he has performed frequently since 2019. As an organizer, he produces the monthly live electronic performance series Hitplay and Rogue Waves festival, and serves as a coordinator for Technowalk Toronto. Following the album "Karla Is Here" in 2019, Karla expanded beyond live music into installation art with the Music Gallery Residency project "Temple Block" in 2022, which rigged actuator motors onto the wooden joists of an old meditation hall and sequenced the playing of the structure itself. He holds a background in fine arts through an MFA studio program at Pennsylvania Academy of the Fine Arts, where he built an AI-driven drawbot and expanded his studio practice. He still maintains a painting and drawing practice, most recently as Resident Artist at the MERZ residency program in Scotland in August 2024.
               </p>
-              <p className="mt-3">
-                Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo. Nemo enim ipsam voluptatem quia voluptas sit aspernatur aut odit aut fugit.
+              <a
+                href="https://oswinjournal.substack.com/p/a-thousand-entry-points"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block mt-3 font-semibold transition-all duration-300"
+                style={{
+                  color: '#FF6600',
+                  fontSize: 'clamp(0.875rem, 2vw, 1rem)'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#FF8833';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = '#FF6600';
+                }}
+              >
+                Read: A Thousand Entry Points →
+              </a>
+              <h4 style={{ fontWeight: 600, marginTop: '1rem', marginBottom: '0.5rem' }}>Visuals</h4>
+              <p>
+                Alex Taves is a writer, illustrator, painter, and web developer working at the intersection of visual art, sound, and digital experience. He founded Oswald Gallery in Hamilton, Ontario, which earned mention in The New York Times within six months of opening. For the past three years, he has been an instructor at Whitehouse Institute of Design, a prestigious fashion school in Australia. His roots trace back to a small farm in southern Ontario, but his creative consciousness came online through the warehouse parties of 1990s Detroit—an influence that continues to shape his work exploring the liminal space between music, atmosphere, and image.
               </p>
             </div>
           </div>
