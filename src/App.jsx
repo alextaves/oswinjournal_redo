@@ -230,7 +230,7 @@ function App() {
           <div className="space-y-6">
             {[
               { name: 'substack', href: 'https://alextaves.substack.com/' },
-              { name: 'instagram', href: 'https://www.instagram.com/more_flowers_please/' },
+              { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'spotify', href: 'https://open.spotify.com/playlist/2YTALr5Kb0SgLZ0xP8mt66?si=78bc2529159f4b49' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
