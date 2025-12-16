@@ -133,6 +133,8 @@ function App() {
       audioRef.current.src = track.src;
       audioRef.current.play().then(() => setAudioPlaying(true));
     }
+    // Auto-enter experience view
+    handleEnterSite();
   };
 
   const handleEnterSite = () => {
@@ -634,6 +636,8 @@ function App() {
                       audioRef.current.src = '';
                       setAudioPlaying(false);
                     }
+                    // Auto-enter experience view
+                    handleEnterSite();
                   }}
                   className="block w-full text-left transition-all duration-300 italic"
                   style={{
