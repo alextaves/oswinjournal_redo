@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 
 // Main App Component
 function App() {
-  const [view, setView] = useState('archive'); // 'archive', 'issue-detail', 'experience'
+  const [view, setView] = useState('archive'); // 'archive', 'issue-detail', 'experience', 'reads', 'listens'
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedTrack, setSelectedTrack] = useState(null);
@@ -15,8 +15,29 @@ function App() {
   const [showCreditInfo, setShowCreditInfo] = useState(false);
   const [showNotesOnOswin, setShowNotesOnOswin] = useState(false);
   const [showContactForm, setShowContactForm] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState({});
+  const [expandedPlaylist, setExpandedPlaylist] = useState(null);
+  const [expandedRead, setExpandedRead] = useState(null);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
+
+  // Load Substack embed script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://substack.com/embedjs/embed.js';
+    script.async = true;
+    script.charset = 'utf-8';
+    if (!document.querySelector('script[src="https://substack.com/embedjs/embed.js"]')) {
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  // Reload Substack embeds when expandedRead changes
+  useEffect(() => {
+    if (expandedRead !== null && window.SubstackFeedWidget) {
+      window.SubstackFeedWidget.load();
+    }
+  }, [expandedRead]);
 
   // Smooth view transition helper
   const transitionToView = (newView, callback) => {
@@ -67,6 +88,161 @@ function App() {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Listens data
+  const listensData = [
+    {
+      id: 1,
+      title: 'thinking upbeat',
+      color: '#E8F05F',
+      imageUrl: '/images/thinking_upbeat.png',
+      spotifyUrl: 'https://open.spotify.com/playlist/2pkOJQlNqjJiuLrY1gaVFM',
+      spotifyEmbed: 'https://open.spotify.com/embed/playlist/2pkOJQlNqjJiuLrY1gaVFM?utm_source=generator',
+      appleUrl: 'https://placeholder-apple.com/thinking-upbeat'
+    },
+    {
+      id: 2,
+      title: 'thinking ambient',
+      color: '#1E90FF',
+      imageUrl: '/images/thinking_ambient.png',
+      spotifyUrl: 'https://open.spotify.com/playlist/00enCKRA8K6srlr4iYhmMA',
+      spotifyEmbed: 'https://open.spotify.com/embed/playlist/00enCKRA8K6srlr4iYhmMA?utm_source=generator',
+      appleUrl: 'https://placeholder-apple.com/thinking-ambient'
+    },
+    {
+      id: 3,
+      title: 'sit down house',
+      color: '#FF6B6B',
+      imageUrl: '/images/sit_down_house.png',
+      spotifyUrl: 'https://open.spotify.com/playlist/4uBXLn4lpPM9l2Jd24rCGf',
+      spotifyEmbed: 'https://open.spotify.com/embed/playlist/4uBXLn4lpPM9l2Jd24rCGf?utm_source=generator',
+      appleUrl: 'https://placeholder-apple.com/sit-down-house'
+    },
+    {
+      id: 4,
+      title: 'oddities',
+      color: '#9D4EDD',
+      imageUrl: '/images/oddities.png',
+      spotifyUrl: 'https://open.spotify.com/playlist/7nnAhtnx8Xe3vs4wQC633q',
+      spotifyEmbed: 'https://open.spotify.com/embed/playlist/7nnAhtnx8Xe3vs4wQC633q?utm_source=generator',
+      appleUrl: 'https://placeholder-apple.com/oddities'
+    },
+    {
+      id: 5,
+      title: '',
+      color: '#D1D1D1',
+      spotifyUrl: '',
+      appleUrl: ''
+    },
+    {
+      id: 6,
+      title: '',
+      color: '#D1D1D1',
+      spotifyUrl: '',
+      appleUrl: ''
+    },
+    {
+      id: 7,
+      title: '',
+      color: '#D1D1D1',
+      spotifyUrl: '',
+      appleUrl: ''
+    },
+    {
+      id: 8,
+      title: '',
+      color: '#D1D1D1',
+      spotifyUrl: '',
+      appleUrl: ''
+    },
+    {
+      id: 9,
+      title: '',
+      color: '#D1D1D1',
+      spotifyUrl: '',
+      appleUrl: ''
+    }
+  ];
+
+  // Reads data
+  const readsData = [
+    {
+      id: 1,
+      title: 'casual knife fight',
+      type: 'story',
+      color: '#D4FF00',
+      imageUrl: '/images/casual.png',
+      url: 'https://placeholder-substack.com/casual-knife-fight'
+    },
+    {
+      id: 2,
+      title: 'boogie',
+      type: 'story',
+      color: '#1E90FF',
+      imageUrl: '/images/boogie.png',
+      url: 'https://oswinjournal.substack.com/p/boogie',
+      embedType: 'substack',
+      embedHtml: '<div class="substack-post-embed"><p lang="en">Boogie by the Oswin Journal</p><p>It started off as just regular dancing... </p><a data-post-link href="https://oswinjournal.substack.com/p/boogie">Read on Substack</a></div>'
+    },
+    {
+      id: 3,
+      title: 'A Thousand Miles Away',
+      subtitle: 'Yoni Newman aka Karla',
+      type: 'interview',
+      color: '#000000',
+      imageUrl: '/images/karla.png',
+      url: 'https://placeholder-substack.com/thousand-miles-away'
+    },
+    {
+      id: 4,
+      title: 'casual knife fight II',
+      type: 'story',
+      color: '#FF6B6B',
+      imageUrl: '/images/casual.png',
+      url: 'https://placeholder-substack.com/casual-knife-fight-2'
+    },
+    {
+      id: 5,
+      title: 'big race',
+      type: 'story',
+      color: '#9D4EDD',
+      imageUrl: '/images/elon.png',
+      url: 'https://placeholder-substack.com/big-race'
+    },
+    {
+      id: 6,
+      title: 'dorthy sotherby',
+      type: 'story',
+      color: '#00FF00',
+      imageUrl: '/images/sotherby.png',
+      url: 'https://placeholder-substack.com/dorthy-sotherby'
+    },
+    {
+      id: 7,
+      title: 'A Fall Backwards',
+      subtitle: 'Christopher Bissonette',
+      type: 'interview',
+      color: '#000000',
+      imageUrl: '/images/elon.png',
+      url: 'https://placeholder-substack.com/fall-backwards'
+    },
+    {
+      id: 8,
+      title: 'boogie',
+      type: 'story',
+      color: '#FFA500',
+      imageUrl: '/images/boogie.png',
+      url: 'https://placeholder-substack.com/boogie-2'
+    },
+    {
+      id: 9,
+      title: 'dorthy sotherby',
+      type: 'story',
+      color: '#FF69B4',
+      imageUrl: '/images/sotherby.png',
+      url: 'https://placeholder-substack.com/dorthy-sotherby-2'
+    }
+  ];
 
   // Issue data
   const issues = [
@@ -231,9 +407,10 @@ function App() {
         >
           <div className="space-y-6">
             {[
-              { name: 'substack', href: 'https://alextaves.substack.com/' },
+              { name: 'home', href: '#home', isHome: true },
+              { name: 'reads', href: '#reads', isReads: true },
+              { name: 'listens', href: '#listens', isListens: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
-              { name: 'spotify', href: 'https://open.spotify.com/playlist/2YTALr5Kb0SgLZ0xP8mt66?si=78bc2529159f4b49' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
               <a
@@ -246,6 +423,18 @@ function App() {
                     e.preventDefault();
                     setMenuOpen(false);
                     setShowContactForm(true);
+                  } else if (item.isReads) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('reads');
+                  } else if (item.isListens) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('listens');
+                  } else if (item.isHome) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('archive');
                   }
                 }}
                 className="relative block overflow-hidden text-left group"
@@ -373,6 +562,931 @@ function App() {
           >
             issue
           </p>
+        </div>
+
+        {/* Contact Form Modal */}
+        {showContactForm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backgroundColor: '#F7F7F5' }}
+          >
+            {/* X button - top right */}
+            <button
+              onClick={() => setShowContactForm(false)}
+              className="fixed z-50 transition-all duration-500"
+              style={{
+                top: '40px',
+                right: '40px',
+                width: '56px',
+                height: '56px',
+                cursor: 'pointer',
+                opacity: 0.6
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+            >
+              <span
+                className="absolute h-0.5 rounded-full transition-all duration-500"
+                style={{
+                  width: '28px',
+                  backgroundColor: '#1A1A1A',
+                  transform: 'rotate(45deg)',
+                  transformOrigin: 'center',
+                  top: '50%',
+                  left: '50%',
+                  marginLeft: '-14px',
+                  marginTop: '-0.5px'
+                }}
+              />
+              <span
+                className="absolute h-0.5 rounded-full transition-all duration-500"
+                style={{
+                  width: '28px',
+                  backgroundColor: '#1A1A1A',
+                  transform: 'rotate(-45deg)',
+                  transformOrigin: 'center',
+                  top: '50%',
+                  left: '50%',
+                  marginLeft: '-14px',
+                  marginTop: '-0.5px'
+                }}
+              />
+            </button>
+
+            <div className="w-full max-w-md px-6">
+              <h2
+                className="mb-8 font-semibold text-center"
+                style={{
+                  fontSize: 'clamp(2rem, 4vw, 3rem)',
+                  letterSpacing: '0.02em',
+                  color: '#1A1A1A',
+                  fontWeight: 600,
+                  lineHeight: 1
+                }}
+              >
+                CONTACT
+              </h2>
+
+              <form
+                action="https://formspree.io/f/xvgevdda"
+                method="POST"
+                className="space-y-6"
+              >
+                <div>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="name"
+                    required
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="email"
+                    required
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <div>
+                  <textarea
+                    name="message"
+                    placeholder="message"
+                    required
+                    rows="6"
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none resize-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 text-lg font-medium transition-all duration-300"
+                  style={{
+                    backgroundColor: '#1A1A1A',
+                    color: '#F7F7F5',
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    letterSpacing: '0.05em'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333333'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
+                >
+                  SEND
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+  );
+
+  const renderReadsView = () => (
+    <div
+      className="relative min-h-screen transition-opacity duration-500 ease-out"
+      style={{
+        backgroundColor: '#F7F7F5',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", sans-serif',
+        opacity: isTransitioning ? 0 : 1
+      }}
+    >
+        {/* Hamburger Menu */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="absolute z-50 flex flex-col items-center justify-center gap-2 transition-all duration-500"
+          style={{
+            width: '56px',
+            height: '56px',
+            top: window.innerWidth <= 768 ? '3rem' : '4rem',
+            right: '1.5rem',
+            transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          }}
+        >
+          <span
+            className="absolute h-0.5 rounded-full transition-all duration-500"
+            style={{
+              width: '28px',
+              backgroundColor: '#1A1A1A',
+              opacity: 0.6,
+              transform: menuOpen ? 'rotate(45deg)' : 'translateY(-6px)',
+              transformOrigin: 'center'
+            }}
+          />
+          <span
+            className="absolute h-0.5 rounded-full transition-all duration-500"
+            style={{
+              width: '28px',
+              backgroundColor: '#1A1A1A',
+              opacity: menuOpen ? 0 : 0.6,
+              transform: 'translateY(0)'
+            }}
+          />
+          <span
+            className="absolute h-0.5 rounded-full transition-all duration-500"
+            style={{
+              width: '28px',
+              backgroundColor: '#1A1A1A',
+              opacity: 0.6,
+              transform: menuOpen ? 'rotate(-45deg)' : 'translateY(6px)',
+              transformOrigin: 'center'
+            }}
+          />
+        </button>
+
+        {/* Menu Overlay */}
+        <div
+          className={`fixed inset-0 z-40 flex items-center justify-center transition-all duration-700 ${
+            menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{
+            backgroundColor: '#F7F7F5',
+            transition: 'opacity 0.7s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          }}
+        >
+          <div className="space-y-6">
+            {[
+              { name: 'home', href: '#home', isHome: true },
+              { name: 'reads', href: '#reads', isReads: true },
+              { name: 'listens', href: '#listens', isListens: true },
+              { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
+              { name: 'contact', href: '#contact', isContact: true }
+            ].map((item, i) => (
+              <a
+                key={item.name}
+                href={item.href}
+                target={item.href.startsWith('http') ? '_blank' : undefined}
+                rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                  if (item.isContact) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    setShowContactForm(true);
+                  } else if (item.isReads) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('reads');
+                  } else if (item.isListens) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('listens');
+                  } else if (item.isHome) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('archive');
+                  }
+                }}
+                className="relative block overflow-hidden text-left group"
+                style={{
+                  opacity: menuOpen ? 1 : 0,
+                  transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
+                  transition: `all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) ${i * 0.05}s`,
+                  cursor: 'pointer'
+                }}
+              >
+                <span
+                  className="block text-2xl font-medium transition-all duration-500 md:text-4xl lg:text-5xl"
+                  style={{
+                    color: '#D1D1D1',
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#1A1A1A';
+                    e.target.style.transform = 'translateX(8px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#D1D1D1';
+                    e.target.style.transform = 'translateX(0)';
+                  }}
+                >
+                  {item.name}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div
+          className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
+          style={{
+            paddingTop: window.innerWidth <= 768 ? '3rem' : '4rem',
+            paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
+          }}
+        >
+          {/* Title */}
+          <h1
+            className="mb-3 font-semibold whitespace-nowrap"
+            style={{
+              fontSize: 'clamp(1.75rem, 4.5vw, 4.5rem)',
+              letterSpacing: '0.18em',
+              color: '#1A1A1A',
+              fontWeight: 600,
+              lineHeight: 1
+            }}
+          >
+            OSWIN JOURNAL
+          </h1>
+          <p
+            className="mb-24 text-lg italic"
+            style={{
+              color: '#6B7280',
+              fontWeight: 400,
+              letterSpacing: '0.01em'
+            }}
+          >
+            reads
+          </p>
+
+          {/* Reads Grid */}
+          <div
+            className="w-full max-w-full px-6 mb-8"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: window.innerWidth > 1024 ? 'repeat(3, 1fr)' :
+                                   window.innerWidth > 768 ? 'repeat(2, 1fr)' :
+                                   '1fr',
+              gap: '53px'
+            }}
+          >
+            {readsData.map((read) => (
+              <div
+                key={read.id}
+                className="relative transition-all duration-500 flex items-center justify-center overflow-hidden"
+                style={{
+                  backgroundColor: read.color,
+                  cursor: 'pointer',
+                  aspectRatio: '1',
+                  width: '100%',
+                  transform: 'scale(1)',
+                  padding: expandedRead === read.id && (read.embedType === 'substack' || read.embed) ? '1rem' : '0'
+                }}
+                onClick={(e) => {
+                  if (read.embed || read.embedType === 'substack') {
+                    e.preventDefault();
+                    setExpandedRead(expandedRead === read.id ? null : read.id);
+                  } else {
+                    window.open(read.url, '_blank');
+                  }
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                {/* Content */}
+                {expandedRead === read.id && read.embedType === 'substack' ? (
+                  /* Substack Embed */
+                  <div
+                    className="w-full h-full overflow-auto p-4"
+                    dangerouslySetInnerHTML={{ __html: read.embedHtml }}
+                  />
+                ) : expandedRead === read.id && read.embed ? (
+                  /* Iframe Embed (Spotify) */
+                  <iframe
+                    src={read.embed}
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    allowFullScreen
+                    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                    loading="lazy"
+                    style={{
+                      borderRadius: '12px',
+                      minHeight: '352px'
+                    }}
+                  />
+                ) : read.imageUrl ? (
+                  /* Use uploaded image as full thumbnail */
+                  <img
+                    src={read.imageUrl}
+                    alt={read.title}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                ) : read.type === 'interview' ? (
+                  <div className="flex flex-col justify-between w-full h-full">
+                    {/* Top left - interview label */}
+                    <p
+                      className="text-left text-xs font-normal"
+                      style={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        letterSpacing: '0.05em'
+                      }}
+                    >
+                      interview
+                    </p>
+
+                    {/* Center right - title */}
+                    <div className="flex-1 flex items-center justify-end">
+                      <h3
+                        className="font-bold text-right"
+                        style={{
+                          fontSize: `${0.6 * 1.15 * (window.innerWidth > 1280 ? 48 : window.innerWidth > 768 ? 36 : 28)}px`,
+                          color: '#FFFFFF',
+                          opacity: 0.75,
+                          letterSpacing: '0.04em',
+                          lineHeight: 1.1
+                        }}
+                      >
+                        {read.title}
+                      </h3>
+                    </div>
+
+                    {/* Bottom left - author info */}
+                    <div className="text-left">
+                      <p
+                        className="font-normal"
+                        style={{
+                          fontSize: `${0.6 * 1.15 * (window.innerWidth > 1280 ? 16 : window.innerWidth > 768 ? 14 : 12)}px`,
+                          color: 'rgba(255, 255, 255, 0.9)',
+                          lineHeight: 1.3
+                        }}
+                      >
+                        {read.subtitle}
+                      </p>
+                    </div>
+
+                    {/* OSWIN JOURNAL watermark - bottom right */}
+                    <p
+                      className="absolute text-xs uppercase"
+                      style={{
+                        bottom: '1rem',
+                        right: '1rem',
+                        color: 'rgba(255, 255, 255, 0.2)',
+                        letterSpacing: '0.1em',
+                        fontSize: window.innerWidth > 1280 ? `${0.75 * 1.15}rem` :
+                                 window.innerWidth > 768 ? `${0.6 * 1.15}rem` :
+                                 `${0.48 * 1.15}rem`
+                      }}
+                    >
+                      OSWIN JOURNAL
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full h-full">
+                    {/* OSWIN JOURNAL watermark at top */}
+                    <p
+                      className="absolute text-xs uppercase"
+                      style={{
+                        top: '1rem',
+                        color: read.color === '#000000' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                        letterSpacing: '0.1em',
+                        fontSize: window.innerWidth > 1280 ? `${0.75 * 1.15}rem` :
+                                 window.innerWidth > 768 ? `${0.6 * 1.15}rem` :
+                                 `${0.48 * 1.15}rem`
+                      }}
+                    >
+                      OSWIN JOURNAL
+                    </p>
+
+                    {/* Center - title */}
+                    <h3
+                      className="font-bold text-center"
+                      style={{
+                        fontSize: `${0.6 * 1.15 * (window.innerWidth > 1280 ? 48 : window.innerWidth > 768 ? 36 : 28)}px`,
+                        color: read.color === '#000000' ? '#FFFFFF' : '#1A1A1A',
+                        opacity: 0.75,
+                        letterSpacing: '0.04em',
+                        lineHeight: 1.2
+                      }}
+                    >
+                      {read.title}
+                    </h3>
+
+                    {/* READS label at bottom */}
+                    <p
+                      className="absolute text-xs uppercase"
+                      style={{
+                        bottom: '1rem',
+                        color: read.color === '#000000' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)',
+                        letterSpacing: '0.1em',
+                        fontSize: window.innerWidth > 1280 ? `${0.75 * 1.15}rem` :
+                                 window.innerWidth > 768 ? `${0.6 * 1.15}rem` :
+                                 `${0.48 * 1.15}rem`
+                      }}
+                    >
+                      READS
+                    </p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Contact Form Modal */}
+        {showContactForm && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ backgroundColor: '#F7F7F5' }}
+          >
+            {/* X button - top right */}
+            <button
+              onClick={() => setShowContactForm(false)}
+              className="fixed z-50 transition-all duration-500"
+              style={{
+                top: '40px',
+                right: '40px',
+                width: '56px',
+                height: '56px',
+                cursor: 'pointer',
+                opacity: 0.6
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+              onMouseLeave={(e) => e.currentTarget.style.opacity = '0.6'}
+            >
+              <span
+                className="absolute h-0.5 rounded-full transition-all duration-500"
+                style={{
+                  width: '28px',
+                  backgroundColor: '#1A1A1A',
+                  transform: 'rotate(45deg)',
+                  transformOrigin: 'center',
+                  top: '50%',
+                  left: '50%',
+                  marginLeft: '-14px',
+                  marginTop: '-0.5px'
+                }}
+              />
+              <span
+                className="absolute h-0.5 rounded-full transition-all duration-500"
+                style={{
+                  width: '28px',
+                  backgroundColor: '#1A1A1A',
+                  transform: 'rotate(-45deg)',
+                  transformOrigin: 'center',
+                  top: '50%',
+                  left: '50%',
+                  marginLeft: '-14px',
+                  marginTop: '-0.5px'
+                }}
+              />
+            </button>
+
+            <div className="w-full max-w-md px-6">
+              <h2
+                className="mb-8 font-semibold text-center"
+                style={{
+                  fontSize: 'clamp(2rem, 4vw, 3rem)',
+                  letterSpacing: '0.02em',
+                  color: '#1A1A1A',
+                  fontWeight: 600,
+                  lineHeight: 1
+                }}
+              >
+                CONTACT
+              </h2>
+
+              <form
+                action="https://formspree.io/f/xvgevdda"
+                method="POST"
+                className="space-y-6"
+              >
+                <div>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="name"
+                    required
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <div>
+                  <input
+                    type="email"
+                    name="email"
+                    placeholder="email"
+                    required
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <div>
+                  <textarea
+                    name="message"
+                    placeholder="message"
+                    required
+                    rows="6"
+                    className="w-full px-4 py-3 text-lg transition-all duration-300 bg-transparent border-b-2 outline-none resize-none"
+                    style={{
+                      borderColor: '#D1D1D1',
+                      color: '#1A1A1A',
+                      fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif'
+                    }}
+                    onFocus={(e) => e.target.style.borderColor = '#1A1A1A'}
+                    onBlur={(e) => e.target.style.borderColor = '#D1D1D1'}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 text-lg font-medium transition-all duration-300"
+                  style={{
+                    backgroundColor: '#1A1A1A',
+                    color: '#F7F7F5',
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    letterSpacing: '0.05em'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333333'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1A1A1A'}
+                >
+                  SEND
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+  );
+
+  const renderListensView = () => (
+      <div
+        className="relative min-h-screen transition-opacity duration-500 ease-out"
+        style={{
+          backgroundColor: '#F7F7F5',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", sans-serif',
+          opacity: isTransitioning ? 0 : 1
+        }}
+      >
+        {/* Hamburger Menu */}
+        <button
+          onClick={() => setMenuOpen(!menuOpen)}
+          className="absolute z-50 flex flex-col items-center justify-center gap-2 transition-all duration-500"
+          style={{
+            width: '56px',
+            height: '56px',
+            top: window.innerWidth <= 768 ? '3rem' : '4rem',
+            right: '1.5rem',
+            transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          }}
+        >
+          <span
+            className="absolute h-0.5 rounded-full transition-all duration-500"
+            style={{
+              width: '28px',
+              backgroundColor: '#1A1A1A',
+              opacity: 0.6,
+              transform: menuOpen ? 'rotate(45deg)' : 'translateY(-6px)',
+              transformOrigin: 'center'
+            }}
+          />
+          <span
+            className="absolute h-0.5 rounded-full transition-all duration-500"
+            style={{
+              width: '28px',
+              backgroundColor: '#1A1A1A',
+              opacity: menuOpen ? 0 : 0.6,
+              transform: 'translateY(0)'
+            }}
+          />
+          <span
+            className="absolute h-0.5 rounded-full transition-all duration-500"
+            style={{
+              width: '28px',
+              backgroundColor: '#1A1A1A',
+              opacity: 0.6,
+              transform: menuOpen ? 'rotate(-45deg)' : 'translateY(6px)',
+              transformOrigin: 'center'
+            }}
+          />
+        </button>
+
+        {/* Menu Overlay */}
+        <div
+          className={`fixed inset-0 z-40 flex items-center justify-center transition-all duration-700 ${
+            menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}
+          style={{
+            backgroundColor: '#F7F7F5',
+            transition: 'opacity 0.7s cubic-bezier(0.4, 0.0, 0.2, 1)'
+          }}
+        >
+          <div className="space-y-6">
+            {[
+              { name: 'home', href: '#home', isHome: true },
+              { name: 'reads', href: '#reads', isReads: true },
+              { name: 'listens', href: '#listens', isListens: true },
+              { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
+              { name: 'contact', href: '#contact', isContact: true }
+            ].map((item, i) => (
+              <a
+                key={item.name}
+                href={item.href}
+                target={item.href.startsWith('http') ? '_blank' : undefined}
+                rel={item.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                onClick={(e) => {
+                  if (item.isContact) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    setShowContactForm(true);
+                  } else if (item.isReads) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('reads');
+                  } else if (item.isListens) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('listens');
+                  } else if (item.isHome) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    transitionToView('archive');
+                  }
+                }}
+                className="relative block overflow-hidden text-left group"
+                style={{
+                  opacity: menuOpen ? 1 : 0,
+                  transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
+                  transition: `all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) ${i * 0.05}s`,
+                  cursor: 'pointer'
+                }}
+              >
+                <span
+                  className="block text-2xl font-medium transition-all duration-500 md:text-4xl lg:text-5xl"
+                  style={{
+                    color: '#D1D1D1',
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    letterSpacing: '-0.02em',
+                    lineHeight: 1.2
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.color = '#1A1A1A';
+                    e.target.style.transform = 'translateX(8px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.color = '#D1D1D1';
+                    e.target.style.transform = 'translateX(0)';
+                  }}
+                >
+                  {item.name}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div
+          className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
+          style={{
+            paddingTop: window.innerWidth <= 768 ? '3rem' : '4rem',
+            paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
+          }}
+        >
+          {/* Title */}
+          <h1
+            className="mb-3 font-semibold whitespace-nowrap"
+            style={{
+              fontSize: 'clamp(1.75rem, 4.5vw, 4.5rem)',
+              letterSpacing: '0.18em',
+              color: '#1A1A1A',
+              fontWeight: 600,
+              lineHeight: 1
+            }}
+          >
+            OSWIN JOURNAL
+          </h1>
+          <p
+            className="mb-24 text-lg italic"
+            style={{
+              color: '#6B7280',
+              fontWeight: 400,
+              letterSpacing: '0.01em'
+            }}
+          >
+            listens
+          </p>
+
+          {/* Listens Grid */}
+          <div
+            className="w-full max-w-full px-6 mb-8"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: window.innerWidth > 1024 ? 'repeat(3, 1fr)' :
+                                   window.innerWidth > 768 ? 'repeat(2, 1fr)' :
+                                   '1fr',
+              gap: '53px'
+            }}
+          >
+            {listensData.map((listen) => (
+              <div
+                key={listen.id}
+                className="flex flex-col"
+                style={{ gap: '5px' }}
+              >
+                {/* Thumbnail */}
+                <div
+                  className="relative transition-all duration-500 flex items-center justify-center overflow-hidden"
+                  style={{
+                    backgroundColor: listen.color,
+                    cursor: listen.title ? 'pointer' : 'default',
+                    aspectRatio: '1',
+                    width: '100%',
+                    transform: 'scale(1)',
+                    padding: expandedPlaylist === listen.id ? '1rem' : '0'
+                  }}
+                  onClick={() => {
+                    if (listen.title && listen.spotifyEmbed) {
+                      setExpandedPlaylist(expandedPlaylist === listen.id ? null : listen.id);
+                    }
+                  }}
+                  onMouseEnter={(e) => {
+                    if (listen.title) e.currentTarget.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (listen.title) e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  {expandedPlaylist === listen.id && listen.spotifyEmbed ? (
+                    /* Spotify Embed */
+                    <iframe
+                      src={listen.spotifyEmbed}
+                      width="100%"
+                      height="100%"
+                      frameBorder="0"
+                      allowFullScreen
+                      allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                      loading="lazy"
+                      style={{
+                        borderRadius: '12px',
+                        minHeight: '352px'
+                      }}
+                    />
+                  ) : listen.imageUrl ? (
+                    /* Use uploaded image */
+                    <img
+                      src={listen.imageUrl}
+                      alt={listen.title}
+                      className="w-full h-full object-cover"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  ) : (
+                    /* Fallback to colored background */
+                    <div className="flex flex-col items-center justify-center w-full h-full">
+                      {listen.title && (
+                        <h3
+                          className="font-bold text-center"
+                          style={{
+                            fontSize: `${0.6 * 1.15 * (window.innerWidth > 1280 ? 48 : window.innerWidth > 768 ? 36 : 28)}px`,
+                            color: '#1A1A1A',
+                            letterSpacing: '0.04em',
+                            lineHeight: 1.2
+                          }}
+                        >
+                          {listen.title}
+                        </h3>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Spotify/Apple Toggle */}
+                {listen.title && expandedPlaylist !== listen.id && (
+                  <div
+                    className="flex items-center justify-end gap-3"
+                    style={{
+                      fontSize: window.innerWidth > 1280 ? '0.875rem' :
+                               window.innerWidth > 768 ? '0.75rem' :
+                               '0.625rem'
+                    }}
+                  >
+                    <a
+                      href={listen.spotifyUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-all duration-300"
+                      style={{
+                        color: selectedPlatform[listen.id] === 'spotify' || !selectedPlatform[listen.id] ? '#1DB954' : '#999',
+                        fontWeight: 500,
+                        textDecoration: 'none',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setSelectedPlatform({ ...selectedPlatform, [listen.id]: 'spotify' })}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '0.7';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                      }}
+                    >
+                      spotify
+                    </a>
+                    <span style={{ color: '#999' }}>/</span>
+                    <a
+                      href={listen.appleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-all duration-300"
+                      style={{
+                        color: selectedPlatform[listen.id] === 'apple' ? '#FA243C' : '#999',
+                        fontWeight: 500,
+                        textDecoration: 'none',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setSelectedPlatform({ ...selectedPlatform, [listen.id]: 'apple' })}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.opacity = '0.7';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.opacity = '1';
+                      }}
+                    >
+                      apple
+                    </a>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Contact Form Modal */}
@@ -1662,6 +2776,8 @@ function App() {
 
       {/* Render the active view */}
       {view === 'archive' && renderArchiveView()}
+      {view === 'reads' && renderReadsView()}
+      {view === 'listens' && renderListensView()}
       {view === 'issue-detail' && selectedIssue && renderIssueDetailView()}
       {view === 'experience' && selectedIssue && renderExperienceView()}
     </>
