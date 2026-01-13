@@ -94,7 +94,7 @@ function App() {
     {
       id: 1,
       title: 'thinking upbeat',
-      color: '#E8F05F',
+      color: '#EAE413',
       imageUrl: '/images/thinking_upbeat.png',
       spotifyUrl: 'https://open.spotify.com/playlist/2pkOJQlNqjJiuLrY1gaVFM',
       spotifyEmbed: 'https://open.spotify.com/embed/playlist/2pkOJQlNqjJiuLrY1gaVFM?utm_source=generator',
@@ -103,7 +103,7 @@ function App() {
     {
       id: 2,
       title: 'thinking ambient',
-      color: '#1E90FF',
+      color: '#3d493d',
       imageUrl: '/images/thinking_ambient.png',
       spotifyUrl: 'https://open.spotify.com/playlist/00enCKRA8K6srlr4iYhmMA',
       spotifyEmbed: 'https://open.spotify.com/embed/playlist/00enCKRA8K6srlr4iYhmMA?utm_source=generator',
@@ -112,7 +112,7 @@ function App() {
     {
       id: 3,
       title: 'sit down house',
-      color: '#FF6B6B',
+      color: '#8C7B65',
       imageUrl: '/images/sit_down_house.png',
       spotifyUrl: 'https://open.spotify.com/playlist/4uBXLn4lpPM9l2Jd24rCGf',
       spotifyEmbed: 'https://open.spotify.com/embed/playlist/4uBXLn4lpPM9l2Jd24rCGf?utm_source=generator',
@@ -121,7 +121,7 @@ function App() {
     {
       id: 4,
       title: 'oddities',
-      color: '#9D4EDD',
+      color: '#191E2F',
       imageUrl: '/images/oddities.png',
       spotifyUrl: 'https://open.spotify.com/playlist/7nnAhtnx8Xe3vs4wQC633q',
       spotifyEmbed: 'https://open.spotify.com/embed/playlist/7nnAhtnx8Xe3vs4wQC633q?utm_source=generator',
@@ -172,75 +172,60 @@ function App() {
       type: 'story',
       color: '#D4FF00',
       imageUrl: '/images/casual.png',
-      url: 'https://placeholder-substack.com/casual-knife-fight'
+      url: 'https://open.substack.com/pub/oswinjournal/p/casual-knife-fight?r=28jcyn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true'
     },
     {
       id: 2,
+      title: 'slam',
+      type: 'story',
+      color: '#FF4500',
+      imageUrl: '/images/slam.png',
+      url: 'https://open.substack.com/pub/oswinjournal/p/slam?r=28jcyn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true'
+    },
+    {
+      id: 3,
       title: 'boogie',
       type: 'story',
       color: '#1E90FF',
       imageUrl: '/images/boogie.png',
-      url: 'https://oswinjournal.substack.com/p/boogie',
-      embedType: 'substack',
-      embedHtml: '<div class="substack-post-embed"><p lang="en">Boogie by the Oswin Journal</p><p>It started off as just regular dancing... </p><a data-post-link href="https://oswinjournal.substack.com/p/boogie">Read on Substack</a></div>'
+      url: 'https://open.substack.com/pub/oswinjournal/p/boogie?utm_campaign=post-expanded-share&utm_medium=web'
     },
     {
-      id: 3,
+      id: 4,
+      title: 'elon',
+      type: 'story',
+      color: '#9D4EDD',
+      imageUrl: '/images/elon.png',
+      url: 'https://open.substack.com/pub/oswinjournal/p/elon?utm_campaign=post-expanded-share&utm_medium=web'
+    },
+    {
+      id: 5,
       title: 'A Thousand Miles Away',
       subtitle: 'Yoni Newman aka Karla',
       type: 'interview',
       color: '#000000',
       imageUrl: '/images/karla.png',
-      url: 'https://placeholder-substack.com/thousand-miles-away'
-    },
-    {
-      id: 4,
-      title: 'casual knife fight II',
-      type: 'story',
-      color: '#FF6B6B',
-      imageUrl: '/images/casual.png',
-      url: 'https://placeholder-substack.com/casual-knife-fight-2'
-    },
-    {
-      id: 5,
-      title: 'big race',
-      type: 'story',
-      color: '#9D4EDD',
-      imageUrl: '/images/elon.png',
-      url: 'https://placeholder-substack.com/big-race'
+      url: 'https://open.substack.com/pub/oswinjournal/p/a-thousand-entry-points?utm_campaign=post-expanded-share&utm_medium=web'
     },
     {
       id: 6,
-      title: 'dorthy sotherby',
+      title: 'dorothy sotherby',
       type: 'story',
       color: '#00FF00',
       imageUrl: '/images/sotherby.png',
-      url: 'https://placeholder-substack.com/dorthy-sotherby'
+      url: 'https://open.substack.com/pub/oswinjournal/p/dorothy-sotherby?r=28jcyn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true'
     },
     {
       id: 7,
-      title: 'A Fall Backwards',
-      subtitle: 'Christopher Bissonette',
-      type: 'interview',
-      color: '#000000',
-      imageUrl: '/images/elon.png',
-      url: 'https://placeholder-substack.com/fall-backwards'
+      color: '#D1D1D1'
     },
     {
       id: 8,
-      title: 'boogie',
-      type: 'story',
-      color: '#FFA500',
-      imageUrl: '/images/boogie.png',
-      url: 'https://placeholder-substack.com/boogie-2'
+      color: '#D1D1D1'
     },
     {
       id: 9,
-      title: 'dorthy sotherby',
-      type: 'story',
-      color: '#FF69B4',
-      imageUrl: '/images/sotherby.png',
-      url: 'https://placeholder-substack.com/dorthy-sotherby-2'
+      color: '#D1D1D1'
     }
   ];
 
@@ -720,8 +705,8 @@ function App() {
           style={{
             width: '56px',
             height: '56px',
-            top: window.innerWidth <= 768 ? '3rem' : '4rem',
-            right: '1.5rem',
+            top: '18px',
+            right: '25px',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
@@ -886,10 +871,7 @@ function App() {
                   padding: expandedRead === read.id && (read.embedType === 'substack' || read.embed) ? '1rem' : '0'
                 }}
                 onClick={(e) => {
-                  if (read.embed || read.embedType === 'substack') {
-                    e.preventDefault();
-                    setExpandedRead(expandedRead === read.id ? null : read.id);
-                  } else {
+                  if (read.url) {
                     window.open(read.url, '_blank');
                   }
                 }}
@@ -1200,8 +1182,8 @@ function App() {
           style={{
             width: '56px',
             height: '56px',
-            top: window.innerWidth <= 768 ? '3rem' : '4rem',
-            right: '1.5rem',
+            top: '18px',
+            right: '25px',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
@@ -1357,7 +1339,7 @@ function App() {
               <div
                 key={listen.id}
                 className="flex flex-col"
-                style={{ gap: '5px' }}
+                style={{ gap: '53px' }}
               >
                 {/* Thumbnail */}
                 <div
@@ -1428,62 +1410,6 @@ function App() {
                     </div>
                   )}
                 </div>
-
-                {/* Spotify/Apple Toggle */}
-                {listen.title && expandedPlaylist !== listen.id && (
-                  <div
-                    className="flex items-center justify-end gap-3"
-                    style={{
-                      fontSize: window.innerWidth > 1280 ? '0.875rem' :
-                               window.innerWidth > 768 ? '0.75rem' :
-                               '0.625rem'
-                    }}
-                  >
-                    <a
-                      href={listen.spotifyUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition-all duration-300"
-                      style={{
-                        color: selectedPlatform[listen.id] === 'spotify' || !selectedPlatform[listen.id] ? '#1DB954' : '#999',
-                        fontWeight: 500,
-                        textDecoration: 'none',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => setSelectedPlatform({ ...selectedPlatform, [listen.id]: 'spotify' })}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '0.7';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '1';
-                      }}
-                    >
-                      spotify
-                    </a>
-                    <span style={{ color: '#999' }}>/</span>
-                    <a
-                      href={listen.appleUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition-all duration-300"
-                      style={{
-                        color: selectedPlatform[listen.id] === 'apple' ? '#FA243C' : '#999',
-                        fontWeight: 500,
-                        textDecoration: 'none',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => setSelectedPlatform({ ...selectedPlatform, [listen.id]: 'apple' })}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.opacity = '0.7';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.opacity = '1';
-                      }}
-                    >
-                      apple
-                    </a>
-                  </div>
-                )}
               </div>
             ))}
           </div>
