@@ -17,6 +17,8 @@ function App() {
   const [showContactForm, setShowContactForm] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState({});
   const [expandedPlaylist, setExpandedPlaylist] = useState(null);
+  const [visitedIssues, setVisitedIssues] = useState(new Set());
+  const [hoveredIssue, setHoveredIssue] = useState(null);
   const [expandedRead, setExpandedRead] = useState(null);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
@@ -284,6 +286,7 @@ function App() {
 
   const handleIssueClick = (issue) => {
     setSelectedIssue(issue);
+    setVisitedIssues(prev => new Set([...prev, issue.id]));
     transitionToView('issue-detail');
   };
 
@@ -342,10 +345,13 @@ function App() {
         {/* Hamburger Menu - Refined (transforms to X) */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="fixed z-50 flex flex-col items-center justify-center gap-2 p-4 transition-all duration-500 -translate-x-1/2 bottom-8 left-1/2"
-          style={{ 
+          className="absolute z-50 flex flex-col items-center justify-center gap-2 transition-all duration-500"
+          style={{
             width: '56px',
             height: '56px',
+            top: '18px',
+            right: window.innerWidth <= 768 ? '50%' : '25px',
+            transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
@@ -458,7 +464,7 @@ function App() {
         <div
           className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
           style={{
-            paddingTop: window.innerWidth <= 768 ? '3rem' : '4rem',
+            paddingTop: window.innerWidth <= 768 ? '7rem' : '4rem',
             paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
           }}
         >
@@ -493,48 +499,65 @@ function App() {
               rowGap: window.innerWidth <= 1280 && window.innerWidth > 768 ? '2.17rem' : undefined
             }}
           >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-              <button
-                key={num}
-                onClick={() => num === 1 && handleIssueClick(issues[0])}
-                className="relative transition-all duration-500"
-                style={{
-                  color: '#D1D1D1',
-                  cursor: num === 1 ? 'pointer' : 'default',
-                  fontSize: window.innerWidth > 1280 ? 'clamp(2.5rem, 5vw, 4rem)' :
-                           window.innerWidth > 768 ? 'clamp(1.546rem, 3.98vw, 3.98rem)' :
-                           'clamp(1.75rem, 4.5vw, 4.5rem)',
-                  fontWeight: 500,
-                  fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-                  letterSpacing: '-0.02em',
-                  transform: 'scale(1)'
-                }}
-                onMouseEnter={(e) => {
-                  if (num === 1) {
-                    e.target.style.color = '#1A1A1A';
-                    e.target.style.transform = 'scale(1.05)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (num === 1) {
-                    e.target.style.color = '#D1D1D1';
-                    e.target.style.transform = 'scale(1)';
-                  }
-                }}
-                onMouseDown={(e) => {
-                  if (num === 1) {
-                    e.target.style.transform = 'scale(0.95)';
-                  }
-                }}
-                onMouseUp={(e) => {
-                  if (num === 1) {
-                    e.target.style.transform = 'scale(1.05)';
-                  }
-                }}
-              >
-                {String(num).padStart(2, '0')}
-              </button>
-            ))}
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
+              const isActive = num === 1;
+              const isVisited = visitedIssues.has(num);
+              const isHovered = hoveredIssue === num;
+              return (
+                <button
+                  key={num}
+                  onClick={() => isActive && handleIssueClick(issues[0])}
+                  className="relative transition-all duration-500 inline-flex flex-col items-center"
+                  style={{
+                    color: isActive ? '#1A1A1A' : '#D1D1D1',
+                    cursor: isActive ? 'pointer' : 'default',
+                    fontSize: window.innerWidth > 1280 ? 'clamp(2.5rem, 5vw, 4rem)' :
+                             window.innerWidth > 768 ? 'clamp(1.546rem, 3.98vw, 3.98rem)' :
+                             'clamp(1.75rem, 4.5vw, 4.5rem)',
+                    fontWeight: 500,
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    letterSpacing: '-0.02em',
+                    transform: 'scale(1)'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (isActive) {
+                      setHoveredIssue(num);
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (isActive) {
+                      setHoveredIssue(null);
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }
+                  }}
+                  onMouseDown={(e) => {
+                    if (isActive) {
+                      e.currentTarget.style.transform = 'scale(0.95)';
+                    }
+                  }}
+                  onMouseUp={(e) => {
+                    if (isActive) {
+                      e.currentTarget.style.transform = 'scale(1.05)';
+                    }
+                  }}
+                >
+                  <span>{String(num).padStart(2, '0')}</span>
+                  {isActive && (isHovered || isVisited) && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: '0.15em',
+                        width: '90%',
+                        height: '0.088em',
+                        backgroundColor: '#1A1A1A',
+                        transition: 'all 0.3s ease'
+                      }}
+                    />
+                  )}
+                </button>
+              );
+            })}
           </div>
 
           <p
@@ -706,7 +729,8 @@ function App() {
             width: '56px',
             height: '56px',
             top: '18px',
-            right: '25px',
+            right: window.innerWidth <= 768 ? '50%' : '25px',
+            transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
@@ -819,7 +843,7 @@ function App() {
         <div
           className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
           style={{
-            paddingTop: window.innerWidth <= 768 ? '3rem' : '4rem',
+            paddingTop: window.innerWidth <= 768 ? '7rem' : '4rem',
             paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
           }}
         >
@@ -849,13 +873,17 @@ function App() {
 
           {/* Reads Grid */}
           <div
-            className="w-full max-w-full px-6 mb-8"
+            className="w-full max-w-full mb-8"
             style={{
-              display: 'grid',
+              display: window.innerWidth <= 768 ? 'flex' : 'grid',
+              flexDirection: window.innerWidth <= 768 ? 'column' : undefined,
+              alignItems: window.innerWidth <= 768 ? 'center' : undefined,
               gridTemplateColumns: window.innerWidth > 1024 ? 'repeat(3, 1fr)' :
                                    window.innerWidth > 768 ? 'repeat(2, 1fr)' :
-                                   '1fr',
-              gap: '53px'
+                                   undefined,
+              gap: '53px',
+              paddingLeft: window.innerWidth <= 768 ? '0' : '24px',
+              paddingRight: window.innerWidth <= 768 ? '0' : '24px'
             }}
           >
             {readsData.map((read) => (
@@ -866,7 +894,7 @@ function App() {
                   backgroundColor: read.color,
                   cursor: 'pointer',
                   aspectRatio: '1',
-                  width: '100%',
+                  width: window.innerWidth <= 768 ? '95vw' : '100%',
                   transform: 'scale(1)',
                   padding: expandedRead === read.id && (read.embedType === 'substack' || read.embed) ? '1rem' : '0'
                 }}
@@ -907,7 +935,11 @@ function App() {
                 ) : read.imageUrl ? (
                   /* Use uploaded image as full thumbnail */
                   <img
-                    src={read.imageUrl}
+                    src={
+                      window.innerWidth <= 768 && read.imageUrl
+                        ? read.imageUrl.replace('.png', '_mobile.png')
+                        : read.imageUrl
+                    }
                     alt={read.title}
                     style={{
                       width: '100%',
@@ -1183,7 +1215,8 @@ function App() {
             width: '56px',
             height: '56px',
             top: '18px',
-            right: '25px',
+            right: window.innerWidth <= 768 ? '50%' : '25px',
+            transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
@@ -1296,7 +1329,7 @@ function App() {
         <div
           className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
           style={{
-            paddingTop: window.innerWidth <= 768 ? '3rem' : '4rem',
+            paddingTop: window.innerWidth <= 768 ? '7rem' : '4rem',
             paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
           }}
         >
@@ -1326,20 +1359,27 @@ function App() {
 
           {/* Listens Grid */}
           <div
-            className="w-full max-w-full px-6 mb-8"
+            className="w-full max-w-full mb-8"
             style={{
-              display: 'grid',
+              display: window.innerWidth <= 768 ? 'flex' : 'grid',
+              flexDirection: window.innerWidth <= 768 ? 'column' : undefined,
+              alignItems: window.innerWidth <= 768 ? 'center' : undefined,
               gridTemplateColumns: window.innerWidth > 1024 ? 'repeat(3, 1fr)' :
                                    window.innerWidth > 768 ? 'repeat(2, 1fr)' :
-                                   '1fr',
-              gap: '53px'
+                                   undefined,
+              gap: '53px',
+              paddingLeft: window.innerWidth <= 768 ? '0' : '24px',
+              paddingRight: window.innerWidth <= 768 ? '0' : '24px'
             }}
           >
             {listensData.map((listen) => (
               <div
                 key={listen.id}
                 className="flex flex-col"
-                style={{ gap: '53px' }}
+                style={{
+                  gap: '53px',
+                  width: window.innerWidth <= 768 ? '95vw' : '100%'
+                }}
               >
                 {/* Thumbnail */}
                 <div
@@ -1382,7 +1422,15 @@ function App() {
                   ) : listen.imageUrl ? (
                     /* Use uploaded image */
                     <img
-                      src={listen.imageUrl}
+                      src={
+                        window.innerWidth <= 768 && listen.imageUrl
+                          ? listen.imageUrl
+                              .replace('thinking_upbeat.png', 'upbeat_mobile.png')
+                              .replace('thinking_ambient.png', 'ambient_mobile.png')
+                              .replace('sit_down_house.png', 'house_mobile.png')
+                              .replace('oddities.png', 'oddities_mobile.png')
+                          : listen.imageUrl
+                      }
                       alt={listen.title}
                       className="w-full h-full object-cover"
                       style={{
