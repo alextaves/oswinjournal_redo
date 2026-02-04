@@ -281,6 +281,91 @@ function App() {
         '/images/SLIDESHOW/tokyo-12.jpg',
         '/images/SLIDESHOW/tokyo-13.jpg'
       ]
+    },
+    {
+      id: 2,
+      title: 'Christopher Bissonnette',
+      artist: 'Christopher Bissonnette',
+      albumArt: '#4A90D9',
+      tracks: [
+        { name: 'Orffyreus Wheel', src: '/audio/orffyreus_wheel.mp3', available: true },
+        { name: 'A Touch of Heartbreak', src: '/audio/touch_of_heartbreak.mp3', available: true },
+        { name: 'Surcease', src: '/audio/surcease.mp3', available: true },
+        { name: 'Overture', src: '/audio/overture.mp3', available: true },
+        { name: 'Undertow', src: '/audio/undertow.mp3', available: true },
+        { name: 'Color Deceives Continuously', src: '/audio/color_deceives.mp3', available: true }
+      ],
+      videos: {
+        desktop: [
+          '/videos/issue2/chris_desktop_bluedancer.mp4',
+          '/videos/issue2/chris_desktop_franticspin.mp4',
+          '/videos/issue2/chris_desktop_blue3_gradual.mp4',
+          '/videos/issue2/chris_desktop_technocolor.mp4',
+          '/videos/issue2/chris_desktop_maybe.mp4',
+          '/videos/issue2/chris_desktop_blue3_fifth.mp4'
+        ],
+        tablet: [
+          '/videos/issue2/chris_mobile_ballet01.mp4',
+          '/videos/issue2/chris_mobile_ballet02.mp4',
+          '/videos/issue2/chris_mobile_cropped_runner.mp4',
+          '/videos/issue2/chris_mobile_streetrun.mp4',
+          '/videos/issue2/chris_mobile_loopedMan.mp4'
+        ],
+        phone: [
+          '/videos/issue2/chris_mobile_ballet01.mp4',
+          '/videos/issue2/chris_mobile_ballet02.mp4',
+          '/videos/issue2/chris_mobile_cropped_runner.mp4',
+          '/videos/issue2/chris_mobile_streetrun.mp4',
+          '/videos/issue2/chris_mobile_loopedMan.mp4',
+          '/videos/issue2/chris_mobile_tokyosubway.mp4',
+          '/videos/issue2/chris_mobile_MenMarch.mp4',
+          '/videos/issue2/chris_mobile_crowd.mp4',
+          '/videos/issue2/chris_mobile_abstracted.mp4'
+        ]
+      },
+      slideshow: null,
+      panelSets: [
+        {
+          name: 'guy_corner',
+          panels: [
+            '/videos/issue2/panels/guy_corner_panel1.mp4',
+            '/videos/issue2/panels/guy_corner_panel2.mp4',
+            '/videos/issue2/panels/guy_corner_panel3.mp4'
+          ]
+        },
+        {
+          name: 'newyork',
+          panels: [
+            '/videos/issue2/panels/newyork_panel1.mp4',
+            '/videos/issue2/panels/newyork_panel2.mp4',
+            '/videos/issue2/panels/newyork_panel3.mp4'
+          ]
+        },
+        {
+          name: 'streetnoise',
+          panels: [
+            '/videos/issue2/panels/streetnoise_panel1.mp4',
+            '/videos/issue2/panels/streetnoise_panel2.mp4',
+            '/videos/issue2/panels/streetnoise_panel3.mp4'
+          ]
+        },
+        {
+          name: 'wallstreetwalking',
+          panels: [
+            '/videos/issue2/panels/wallstreetwalking_panel1.mp4',
+            '/videos/issue2/panels/wallstreetwalking_panel2.mp4',
+            '/videos/issue2/panels/wallstreetwalking_panel3.mp4'
+          ]
+        },
+        {
+          name: 'cool_guy',
+          panels: [
+            '/videos/issue2/panels/cool_guy_panel1.mp4',
+            '/videos/issue2/panels/cool_guy_panel2.mp4',
+            '/videos/issue2/panels/cool_guy_panel3.mp4'
+          ]
+        }
+      ]
     }
   ];
 
@@ -500,13 +585,16 @@ function App() {
             }}
           >
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
-              const isActive = num === 1;
+              const isActive = num === 1 || num === 2;
               const isVisited = visitedIssues.has(num);
               const isHovered = hoveredIssue === num;
               return (
                 <button
                   key={num}
-                  onClick={() => isActive && handleIssueClick(issues[0])}
+                  onClick={() => {
+                    if (num === 1) handleIssueClick(issues[0]);
+                    else if (num === 2) handleIssueClick(issues[1]);
+                  }}
                   className="relative transition-all duration-500 inline-flex flex-col items-center"
                   style={{
                     color: isActive ? '#1A1A1A' : '#D1D1D1',
@@ -1615,7 +1703,9 @@ function App() {
         <div
           className="absolute inset-0 z-0"
           style={{
-            backgroundImage: 'url(/images/audio_desktop.jpg)',
+            backgroundImage: selectedIssue?.id === 2
+              ? `url(/images/issue2/${screenSize === 'phone' ? 'audio_mobile_2.png' : 'audio_desktop_2.png'})`
+              : 'url(/images/audio_desktop.jpg)',
             backgroundSize: 'cover',
             backgroundPosition: 'center'
           }}
@@ -2214,6 +2304,63 @@ function App() {
     // Natural scrolling - clones will be detected and repositioned automatically
   };
 
+  // Horizontal carousel for Issue 2 mobile
+  const renderHorizontalExperienceView = () => {
+    const videos = getVideos();
+
+    return (
+      <div
+        ref={scrollContainerRef}
+        style={{
+          display: 'flex',
+          flexDirection: 'row',
+          width: '100%',
+          height: '100%',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflowX: 'scroll',
+          overflowY: 'hidden',
+          backgroundColor: '#000',
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch'
+        }}
+      >
+        {videos.map((videoSrc, index) => (
+          <div
+            key={index}
+            style={{
+              flexShrink: 0,
+              width: '100vw',
+              height: '100vh',
+              scrollSnapAlign: 'center',
+              scrollSnapStop: 'always',
+              position: 'relative'
+            }}
+          >
+            <video
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
+              src={videoSrc}
+              autoPlay
+              loop
+              muted
+              playsInline
+            />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderExperienceView = () => {
     const videos = getVideos();
 
@@ -2272,6 +2419,16 @@ function App() {
           handleBackToArchive={handleBackToArchive}
           scrollContainerRef={scrollContainerRef}
           setShowCreditInfo={setShowCreditInfo}
+        />
+      ))}
+
+      {/* Triple Panel Sections - desktop only */}
+      {isDesktop && selectedIssue?.panelSets?.map((panelSet, index) => (
+        <TriplePanelSection
+          key={`panel-${panelSet.name}`}
+          panelSet={panelSet}
+          isDesktop={isDesktop}
+          scrollContainerRef={scrollContainerRef}
         />
       ))}
 
@@ -2753,7 +2910,11 @@ function App() {
       {view === 'reads' && renderReadsView()}
       {view === 'listens' && renderListensView()}
       {view === 'issue-detail' && selectedIssue && renderIssueDetailView()}
-      {view === 'experience' && selectedIssue && renderExperienceView()}
+      {view === 'experience' && selectedIssue && (
+        selectedIssue.id === 2 && screenSize === 'phone'
+          ? renderHorizontalExperienceView()
+          : renderExperienceView()
+      )}
     </>
   );
 }
@@ -3303,6 +3464,176 @@ const Slideshow = ({ images }) => {
         />
       ))}
     </div>
+  );
+};
+
+// Triple Panel Section - 3 videos side by side (desktop only)
+const TriplePanelSection = ({ panelSet, isDesktop, scrollContainerRef }) => {
+  const videoRefs = useRef([null, null, null]);
+  const sectionRef = useRef(null);
+  const hideButtonTimeout = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showButton, setShowButton] = useState(true);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Start each video at a random position when section becomes visible
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting);
+        if (entry.isIntersecting) {
+          // Play all videos from random start positions
+          videoRefs.current.forEach(video => {
+            if (video) {
+              // Set random start time based on video duration
+              const duration = video.duration || 30;
+              video.currentTime = Math.random() * duration;
+              video.play().catch(e => console.log('Play prevented:', e));
+            }
+          });
+        } else {
+          // Pause all videos when not visible
+          videoRefs.current.forEach(video => {
+            if (video) video.pause();
+          });
+        }
+      },
+      { threshold: 0.5 }
+    );
+
+    if (sectionRef.current) {
+      observer.observe(sectionRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  // Track fullscreen state
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement || !!document.webkitFullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
+  const handleMouseMove = () => {
+    if (isFullscreen) {
+      setShowButton(true);
+      clearTimeout(hideButtonTimeout.current);
+      hideButtonTimeout.current = setTimeout(() => {
+        setShowButton(false);
+      }, 2000);
+    }
+  };
+
+  const handleFullscreen = (e) => {
+    e.stopPropagation();
+
+    if (isFullscreen) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      }
+    } else {
+      if (scrollContainerRef?.current) {
+        if (scrollContainerRef.current.requestFullscreen) {
+          scrollContainerRef.current.requestFullscreen();
+        } else if (scrollContainerRef.current.webkitRequestFullscreen) {
+          scrollContainerRef.current.webkitRequestFullscreen();
+        }
+      }
+    }
+  };
+
+  // Track when videos are loaded
+  const handleVideoLoaded = () => {
+    const allLoaded = videoRefs.current.every(v => v && v.readyState >= 3);
+    if (allLoaded) setIsLoaded(true);
+  };
+
+  if (!isDesktop) return null;
+
+  return (
+    <section
+      ref={sectionRef}
+      className="relative w-full"
+      style={{
+        height: '100vh',
+        scrollSnapAlign: 'start',
+        scrollSnapStop: 'always',
+        backgroundColor: '#000',
+        overflow: 'hidden'
+      }}
+      onMouseMove={handleMouseMove}
+    >
+      <div
+        className="flex h-full"
+        style={{
+          width: '100vw'
+        }}
+      >
+        {panelSet.panels.map((src, index) => (
+          <div
+            key={index}
+            className="flex-shrink-0"
+            style={{
+              width: 'calc(100vw / 3)',
+              height: '100vh',
+              overflow: 'hidden'
+            }}
+          >
+            <video
+              ref={el => videoRefs.current[index] = el}
+              src={src}
+              muted
+              loop
+              playsInline
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: 'center'
+              }}
+              onLoadedData={handleVideoLoaded}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Fullscreen button */}
+      {isLoaded && (
+        <button
+          onClick={handleFullscreen}
+          className="absolute top-6 right-6 z-50 transition-opacity duration-300 hover:opacity-100"
+          style={{
+            opacity: (!isFullscreen || showButton) ? 0.7 : 0,
+            padding: '8px',
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '4px',
+            pointerEvents: (!isFullscreen || showButton) ? 'auto' : 'none'
+          }}
+        >
+          {isFullscreen ? (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+            </svg>
+          ) : (
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+            </svg>
+          )}
+        </button>
+      )}
+    </section>
   );
 };
 
