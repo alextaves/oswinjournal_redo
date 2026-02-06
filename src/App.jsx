@@ -288,12 +288,10 @@ function App() {
       artist: 'Christopher Bissonnette',
       albumArt: '#4A90D9',
       tracks: [
-        { name: 'Orffyreus Wheel', src: '/audio/orffyreus_wheel.mp3', available: true },
-        { name: 'A Touch of Heartbreak', src: '/audio/touch_of_heartbreak.mp3', available: true },
-        { name: 'Surcease', src: '/audio/surcease.mp3', available: true },
-        { name: 'Overture', src: '/audio/overture.mp3', available: true },
-        { name: 'Undertow', src: '/audio/undertow.mp3', available: true },
-        { name: 'Color Deceives Continuously', src: '/audio/color_deceives.mp3', available: true }
+        { name: 'Overture', src: '/audio/c_bissonnette/overture.mp3', available: true },
+        { name: 'Orffyreus Wheel', src: '/audio/c_bissonnette/orffyreus_wheel.mp3', available: true },
+        { name: 'Undertow', src: '/audio/c_bissonnette/undertow.mp3', available: true },
+        { name: 'Color Deceives Continuously', src: '/audio/c_bissonnette/color_deceives.mp3', available: true }
       ],
       videos: {
         desktop: [
@@ -384,6 +382,20 @@ function App() {
     }
     // Auto-enter experience view
     handleEnterSite();
+  };
+
+  // Auto-advance to next track when current track ends
+  const handleTrackEnded = () => {
+    if (!selectedIssue || !selectedTrack) return;
+    const availableTracks = selectedIssue.tracks.filter(t => t.available);
+    const currentIndex = availableTracks.findIndex(t => t.src === selectedTrack.src);
+    const nextIndex = (currentIndex + 1) % availableTracks.length;
+    const nextTrack = availableTracks[nextIndex];
+    setSelectedTrack(nextTrack);
+    if (audioRef.current) {
+      audioRef.current.src = nextTrack.src;
+      audioRef.current.play().then(() => setAudioPlaying(true));
+    }
   };
 
   const handleEnterSite = () => {
@@ -2903,7 +2915,7 @@ function App() {
   return (
     <>
       {/* Global audio element - persists across all views */}
-      <audio ref={audioRef} loop />
+      <audio ref={audioRef} onEnded={handleTrackEnded} />
 
       {/* Render the active view */}
       {view === 'archive' && renderArchiveView()}
