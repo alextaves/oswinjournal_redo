@@ -22,8 +22,12 @@ self.addEventListener('install', () => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Cache-first for .mp4 video files
-  if (url.pathname.endsWith('.mp4')) {
+  // Only cache mobile videos (chris_mobile_), pass through desktop/panel videos untouched
+  if (url.pathname.endsWith('.mp4') && url.pathname.includes('chris_mobile_')) {
+    // Skip range requests — let the browser handle partial fetches normally
+    if (event.request.headers.get('range')) {
+      return;
+    }
     event.respondWith(
       caches.open(VIDEO_CACHE).then((cache) =>
         cache.match(event.request).then((cached) => {
@@ -39,6 +43,11 @@ self.addEventListener('fetch', (event) => {
         })
       )
     );
+    return;
+  }
+
+  // Don't intercept other video requests at all — let them stream normally
+  if (url.pathname.endsWith('.mp4')) {
     return;
   }
 

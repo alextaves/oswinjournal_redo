@@ -68,6 +68,31 @@ function App() {
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
+  // Pause all media when app is backgrounded, resume when foregrounded
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        // Pause all videos
+        document.querySelectorAll('video').forEach(v => v.pause());
+        // Pause audio
+        if (audioRef.current) audioRef.current.pause();
+      } else {
+        // Resume active video(s) when returning
+        if (view === 'experience') {
+          phoneVideoRefs.current.forEach((v, i) => {
+            if (v && Math.abs(i - activePhoneIndex) <= 2) v.play().catch(() => {});
+          });
+          // Resume audio if it was playing
+          if (audioRef.current && audioRef.current.src && audioPlaying) {
+            audioRef.current.play().catch(() => {});
+          }
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [view, activePhoneIndex, audioPlaying]);
+
   // Load Substack embed script
   useEffect(() => {
     const script = document.createElement('script');
@@ -2336,15 +2361,16 @@ function App() {
     return container.scrollTop <= 5;
   };
 
-  // Initialize scroll position to first real video (skip clone at start)
+  // Initialize scroll position to first real content (skip clone at start if present)
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || view !== 'experience') return;
 
-    // Start at first real video (second section, index 1)
+    const hasClone = selectedIssue?.slideshow;
     const sections = container.querySelectorAll('section');
-    if (sections.length > 1) {
-      sections[1].scrollIntoView({ behavior: 'auto', block: 'start' });
+    const startIndex = hasClone ? 1 : 0;
+    if (sections.length > startIndex) {
+      sections[startIndex].scrollIntoView({ behavior: 'auto', block: 'start' });
     }
   }, [view]);
 
