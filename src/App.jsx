@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import CreditTitlePage from './CreditTitlePage';
 
 // Main App Component
 function App() {
@@ -22,6 +23,50 @@ function App() {
   const [expandedRead, setExpandedRead] = useState(null);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const deferredInstallPrompt = useRef(null);
+
+  // Detect if running as installed PWA
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;
+
+  // Show install banner on first mobile visit (if not already installed)
+  useEffect(() => {
+    if (isStandalone) return;
+    const dismissed = localStorage.getItem('oswin-install-dismissed');
+    if (!dismissed) {
+      const timer = setTimeout(() => setShowInstallBanner(true), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
+
+  // Capture Android install prompt
+  useEffect(() => {
+    const handler = (e) => {
+      e.preventDefault();
+      deferredInstallPrompt.current = e;
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const dismissInstallBanner = () => {
+    setShowInstallBanner(false);
+    localStorage.setItem('oswin-install-dismissed', 'true');
+  };
+
+  const handleInstallClick = async () => {
+    if (deferredInstallPrompt.current) {
+      deferredInstallPrompt.current.prompt();
+      await deferredInstallPrompt.current.userChoice;
+      deferredInstallPrompt.current = null;
+      setShowInstallBanner(false);
+    } else {
+      setShowInstallBanner(true);
+    }
+  };
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   // Load Substack embed script
   useEffect(() => {
@@ -310,15 +355,40 @@ function App() {
           '/videos/issue2/chris_mobile_loopedMan.mp4'
         ],
         phone: [
-          '/videos/issue2/chris_mobile_ballet01.mp4',
-          '/videos/issue2/chris_mobile_ballet02.mp4',
-          '/videos/issue2/chris_mobile_cropped_runner.mp4',
-          '/videos/issue2/chris_mobile_streetrun.mp4',
-          '/videos/issue2/chris_mobile_loopedMan.mp4',
-          '/videos/issue2/chris_mobile_tokyosubway.mp4',
-          '/videos/issue2/chris_mobile_MenMarch.mp4',
-          '/videos/issue2/chris_mobile_crowd.mp4',
-          '/videos/issue2/chris_mobile_abstracted.mp4'
+          { type: 'title', pageId: 'melbourne-1500m' },
+          '/videos/issue2/chris_mobile_cropped_runner_1.mp4',
+          '/videos/issue2/chris_mobile_cropped_runner_2.mp4',
+          '/videos/issue2/chris_mobile_cropped_runner_3.mp4',
+          '/videos/issue2/chris_mobile_cropped_runner_still.mp4',
+          '/videos/issue2/chris_mobile_a1.mp4',
+          '/videos/issue2/chris_mobile_a2.mp4',
+          '/videos/issue2/chris_mobile_a3.mp4',
+          '/videos/issue2/chris_mobile_a4.mp4',
+          '/videos/issue2/chris_mobile_b1.mp4',
+          '/videos/issue2/chris_mobile_b2.mp4',
+          '/videos/issue2/chris_mobile_looped_run.mp4',
+          '/videos/issue2/chris_mobile_b3.mp4',
+          '/videos/issue2/chris_mobile_b4.mp4',
+          '/videos/issue2/chris_mobile_b5.mp4',
+          { type: 'title', pageId: 'figure-skating' },
+          '/videos/issue2/chris_mobile_closeup_spin_01.mp4',
+          '/videos/issue2/chris_mobile_closeup_spin_02.mp4',
+          '/videos/issue2/chris_mobile_closeup_spin_03.mp4',
+          '/videos/issue2/chris_mobile_closeup_spin_04.mp4',
+          '/videos/issue2/chris_mobile_bluespin_fifth.mp4',
+          '/videos/issue2/chris_mobile_bluespin_gradual01.mp4',
+          '/videos/issue2/chris_mobile_bluespin_gradual02.mp4',
+          '/videos/issue2/chris_mobile_bluespin_gradual03.mp4',
+          { type: 'title', pageId: 'wall-street' },
+          '/videos/issue2/chris_mobile_wallstreet_01.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_02.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_03.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_04.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_05.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_06.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_07.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_08.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_6.mp4'
         ]
       },
       slideshow: null,
@@ -361,6 +431,23 @@ function App() {
             '/videos/issue2/panels/cool_guy_panel1.mp4',
             '/videos/issue2/panels/cool_guy_panel2.mp4',
             '/videos/issue2/panels/cool_guy_panel3.mp4'
+          ]
+        },
+        {
+          name: 'cropped_runner',
+          panels: [
+            '/videos/issue2/panels/cropped_runner_panel1.mp4',
+            '/videos/issue2/panels/cropped_runner_panel2.mp4',
+            '/videos/issue2/panels/cropped_runner_panel3.mp4'
+          ]
+        },
+        {
+          name: 'cropped_runner_mobile',
+          offsets: [0, 0.5, 1.0],
+          panels: [
+            '/videos/issue2/panels/cropped_runner_left.mp4',
+            '/videos/issue2/panels/cropped_runner_middle.mp4',
+            '/videos/issue2/panels/cropped_runner_right.mp4'
           ]
         }
       ]
@@ -446,13 +533,13 @@ function App() {
           style={{
             width: '56px',
             height: '56px',
-            top: '18px',
+            top: '53px',
             right: window.innerWidth <= 768 ? '50%' : '25px',
             transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
-          <span 
+          <span
             className="absolute h-0.5 rounded-full transition-all duration-500"
             style={{ 
               width: '28px',
@@ -828,7 +915,7 @@ function App() {
           style={{
             width: '56px',
             height: '56px',
-            top: '18px',
+            top: '53px',
             right: window.innerWidth <= 768 ? '50%' : '25px',
             transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
@@ -1314,7 +1401,7 @@ function App() {
           style={{
             width: '56px',
             height: '56px',
-            top: '18px',
+            top: '53px',
             right: window.innerWidth <= 768 ? '50%' : '25px',
             transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
@@ -2317,59 +2404,227 @@ function App() {
   };
 
   // Horizontal carousel for Issue 2 mobile
+  const [activePhoneIndex, setActivePhoneIndex] = useState(0);
+  const phoneScrollRef = useRef(null);
+  const phoneVideoRefs = useRef([]);
+  const phoneScrollTimeout = useRef(null);
+
+  useEffect(() => {
+    const container = phoneScrollRef.current;
+    if (!container) return;
+    const onScroll = () => {
+      // Throttle: only update after scrolling stops for 100ms
+      clearTimeout(phoneScrollTimeout.current);
+      phoneScrollTimeout.current = setTimeout(() => {
+        const idx = Math.round(container.scrollLeft / window.innerWidth);
+        setActivePhoneIndex(idx);
+      }, 100);
+    };
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      container.removeEventListener('scroll', onScroll);
+      clearTimeout(phoneScrollTimeout.current);
+    };
+  }, [view]);
+
+  // Play nearby videos, pause distant ones
+  useEffect(() => {
+    phoneVideoRefs.current.forEach((video, i) => {
+      if (!video) return;
+      if (Math.abs(i - activePhoneIndex) <= 2) {
+        video.play().catch(() => {});
+      } else {
+        video.pause();
+      }
+    });
+  }, [activePhoneIndex]);
+
   const renderHorizontalExperienceView = () => {
-    const videos = getVideos();
+    const slides = getVideos();
 
     return (
-      <div
-        ref={scrollContainerRef}
-        style={{
-          display: 'flex',
-          flexDirection: 'row',
-          width: '100%',
-          height: '100%',
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          overflowX: 'scroll',
-          overflowY: 'hidden',
-          backgroundColor: '#000',
-          scrollSnapType: 'x mandatory',
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        {videos.map((videoSrc, index) => (
+      <>
+        <div
+          ref={(el) => { scrollContainerRef.current = el; phoneScrollRef.current = el; }}
+          onClick={() => { if (!showAudioMenu) handleInteraction(); }}
+          style={{
+            display: 'flex',
+            flexDirection: 'row',
+            width: '100%',
+            height: '100%',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            overflowX: 'scroll',
+            overflowY: 'hidden',
+            backgroundColor: '#000',
+            scrollSnapType: 'x proximity',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
+          {slides.map((slide, index) => {
+            const isTitlePage = typeof slide === 'object' && slide.type === 'title';
+            const distance = Math.abs(index - activePhoneIndex);
+            const isLoaded = distance <= 2;
+
+            return (
+              <div
+                key={index}
+                style={{
+                  flexShrink: 0,
+                  width: '100vw',
+                  height: '100vh',
+                  scrollSnapAlign: 'center',
+                  scrollSnapStop: 'always',
+                  position: 'relative',
+                  backgroundColor: isTitlePage ? '#FFFFFF' : '#000'
+                }}
+              >
+                {isTitlePage ? (
+                  <CreditTitlePage pageId={slide.pageId} screenSize="phone" />
+                ) : (
+                  <video
+                    ref={(el) => { phoneVideoRefs.current[index] = el; }}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                    src={isLoaded ? slide : undefined}
+                    loop
+                    muted
+                    playsInline
+                    preload={isLoaded ? 'auto' : 'none'}
+                  />
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Mini Audio Menu Overlay */}
+        {showAudioMenu && (
           <div
-            key={index}
-            style={{
-              flexShrink: 0,
-              width: '100vw',
-              height: '100vh',
-              scrollSnapAlign: 'center',
-              scrollSnapStop: 'always',
-              position: 'relative'
+            className="fixed inset-0 z-40 flex items-center justify-center"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.2)' }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowAudioMenu(false);
             }}
           >
-            <video
+            <div
+              className="w-full max-w-xs px-8 py-8 mx-6"
               style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
+                backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                backdropFilter: 'blur(40px)',
+                WebkitBackdropFilter: 'blur(40px)',
+                borderRadius: '24px',
+                border: '1px solid rgba(255, 255, 255, 0.3)'
               }}
-              src={videoSrc}
-              autoPlay
-              loop
-              muted
-              playsInline
-            />
+            >
+              <div className="space-y-3">
+                {selectedIssue.tracks.filter(t => t.available).map((track, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { handleTrackClick(track); }}
+                    className="block w-full text-left transition-all duration-300"
+                    style={{
+                      fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                      fontWeight: 600,
+                      color: selectedTrack?.name === track.name ? '#1A1A1A' : 'rgba(40, 40, 40, 0.8)',
+                      letterSpacing: '-0.01em',
+                      opacity: selectedTrack?.name === track.name ? 1 : 0.85,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {track.name}
+                  </button>
+                ))}
+                <button
+                  onClick={() => {
+                    setSelectedTrack(null);
+                    if (audioRef.current) {
+                      audioRef.current.pause();
+                      audioRef.current.src = '';
+                      setAudioPlaying(false);
+                    }
+                  }}
+                  className="block w-full text-left transition-all duration-300 italic"
+                  style={{
+                    fontSize: 'clamp(1.25rem, 3vw, 1.5rem)',
+                    fontWeight: 400,
+                    color: !selectedTrack ? '#1A1A1A' : 'rgba(40, 40, 40, 0.6)',
+                    letterSpacing: '-0.01em',
+                    opacity: !selectedTrack ? 1 : 0.7,
+                    cursor: 'pointer'
+                  }}
+                >
+                  silent mode
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAudioMenu(false);
+                    handleBackToArchive();
+                  }}
+                  className="block w-full text-left transition-all duration-300"
+                  style={{
+                    fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                    fontWeight: 500,
+                    color: 'rgba(40, 40, 40, 0.6)',
+                    letterSpacing: '-0.01em',
+                    cursor: 'pointer'
+                  }}
+                >
+                  home
+                </button>
+                {!isStandalone && (
+                  <button
+                    onClick={() => {
+                      setShowAudioMenu(false);
+                      handleInstallClick();
+                    }}
+                    className="block w-full text-left transition-all duration-300"
+                    style={{
+                      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                      fontWeight: 500,
+                      color: 'rgba(40, 40, 40, 0.6)',
+                      letterSpacing: '-0.01em',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    install app
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-        ))}
-      </div>
+        )}
+
+        {/* Circle button */}
+        <div className="fixed z-50 bottom-12 left-0 right-0 flex justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAudioMenu(!showAudioMenu);
+            }}
+            className="transition-all duration-500"
+            style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              backgroundColor: 'rgba(255, 255, 255, 0.5)',
+              cursor: 'pointer',
+              opacity: (showExitButton || showAudioMenu) ? 0.9 : 0,
+              transform: (showExitButton || showAudioMenu) ? 'scale(1)' : 'scale(0.8)',
+              pointerEvents: (showExitButton || showAudioMenu) ? 'auto' : 'none'
+            }}
+          />
+        </div>
+      </>
     );
   };
 
@@ -2413,6 +2668,20 @@ function App() {
         </section>
       )}
 
+      {/* Credit title page - Figure Skating */}
+      {isDesktop && selectedIssue?.id === 2 && (
+        <section
+          className="relative w-full"
+          style={{
+            height: '100vh',
+            scrollSnapAlign: 'start',
+            scrollSnapStop: 'always',
+          }}
+        >
+          <CreditTitlePage pageId="figure-skating" screenSize={screenSize} />
+        </section>
+      )}
+
       {/* Scroll-snap video sections */}
       {videos.map((videoSrc, index) => (
         <VideoSection
@@ -2433,6 +2702,20 @@ function App() {
           setShowCreditInfo={setShowCreditInfo}
         />
       ))}
+
+      {/* Credit title page - Wall Street */}
+      {isDesktop && selectedIssue?.id === 2 && (
+        <section
+          className="relative w-full"
+          style={{
+            height: '100vh',
+            scrollSnapAlign: 'start',
+            scrollSnapStop: 'always',
+          }}
+        >
+          <CreditTitlePage pageId="wall-street" screenSize={screenSize} />
+        </section>
+      )}
 
       {/* Triple Panel Sections - desktop only */}
       {isDesktop && selectedIssue?.panelSets?.map((panelSet, index) => (
@@ -2659,6 +2942,35 @@ function App() {
               >
                 home
               </button>
+              {!isStandalone && (
+                <button
+                  onClick={() => {
+                    setShowAudioMenu(false);
+                    handleInstallClick();
+                  }}
+                  className="block w-full text-left transition-all duration-300"
+                  style={{
+                    fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                    fontWeight: 500,
+                    color: 'rgba(40, 40, 40, 0.6)',
+                    letterSpacing: '-0.01em',
+                    cursor: 'pointer',
+                    transform: 'scale(1)',
+                    filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.transform = 'scale(1.02)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
+                  }}
+                >
+                  install app
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2926,6 +3238,78 @@ function App() {
         selectedIssue.id === 2 && screenSize === 'phone'
           ? renderHorizontalExperienceView()
           : renderExperienceView()
+      )}
+
+      {/* Install PWA Banner */}
+      {showInstallBanner && !isStandalone && screenSize === 'phone' && (
+        <div
+          className="fixed z-50 bottom-0 left-0 right-0 flex justify-center"
+          style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
+        >
+          <div
+            style={{
+              backgroundColor: 'rgba(30, 30, 30, 0.7)',
+              backdropFilter: 'blur(40px)',
+              WebkitBackdropFilter: 'blur(40px)',
+              borderRadius: '16px',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              padding: '16px 20px',
+              margin: '0 20px',
+              maxWidth: '340px',
+              width: '100%'
+            }}
+          >
+            <div style={{
+              fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+              fontSize: '14px',
+              fontWeight: 500,
+              color: '#fff',
+              lineHeight: '1.4',
+              textAlign: 'center',
+              marginBottom: '12px'
+            }}>
+              {isIOS
+                ? 'For the best experience, tap the share button then "Add to Home Screen"'
+                : 'Install Oswin for a fullscreen experience'}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+              {!isIOS && (
+                <button
+                  onClick={() => { handleInstallClick(); dismissInstallBanner(); }}
+                  style={{
+                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    color: '#000',
+                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '8px 16px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  install
+                </button>
+              )}
+              <button
+                onClick={dismissInstallBanner}
+                style={{
+                  fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  backgroundColor: 'transparent',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '8px',
+                  padding: '8px 16px',
+                  cursor: 'pointer'
+                }}
+              >
+                not now
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
@@ -3495,12 +3879,14 @@ const TriplePanelSection = ({ panelSet, isDesktop, scrollContainerRef }) => {
       ([entry]) => {
         setIsVisible(entry.isIntersecting);
         if (entry.isIntersecting) {
-          // Play all videos from random start positions
-          videoRefs.current.forEach(video => {
+          // Play all videos - sync start with optional per-panel offsets
+          const firstVideo = videoRefs.current.find(v => v);
+          const duration = firstVideo?.duration || 30;
+          const syncedStart = Math.random() * duration;
+          const offsets = panelSet.offsets || [0, 0, 0];
+          videoRefs.current.forEach((video, i) => {
             if (video) {
-              // Set random start time based on video duration
-              const duration = video.duration || 30;
-              video.currentTime = Math.random() * duration;
+              video.currentTime = (syncedStart + (offsets[i] || 0)) % duration;
               video.play().catch(e => console.log('Play prevented:', e));
             }
           });
