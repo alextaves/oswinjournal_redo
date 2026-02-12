@@ -68,31 +68,6 @@ function App() {
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
-  // Pause all media when app is backgrounded, resume when foregrounded
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden) {
-        // Pause all videos
-        document.querySelectorAll('video').forEach(v => v.pause());
-        // Pause audio
-        if (audioRef.current) audioRef.current.pause();
-      } else {
-        // Resume active video(s) when returning
-        if (view === 'experience') {
-          phoneVideoRefs.current.forEach((v, i) => {
-            if (v && Math.abs(i - activePhoneIndex) <= 2) v.play().catch(() => {});
-          });
-          // Resume audio if it was playing
-          if (audioRef.current && audioRef.current.src && audioPlaying) {
-            audioRef.current.play().catch(() => {});
-          }
-        }
-      }
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [view, activePhoneIndex, audioPlaying]);
-
   // Load Substack embed script
   useEffect(() => {
     const script = document.createElement('script');
@@ -145,11 +120,8 @@ function App() {
   useEffect(() => {
     const checkScreenSize = () => {
       const width = window.innerWidth;
-      if (width < 768) {
+      if (width < 1400) {
         setScreenSize('phone');
-        setIsDesktop(false);
-      } else if (width < 1024) {
-        setScreenSize('tablet');
         setIsDesktop(false);
       } else {
         setScreenSize('desktop');
@@ -2172,7 +2144,10 @@ function App() {
               >
                 <h4 style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Audio</h4>
                 <p>
-                  Yoni Newman is a musician, artist, and sound designer based in Toronto. As one half of the electronic music and arts duo Karla, he has performed frequently since 2019. As an organizer, he produces the monthly live electronic performance series Hitplay and Rogue Waves festival, and serves as a coordinator for Technowalk Toronto. Following the album "Karla Is Here" in 2019, Karla expanded beyond live music into installation art with the Music Gallery Residency project "Temple Block" in 2022, which rigged actuator motors onto the wooden joists of an old meditation hall and sequenced the playing of the structure itself. He holds a background in fine arts through an MFA studio program at Pennsylvania Academy of the Fine Arts, where he built an AI-driven drawbot and expanded his studio practice. He still maintains a painting and drawing practice, most recently as Resident Artist at the MERZ residency program in Scotland in August 2024.
+                  {selectedIssue?.id === 2
+                    ? 'Christopher Bissonnette is a Canadian musician/sound artist/graphic designer living and working in Windsor/Detroit. He has released four full-length albums for the independent record label Kranky, a release through Russian label Dronarivm, and a collaborative recording with David Wenngren (Library Tapes) on Home Normal. Bissonnette has actively explored visual art, sound and video in a variety of contexts ranging from art galleries to music venues. Over the past twenty years Bissonnette has continued to expand his aural vocabulary and production techniques incorporating elements of music concrete, electroacoustics, field recording and modular synthesis.'
+                    : 'Yoni Newman is a musician, artist, and sound designer based in Toronto. As one half of the electronic music and arts duo Karla, he has performed frequently since 2019. As an organizer, he produces the monthly live electronic performance series Hitplay and Rogue Waves festival, and serves as a coordinator for Technowalk Toronto. Following the album "Karla Is Here" in 2019, Karla expanded beyond live music into installation art with the Music Gallery Residency project "Temple Block" in 2022, which rigged actuator motors onto the wooden joists of an old meditation hall and sequenced the playing of the structure itself. He holds a background in fine arts through an MFA studio program at Pennsylvania Academy of the Fine Arts, where he built an AI-driven drawbot and expanded his studio practice. He still maintains a painting and drawing practice, most recently as Resident Artist at the MERZ residency program in Scotland in August 2024.'
+                  }
                 </p>
                 <a
                   href="https://oswinjournal.substack.com/p/a-thousand-entry-points"
@@ -2435,6 +2410,25 @@ function App() {
   const phoneVideoRefs = useRef([]);
   const phoneScrollTimeout = useRef(null);
 
+  // Pause all media when app is backgrounded, resume when foregrounded
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        document.querySelectorAll('video').forEach(v => v.pause());
+        if (audioRef.current) audioRef.current.pause();
+      } else if (view === 'experience') {
+        phoneVideoRefs.current.forEach((v, i) => {
+          if (v && Math.abs(i - activePhoneIndex) <= 2) v.play().catch(() => {});
+        });
+        if (audioRef.current && audioRef.current.src && audioPlaying) {
+          audioRef.current.play().catch(() => {});
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [view, activePhoneIndex, audioPlaying]);
+
   useEffect(() => {
     const container = phoneScrollRef.current;
     if (!container) return;
@@ -2501,7 +2495,7 @@ function App() {
                 style={{
                   flexShrink: 0,
                   width: '100vw',
-                  height: '100vh',
+                  height: '100%',
                   scrollSnapAlign: 'center',
                   scrollSnapStop: 'always',
                   position: 'relative',
