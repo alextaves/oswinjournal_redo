@@ -91,7 +91,7 @@ function CreditTitlePage({ pageId, screenSize = 'desktop' }) {
       {/* VIDEO CREDITS */}
       <div
         style={{
-          paddingBottom: isMobile ? 24 : 32,
+          paddingBottom: isMobile ? (pageId === 'melbourne-1500m' ? 60 : 24) : 32,
           fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
           fontSize: isMobile ? 18 : 22,
           fontWeight: 700,
@@ -103,6 +103,26 @@ function CreditTitlePage({ pageId, screenSize = 'desktop' }) {
       >
         VIDEO CREDITS
       </div>
+
+      {/* Swipe hint - mobile Melbourne only */}
+      {isMobile && pageId === 'melbourne-1500m' && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 24,
+            left: 0,
+            right: 0,
+            textAlign: 'center',
+            fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+            fontSize: 18,
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            color: '#C0C0C0',
+          }}
+        >
+          swipe →
+        </div>
+      )}
     </div>
   );
 }

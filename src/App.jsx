@@ -342,7 +342,9 @@ function App() {
           '/videos/issue2/chris_desktop_blue3_gradual.mp4',
           '/videos/issue2/chris_desktop_technocolor.mp4',
           '/videos/issue2/chris_desktop_maybe.mp4',
-          '/videos/issue2/chris_desktop_blue3_fifth.mp4'
+          '/videos/issue2/chris_desktop_blue3_fifth.mp4',
+          '/videos/issue2/chris_desktop_pink_spin.mp4',
+          '/videos/issue2/chris_desktop_frantic_slowdown.mp4'
         ],
         tablet: [
           '/videos/issue2/chris_mobile_ballet01.mp4',
@@ -383,6 +385,7 @@ function App() {
           '/videos/issue2/chris_mobile_wallstreet_04.mp4',
           '/videos/issue2/chris_mobile_wallstreet_05.mp4',
           '/videos/issue2/chris_mobile_wallstreet_06.mp4',
+          '/videos/issue2/chris_mobile_wallstreet_07_scroll.mp4',
           '/videos/issue2/chris_mobile_wallstreet_07.mp4',
           '/videos/issue2/chris_mobile_wallstreet_08.mp4',
           '/videos/issue2/chris_mobile_wallstreet_6.mp4'
@@ -530,7 +533,7 @@ function App() {
           style={{
             width: '56px',
             height: '56px',
-            top: '53px',
+            top: window.innerWidth <= 768 ? '53px' : '25px',
             right: window.innerWidth <= 768 ? '50%' : '25px',
             transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
             transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
@@ -2150,22 +2153,28 @@ function App() {
                   }
                 </p>
                 <a
-                  href="https://oswinjournal.substack.com/p/a-thousand-entry-points"
+                  href={selectedIssue?.id === 2
+                    ? 'https://open.substack.com/pub/oswinjournal/p/christopher-bissonnette?r=28jcyn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true'
+                    : 'https://oswinjournal.substack.com/p/a-thousand-entry-points'
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block mt-3 font-semibold transition-all duration-300"
                   style={{
-                    color: '#FF6600',
+                    color: '#0C49D5',
                     fontSize: 'clamp(0.875rem, 2vw, 1rem)'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#FF8833';
+                    e.currentTarget.style.color = '#3A6FE8';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#FF6600';
+                    e.currentTarget.style.color = '#0C49D5';
                   }}
                 >
-                  Read: A Thousand Entry Points →
+                  {selectedIssue?.id === 2
+                    ? 'Read: Noticing the Unnoticed →'
+                    : 'Read: A Thousand Entry Points →'
+                  }
                 </a>
                 <h4 style={{ fontWeight: 600, marginTop: '1rem', marginBottom: '0.5rem' }}>Visuals</h4>
                 <p>
@@ -2267,22 +2276,19 @@ function App() {
                   rel="noopener noreferrer"
                   className="block mt-6 font-bold transition-all duration-300"
                   style={{
-                    fontSize: 'clamp(2.625rem, 6vw, 3rem)',
-                    color: '#FF6600',
-                    letterSpacing: '0.02em',
-                    textTransform: 'uppercase',
-                    lineHeight: 1.2
+                    fontSize: 'clamp(0.875rem, 2vw, 1rem)',
+                    color: '#0C49D5'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.color = '#FF8833';
+                    e.currentTarget.style.color = '#3A6FE8';
                     e.currentTarget.style.transform = 'scale(1.02)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = '#FF6600';
+                    e.currentTarget.style.color = '#0C49D5';
                     e.currentTarget.style.transform = 'scale(1)';
                   }}
                 >
-                  For more words by Oswin Journal
+                  For more words by Oswin Journal →
                 </a>
               </div>
             </div>
@@ -2737,14 +2743,27 @@ function App() {
         </section>
       )}
 
-      {/* Triple Panel Sections - desktop only */}
+      {/* Triple Panel Sections - desktop only, with Melbourne title after cool_guy */}
       {isDesktop && selectedIssue?.panelSets?.map((panelSet, index) => (
-        <TriplePanelSection
-          key={`panel-${panelSet.name}`}
-          panelSet={panelSet}
-          isDesktop={isDesktop}
-          scrollContainerRef={scrollContainerRef}
-        />
+        <React.Fragment key={`panel-${panelSet.name}`}>
+          <TriplePanelSection
+            panelSet={panelSet}
+            isDesktop={isDesktop}
+            scrollContainerRef={scrollContainerRef}
+          />
+          {panelSet.name === 'cool_guy' && selectedIssue?.id === 2 && (
+            <section
+              className="relative w-full"
+              style={{
+                height: '100vh',
+                scrollSnapAlign: 'start',
+                scrollSnapStop: 'always',
+              }}
+            >
+              <CreditTitlePage pageId="melbourne-1500m" screenSize={screenSize} />
+            </section>
+          )}
+        </React.Fragment>
       ))}
 
       {/* Slideshow section */}
@@ -3101,22 +3120,28 @@ function App() {
                 Yoni Newman is a musician, artist, and sound designer based in Toronto. As one half of the electronic music and arts duo Karla, he has performed frequently since 2019. As an organizer, he produces the monthly live electronic performance series Hitplay and Rogue Waves festival, and serves as a coordinator for Technowalk Toronto. Following the album "Karla Is Here" in 2019, Karla expanded beyond live music into installation art with the Music Gallery Residency project "Temple Block" in 2022, which rigged actuator motors onto the wooden joists of an old meditation hall and sequenced the playing of the structure itself. He holds a background in fine arts through an MFA studio program at Pennsylvania Academy of the Fine Arts, where he built an AI-driven drawbot and expanded his studio practice. He still maintains a painting and drawing practice, most recently as Resident Artist at the MERZ residency program in Scotland in August 2024.
               </p>
               <a
-                href="https://oswinjournal.substack.com/p/a-thousand-entry-points"
+                href={selectedIssue?.id === 2
+                  ? 'https://open.substack.com/pub/oswinjournal/p/christopher-bissonnette?r=28jcyn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true'
+                  : 'https://oswinjournal.substack.com/p/a-thousand-entry-points'
+                }
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block mt-3 font-semibold transition-all duration-300"
                 style={{
-                  color: '#FF6600',
+                  color: '#0C49D5',
                   fontSize: 'clamp(0.875rem, 2vw, 1rem)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#FF8833';
+                  e.currentTarget.style.color = '#3A6FE8';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#FF6600';
+                  e.currentTarget.style.color = '#0C49D5';
                 }}
               >
-                Read: A Thousand Entry Points →
+                {selectedIssue?.id === 2
+                  ? 'Read: Noticing the Unnoticed →'
+                  : 'Read: A Thousand Entry Points →'
+                }
               </a>
               <h4 style={{ fontWeight: 600, marginTop: '1rem', marginBottom: '0.5rem' }}>Visuals</h4>
               <p>
@@ -3219,21 +3244,21 @@ function App() {
                 className="block mt-6 font-bold transition-all duration-300"
                 style={{
                   fontSize: 'clamp(2.625rem, 6vw, 3rem)',
-                  color: '#FF6600',
+                  color: '#0C49D5',
                   letterSpacing: '0.02em',
                   textTransform: 'uppercase',
                   lineHeight: 1.2
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.color = '#FF8833';
+                  e.currentTarget.style.color = '#3A6FE8';
                   e.currentTarget.style.transform = 'scale(1.02)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.color = '#FF6600';
+                  e.currentTarget.style.color = '#0C49D5';
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
               >
-                For more words by Oswin Journal
+                For more words by Oswin Journal →
               </a>
             </div>
           </div>
