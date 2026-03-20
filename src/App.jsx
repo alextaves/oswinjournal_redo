@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import CreditTitlePage from './CreditTitlePage';
+import PianoBarsArt from './PianoBarsArt';
 
 // Main App Component
 function App() {
@@ -21,6 +22,8 @@ function App() {
   const [visitedIssues, setVisitedIssues] = useState(new Set());
   const [hoveredIssue, setHoveredIssue] = useState(null);
   const [expandedRead, setExpandedRead] = useState(null);
+  const [activeIssue, setActiveIssue] = useState(3); // newest published issue
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const audioRef = useRef(null);
   const exitButtonTimeout = useRef(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -120,6 +123,7 @@ function App() {
   useEffect(() => {
     const checkScreenSize = () => {
       const width = window.innerWidth;
+      setWindowWidth(width);
       if (width < 1400) {
         setScreenSize('phone');
         setIsDesktop(false);
@@ -454,6 +458,69 @@ function App() {
     }
   ];
 
+  const fadeInAudio = (audio, duration = 4000) => {
+    audio.volume = 0;
+    const steps = 40;
+    const interval = duration / steps;
+    const increment = 1 / steps;
+    const fade = setInterval(() => {
+      if (audio.volume + increment >= 1) {
+        audio.volume = 1;
+        clearInterval(fade);
+      } else {
+        audio.volume += increment;
+      }
+    }, interval);
+  };
+
+  // Cover tracks for the home screen
+  const homeCoverTracks = {
+    1: { name: 'automobile', src: '/audio/automobile.mp3' },
+    2: { name: 'Orffyreus Wheel', src: '/audio/c_bissonnette/orffyreus_wheel.mp3' },
+    3: { name: 'automobile', src: '/audio/automobile.mp3' },
+  };
+
+  // Load + play cover track when on archive and audio is on, or when issue switches
+  useEffect(() => {
+    if (view !== 'archive' || !audioPlaying || !audioRef.current) return;
+    const track = homeCoverTracks[activeIssue];
+    if (!track) return;
+    if (!audioRef.current.src.endsWith(track.src)) {
+      audioRef.current.src = track.src;
+      setSelectedTrack(track);
+      if (activeIssue === 2) {
+        audioRef.current.currentTime = 80;
+        audioRef.current.play().then(() => fadeInAudio(audioRef.current)).catch(() => {});
+        return;
+      }
+    }
+    audioRef.current.play().catch(() => {});
+  }, [activeIssue, view]);
+
+  // Handle audio toggle on/off from home screen
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (audioPlaying) {
+      if (view === 'archive') {
+        const track = homeCoverTracks[activeIssue];
+        if (track) {
+          if (!audioRef.current.src.endsWith(track.src)) {
+            audioRef.current.src = track.src;
+            setSelectedTrack(track);
+            if (activeIssue === 2) {
+              audioRef.current.currentTime = 80;
+              audioRef.current.play().then(() => fadeInAudio(audioRef.current)).catch(() => {});
+              return;
+            }
+          }
+          audioRef.current.play().catch(() => {});
+        }
+      }
+    } else {
+      audioRef.current.pause();
+    }
+  }, [audioPlaying]);
+
   const handleIssueClick = (issue) => {
     setSelectedIssue(issue);
     setVisitedIssues(prev => new Set([...prev, issue.id]));
@@ -484,6 +551,13 @@ function App() {
       audioRef.current.play().then(() => setAudioPlaying(true));
     }
   };
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.addEventListener('ended', handleTrackEnded);
+    return () => audio.removeEventListener('ended', handleTrackEnded);
+  }, [selectedIssue, selectedTrack]);
 
   const handleEnterSite = () => {
     // Mark user as having visited
@@ -526,60 +600,42 @@ function App() {
         opacity: isTransitioning ? 0 : 1
       }}
     >
-        {/* Hamburger Menu - Refined (transforms to X) */}
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="absolute z-50 flex flex-col items-center justify-center gap-2 transition-all duration-500"
-          style={{
-            width: '56px',
-            height: '56px',
-            top: window.innerWidth <= 768 ? '53px' : '25px',
-            right: window.innerWidth <= 768 ? '50%' : '25px',
-            transform: window.innerWidth <= 768 ? 'translateX(50%)' : 'none',
-            transition: 'transform 0.6s cubic-bezier(0.4, 0.0, 0.2, 1)'
-          }}
-        >
-          <span
-            className="absolute h-0.5 rounded-full transition-all duration-500"
-            style={{ 
-              width: '28px',
-              backgroundColor: '#1A1A1A',
-              opacity: 0.6,
-              transform: menuOpen ? 'rotate(45deg)' : 'translateY(-6px)',
-              transformOrigin: 'center'
-            }}
-          />
-          <span 
-            className="absolute h-0.5 rounded-full transition-all duration-500"
-            style={{ 
-              width: '28px',
-              backgroundColor: '#1A1A1A',
-              opacity: menuOpen ? 0 : 0.6,
-              transform: 'translateY(0)'
-            }}
-          />
-          <span 
-            className="absolute h-0.5 rounded-full transition-all duration-500"
-            style={{ 
-              width: '28px',
-              backgroundColor: '#1A1A1A',
-              opacity: 0.6,
-              transform: menuOpen ? 'rotate(-45deg)' : 'translateY(6px)',
-              transformOrigin: 'center'
-            }}
-          />
-        </button>
+        {/* Hamburger handled inline in mobile overlay and tablet/desktop header */}
 
-        {/* Menu Overlay - Staggered animation */}
-        <div 
+        {/* Menu Overlay */}
+        <div
           className={`fixed inset-0 z-40 flex items-center justify-center transition-all duration-700 ${
             menuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
           }`}
-          style={{ 
-            backgroundColor: '#F7F7F5',
+          style={{
+            backgroundColor: windowWidth <= 820 ? 'rgba(255, 255, 255, 0.20)' : '#F7F7F5',
+            backdropFilter: windowWidth <= 820 ? 'blur(2px)' : 'none',
+            WebkitBackdropFilter: windowWidth <= 820 ? 'blur(2px)' : 'none',
             transition: 'opacity 0.7s cubic-bezier(0.4, 0.0, 0.2, 1)'
           }}
         >
+          {/* X close button */}
+          <button
+            onClick={() => setMenuOpen(false)}
+            style={{
+              position: 'absolute',
+              top: '40px',
+              right: '40px',
+              width: '40px',
+              height: '40px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 0
+            }}
+          >
+            <span style={{ position: 'absolute', width: '20px', height: '1px', background: 'linear-gradient(to right, rgba(26,26,26,0.3), rgba(26,26,26,0.75), rgba(26,26,26,0.3))', borderRadius: '2px', transform: 'rotate(45deg)' }} />
+            <span style={{ position: 'absolute', width: '20px', height: '1px', background: 'linear-gradient(to right, rgba(26,26,26,0.3), rgba(26,26,26,0.75), rgba(26,26,26,0.3))', borderRadius: '2px', transform: 'rotate(-45deg)' }} />
+          </button>
+
           <div className="space-y-6">
             {[
               { name: 'home', href: '#home', isHome: true },
@@ -612,28 +668,33 @@ function App() {
                     transitionToView('archive');
                   }
                 }}
-                className="relative block overflow-hidden text-left group"
                 style={{
+                  display: 'block',
                   opacity: menuOpen ? 1 : 0,
                   transform: menuOpen ? 'translateY(0)' : 'translateY(20px)',
                   transition: `all 0.6s cubic-bezier(0.4, 0.0, 0.2, 1) ${i * 0.05}s`,
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  textDecoration: 'none'
                 }}
               >
                 <span
-                  className="block text-2xl font-medium transition-all duration-500 md:text-4xl lg:text-5xl"
                   style={{
-                    color: '#D1D1D1',
+                    display: 'block',
+                    fontSize: '34px',
                     fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-                    letterSpacing: '-0.02em',
-                    lineHeight: 1.2
+                    fontWeight: 700,
+                    letterSpacing: '0.12em',
+                    lineHeight: 1.2,
+                    color: windowWidth <= 820 ? 'white' : '#1A1A1A',
+                    textTransform: 'uppercase',
+                    transition: 'color 0.3s, transform 0.3s'
                   }}
                   onMouseEnter={(e) => {
-                    e.target.style.color = '#1A1A1A';
+                    e.target.style.color = windowWidth <= 820 ? 'rgba(255,255,255,0.5)' : '#D1D1D1';
                     e.target.style.transform = 'translateX(8px)';
                   }}
                   onMouseLeave={(e) => {
-                    e.target.style.color = '#D1D1D1';
+                    e.target.style.color = windowWidth <= 820 ? 'white' : '#1A1A1A';
                     e.target.style.transform = 'translateX(0)';
                   }}
                 >
@@ -644,120 +705,312 @@ function App() {
           </div>
         </div>
 
-        {/* Main Content */}
-        <div
-          className="flex flex-col items-center justify-center min-h-screen px-6 text-center"
-          style={{
-            paddingTop: window.innerWidth <= 768 ? '7rem' : '4rem',
-            paddingBottom: window.innerWidth <= 768 ? '3rem' : '8rem'
-          }}
-        >
-          {/* Title with refined spacing */}
-          <h1
-            className="mb-3 font-semibold whitespace-nowrap"
-            style={{
-              fontSize: 'clamp(1.75rem, 4.5vw, 4.5rem)',
-              letterSpacing: '0.18em',
-              color: '#1A1A1A',
-              fontWeight: 600,
-              lineHeight: 1
-            }}
-          >
-            OSWIN JOURNAL
-          </h1>
-          <p
-            className="mb-24 text-lg italic"
-            style={{
-              color: '#6B7280',
-              fontWeight: 400,
-              letterSpacing: '0.01em'
-            }}
-          >
-            it's audio/visual
-          </p>
+        {/* Main Content — New Home Layout */}
+        {(() => {
+          const w = windowWidth;
+          const isMobileView = w <= 820;
+          const isDesktopView = w >= 1200;
+          const MARGIN = 30;
+          const hn = '"Helvetica Neue", Helvetica, Arial, sans-serif';
 
-          {/* Issue Grid - 8px grid system */}
-          <div className="grid grid-cols-3 gap-12 mb-8 md:gap-16"
-            style={{
-              columnGap: window.innerWidth <= 1280 && window.innerWidth > 768 ? '2.82rem' : undefined,
-              rowGap: window.innerWidth <= 1280 && window.innerWidth > 768 ? '2.17rem' : undefined
-            }}
-          >
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => {
-              const isActive = num === 1 || num === 2;
-              const isVisited = visitedIssues.has(num);
-              const isHovered = hoveredIssue === num;
-              return (
-                <button
-                  key={num}
-                  onClick={() => {
-                    if (num === 1) handleIssueClick(issues[0]);
-                    else if (num === 2) handleIssueClick(issues[1]);
-                  }}
-                  className="relative transition-all duration-500 inline-flex flex-col items-center"
-                  style={{
-                    color: isActive ? '#1A1A1A' : '#D1D1D1',
-                    cursor: isActive ? 'pointer' : 'default',
-                    fontSize: window.innerWidth > 1280 ? 'clamp(2.5rem, 5vw, 4rem)' :
-                             window.innerWidth > 768 ? 'clamp(1.546rem, 3.98vw, 3.98rem)' :
-                             'clamp(1.75rem, 4.5vw, 4.5rem)',
-                    fontWeight: 500,
-                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-                    letterSpacing: '-0.02em',
-                    transform: 'scale(1)'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (isActive) {
-                      setHoveredIssue(num);
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (isActive) {
-                      setHoveredIssue(null);
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }
-                  }}
-                  onMouseDown={(e) => {
-                    if (isActive) {
-                      e.currentTarget.style.transform = 'scale(0.95)';
-                    }
-                  }}
-                  onMouseUp={(e) => {
-                    if (isActive) {
-                      e.currentTarget.style.transform = 'scale(1.05)';
-                    }
-                  }}
-                >
-                  <span>{String(num).padStart(2, '0')}</span>
-                  {isActive && (isHovered || isVisited) && (
-                    <span
-                      style={{
+          const NumbersRow = ({ textColor, underlineColor }) => (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              {[1, 2, 3, 4, 5].map(n => {
+                const published = n <= 3;
+                const isActive = n === activeIssue;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => published && setActiveIssue(n)}
+                    style={{
+                      fontSize: '24px',
+                      fontFamily: hn,
+                      fontWeight: 500,
+                      color: published ? textColor : (isMobileView ? 'rgba(255,255,255,0.3)' : '#C0C0C0'),
+                      cursor: published ? 'pointer' : 'default',
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      position: 'relative',
+                      lineHeight: 1.1
+                    }}
+                  >
+                    {String(n).padStart(2, '0')}
+                    {isActive && (
+                      <span style={{
                         position: 'absolute',
-                        bottom: '0.15em',
-                        width: '90%',
-                        height: '0.088em',
-                        backgroundColor: '#1A1A1A',
-                        transition: 'all 0.3s ease'
-                      }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
+                        bottom: '-3px',
+                        left: 0,
+                        right: 0,
+                        height: '3px',
+                        backgroundColor: underlineColor
+                      }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          );
 
-          <p
-            className="text-base italic"
-            style={{
-              color: '#6B7280',
-              fontWeight: 400,
-              letterSpacing: '0.02em'
-            }}
-          >
-            issue
-          </p>
-        </div>
+          if (isMobileView) {
+            // MOBILE: grey box fills full screen, content overlaid
+            const HamburgerLines = ({ color }) => (
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                style={{ width: '36px', height: '36px', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+              >
+                <span style={{ position: 'absolute', width: '24px', height: '2px', backgroundColor: color, borderRadius: '9999px', transform: menuOpen ? 'rotate(45deg)' : 'translateY(-5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
+                <span style={{ position: 'absolute', width: '24px', height: '2px', backgroundColor: color, borderRadius: '9999px', opacity: menuOpen ? 0 : 1, transition: 'all 0.5s' }} />
+                <span style={{ position: 'absolute', width: '24px', height: '2px', backgroundColor: color, borderRadius: '9999px', transform: menuOpen ? 'rotate(-45deg)' : 'translateY(5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
+              </button>
+            );
+
+            return (
+              <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 0 }}>
+                {/* Cover — furthest back */}
+                {activeIssue === 3 ? (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
+                    <PianoBarsArt audioPlaying={audioPlaying} windowWidth={windowWidth} />
+                  </div>
+                ) : (
+                  <video
+                    key={activeIssue}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+                  >
+                    <source src={
+                      activeIssue === 2 ? '/videos/issue2/chris_mobile_bluespin_gradual02.mp4' :
+                      '/videos/phone_hurdles.mp4'
+                    } type="video/mp4" />
+                  </video>
+                )}
+
+                {/* Single white rectangle from top */}
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1,
+                  background: 'rgba(255, 255, 255, 0.20)',
+                  backdropFilter: 'blur(2px)',
+                  WebkitBackdropFilter: 'blur(2px)',
+                  padding: '52px 20px 30px',
+                  pointerEvents: activeIssue === 3 ? 'none' : 'auto',
+                }}>
+                  {/* Top row: audio off (left) | hamburger (right) */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', pointerEvents: 'auto' }}>
+                    <button
+                      onClick={() => setAudioPlaying(!audioPlaying)}
+                      style={{ fontSize: '16px', fontFamily: hn, fontWeight: 500, letterSpacing: '0.1em', color: '#E8196A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
+                    >
+                      audio {audioPlaying ? 'on' : 'off'}
+                    </button>
+                    <HamburgerLines color="white" />
+                  </div>
+
+                  {/* Issue caption below audio off */}
+                  {(activeIssue === 1 || activeIssue === 2) && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Visual study</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>
+                        {activeIssue === 1 ? 'Karla is Here' : 'Christopher Bissonnette'}
+                      </span>
+                      <span style={{ lineHeight: 1 }}>&nbsp;</span>
+                      <button
+                        onClick={() => handleIssueClick(issues[activeIssue - 1])}
+                        style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                      >enter</button>
+                    </div>
+                  )}
+                  {activeIssue === 3 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano Pieces 1908-1917</span>
+                      <span style={{ lineHeight: 1 }}>&nbsp;</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
+                    </div>
+                  )}
+
+                  {/* OSWIN JOURNAL */}
+                  <h1 style={{
+                    fontSize: 'clamp(20px, 7.5vw, 34px)',
+                    fontFamily: hn, fontWeight: 700, color: 'white',
+                    letterSpacing: '0.12em', margin: '50px 0 0',
+                    lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap'
+                  }}>OSWIN JOURNAL</h1>
+
+                  {/* Subtitle */}
+                  <p style={{
+                    fontSize: '16px', fontStyle: 'italic', fontFamily: hn,
+                    fontWeight: 300, letterSpacing: '0.1em', color: 'white',
+                    textAlign: 'center', margin: '4px 0 16px', lineHeight: 1
+                  }}>it's audio/visual & words...</p>
+
+                  {/* Numbers — 75vw */}
+                  <div style={{ width: '75vw', margin: '0 auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                      {[1, 2, 3, 4, 5].map(n => {
+                        const published = n <= 3;
+                        const isActive = n === activeIssue;
+                        return (
+                          <button
+                            key={n}
+                            onClick={() => published && setActiveIssue(n)}
+                            style={{
+                              fontSize: 'clamp(18px, 6vw, 28px)', fontFamily: hn, fontWeight: 500,
+                              color: published ? 'white' : 'rgba(255,255,255,0.3)',
+                              cursor: published ? 'pointer' : 'default',
+                              background: 'none', border: 'none', padding: 0,
+                              position: 'relative', lineHeight: 1
+                            }}
+                          >
+                            {String(n).padStart(2, '0')}
+                            {isActive && (
+                              <span style={{ position: 'absolute', bottom: '-6px', left: 0, right: 0, height: '3px', backgroundColor: '#E8196A' }} />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // TABLET / DESKTOP
+          const bottomPad = isDesktopView ? 0 : MARGIN;
+          return (
+            <div style={{
+              height: '100vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              paddingTop: MARGIN + 10
+            }}>
+              {/* Header: 3-column flex — audio | OSWIN JOURNAL | hamburger — shared baseline */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                paddingLeft: MARGIN,
+                paddingRight: MARGIN,
+                marginBottom: '0'
+              }}>
+                {/* Left: audio toggle + issue caption */}
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <button
+                    onClick={() => setAudioPlaying(!audioPlaying)}
+                    style={{
+                      fontSize: '16px',
+                      fontFamily: hn,
+                      fontWeight: 500,
+                      letterSpacing: '0.1em',
+                      color: '#E8196A',
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      padding: 0, lineHeight: 1, textAlign: 'left'
+                    }}
+                  >
+                    audio {audioPlaying ? 'on' : 'off'}
+                  </button>
+                  {activeIssue === 1 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Visual study</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Karla is Here</span>
+                      <span style={{ lineHeight: 1 }}>&nbsp;</span>
+                      <button onClick={() => handleIssueClick(issues[activeIssue - 1])} style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>enter</button>
+                    </div>
+                  )}
+                  {activeIssue === 2 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Visual study</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Christopher Bissonnette</span>
+                      <span style={{ lineHeight: 1 }}>&nbsp;</span>
+                      <button onClick={() => handleIssueClick(issues[activeIssue - 1])} style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>enter</button>
+                    </div>
+                  )}
+                  {activeIssue === 3 && (
+                    <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano Pieces 1908-1917</span>
+                      <span style={{ lineHeight: 1 }}>&nbsp;</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Center: OSWIN JOURNAL */}
+                <h1 style={{
+                  fontSize: '34px',
+                  fontFamily: hn,
+                  fontWeight: 700,
+                  color: '#1A1A1A',
+                  letterSpacing: '0.12em',
+                  margin: 0,
+                  lineHeight: 1
+                }}>OSWIN JOURNAL</h1>
+
+                {/* Right: hamburger — centered in row */}
+                <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', alignSelf: 'center' }}>
+                  <button
+                    onClick={() => setMenuOpen(!menuOpen)}
+                    style={{
+                      width: '40px', height: '40px',
+                      position: 'relative',
+                      display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', justifyContent: 'center',
+                      background: 'none', border: 'none', cursor: 'pointer', padding: 0
+                    }}
+                  >
+                    <span style={{ position: 'absolute', width: '20px', height: '1px', background: 'linear-gradient(to right, rgba(26,26,26,0.3), rgba(26,26,26,0.75), rgba(26,26,26,0.3))', borderRadius: '2px', transform: menuOpen ? 'rotate(45deg)' : 'translateY(-5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
+                    <span style={{ position: 'absolute', width: '20px', height: '1px', background: 'linear-gradient(to right, rgba(26,26,26,0.3), rgba(26,26,26,0.75), rgba(26,26,26,0.3))', borderRadius: '2px', opacity: menuOpen ? 0 : 1, transition: 'all 0.5s' }} />
+                    <span style={{ position: 'absolute', width: '20px', height: '1px', background: 'linear-gradient(to right, rgba(26,26,26,0.3), rgba(26,26,26,0.75), rgba(26,26,26,0.3))', borderRadius: '2px', transform: menuOpen ? 'rotate(-45deg)' : 'translateY(5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Subtitle */}
+              <p style={{
+                fontSize: '16px',
+                fontStyle: 'italic',
+                fontFamily: hn,
+                fontWeight: 300,
+                letterSpacing: '0.1em',
+                color: '#1A1A1A',
+                textAlign: 'center',
+                margin: '0 0 20px',
+                lineHeight: 1,
+                paddingLeft: MARGIN,
+                paddingRight: MARGIN
+              }}>it's audio/visual & words...</p>
+
+              {/* Numbers row — middle third of screen */}
+              <div style={{ width: '33.33%', margin: '0 auto', marginBottom: '40px' }}>
+                <NumbersRow textColor="#1A1A1A" underlineColor="#E8196A" />
+              </div>
+
+              {/* Cover — fills remaining space */}
+              <div style={{ flex: 1, marginLeft: MARGIN, marginRight: MARGIN, marginBottom: bottomPad, overflow: 'hidden', position: 'relative' }}>
+                {activeIssue === 3 ? (
+                  <PianoBarsArt audioPlaying={audioPlaying} />
+                ) : (
+                  <video
+                    key={activeIssue}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  >
+                    <source src={
+                      activeIssue === 2 ? '/videos/issue2/chris_desktop_blue3_fifth.mp4' :
+                      isDesktopView ? '/videos/desktop_preRace2.mp4' : '/videos/tablet_zoom.mp4'
+                    } type="video/mp4" />
+                  </video>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Contact Form Modal */}
         {showContactForm && (
@@ -1902,6 +2155,11 @@ function App() {
                     }}
                   >
                     {track.name}
+                    {selectedTrack?.name === track.name && audioPlaying && (
+                      <span className="eq-bars">
+                        <span /><span /><span /><span />
+                      </span>
+                    )}
                   </button>
                 ))}
                 {/* Silent mode option */}
@@ -2568,6 +2826,11 @@ function App() {
                     }}
                   >
                     {track.name}
+                    {selectedTrack?.name === track.name && audioPlaying && (
+                      <span className="eq-bars">
+                        <span /><span /><span /><span />
+                      </span>
+                    )}
                   </button>
                 ))}
                 <button
@@ -2857,6 +3120,11 @@ function App() {
                   }}
                 >
                   {track.name}
+                  {selectedTrack?.name === track.name && audioPlaying && (
+                    <span className="eq-bars">
+                      <span /><span /><span /><span />
+                    </span>
+                  )}
                 </button>
               ))}
               {/* Silent mode option */}
@@ -3598,6 +3866,11 @@ const VideoSection = ({
                   }}
                 >
                   {track.name}
+                  {selectedTrack?.name === track.name && audioPlaying && (
+                    <span className="eq-bars">
+                      <span /><span /><span /><span />
+                    </span>
+                  )}
                 </button>
               ))}
               {/* Silent mode option */}
