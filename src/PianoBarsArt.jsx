@@ -177,7 +177,7 @@ export default function PianoBarsArt({ audioPlaying, windowWidth }) {
     Tone.Transport.timeSignature = MELODY.timeSignature
 
     sampler = new Tone.Sampler(SAMPLES, {
-      baseUrl: 'https://tonejs.github.io/audio/salamander/',
+      baseUrl: '/audio/salamander/',
       onload: () => {
         if (disposed) return
         samplerRef.current = sampler

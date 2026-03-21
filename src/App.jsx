@@ -825,7 +825,7 @@ function App() {
                   {activeIssue === 3 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano Pieces 1908-1917</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908-1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
                     </div>
@@ -931,7 +931,7 @@ function App() {
                   {activeIssue === 3 && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
-                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano Pieces 1908-1917</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908-1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
                     </div>
