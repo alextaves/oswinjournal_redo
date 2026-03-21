@@ -477,7 +477,7 @@ function App() {
   const homeCoverTracks = {
     1: { name: 'automobile', src: '/audio/automobile.mp3' },
     2: { name: 'Orffyreus Wheel', src: '/audio/c_bissonnette/orffyreus_wheel.mp3' },
-    3: { name: 'automobile', src: '/audio/automobile.mp3' },
+    3: null,
   };
 
   // Load + play cover track when on archive and audio is on, or when issue switches
@@ -847,7 +847,7 @@ function App() {
                   }}>it's audio/visual & words...</p>
 
                   {/* Numbers — 75vw */}
-                  <div style={{ width: '75vw', margin: '0 auto' }}>
+                  <div style={{ width: '75vw', margin: '0 auto', pointerEvents: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                       {[1, 2, 3, 4, 5].map(n => {
                         const published = n <= 3;
