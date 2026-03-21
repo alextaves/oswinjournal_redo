@@ -824,17 +824,17 @@ function App() {
                   )}
                   {activeIssue === 3 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908-1917</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908-1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: 'white', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
                     </div>
                   )}
 
                   {/* OSWIN JOURNAL */}
                   <h1 style={{
                     fontSize: 'clamp(20px, 7.5vw, 34px)',
-                    fontFamily: hn, fontWeight: 700, color: 'white',
+                    fontFamily: hn, fontWeight: 700, color: activeIssue === 3 ? '#1A1A1A' : 'white',
                     letterSpacing: '0.12em', margin: '50px 0 0',
                     lineHeight: 1, textAlign: 'center', whiteSpace: 'nowrap'
                   }}>OSWIN JOURNAL</h1>
@@ -842,7 +842,7 @@ function App() {
                   {/* Subtitle */}
                   <p style={{
                     fontSize: '16px', fontStyle: 'italic', fontFamily: hn,
-                    fontWeight: 300, letterSpacing: '0.1em', color: 'white',
+                    fontWeight: 300, letterSpacing: '0.1em', color: activeIssue === 3 ? '#1A1A1A' : 'white',
                     textAlign: 'center', margin: '4px 0 16px', lineHeight: 1
                   }}>it's audio/visual & words...</p>
 
@@ -858,7 +858,7 @@ function App() {
                             onClick={() => published && setActiveIssue(n)}
                             style={{
                               fontSize: 'clamp(18px, 6vw, 28px)', fontFamily: hn, fontWeight: 500,
-                              color: published ? 'white' : 'rgba(255,255,255,0.3)',
+                              color: activeIssue === 3 ? (published ? '#1A1A1A' : 'rgba(0,0,0,0.3)') : (published ? 'white' : 'rgba(255,255,255,0.3)'),
                               cursor: published ? 'pointer' : 'default',
                               background: 'none', border: 'none', padding: 0,
                               position: 'relative', lineHeight: 1
