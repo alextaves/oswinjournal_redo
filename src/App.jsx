@@ -1,10 +1,97 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as Tone from 'tone';
 import CreditTitlePage from './CreditTitlePage';
 import PianoBarsArt from './PianoBarsArt';
 
+function NoiseCanvas({ alpha = 20 }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    const canvas = ref.current
+    let rafId
+    const draw = () => {
+      if (!canvas) return
+      const p = canvas.parentElement
+      if (canvas.width !== p.offsetWidth) canvas.width = p.offsetWidth
+      if (canvas.height !== p.offsetHeight) canvas.height = p.offsetHeight
+      const ctx = canvas.getContext('2d')
+      const img = ctx.createImageData(canvas.width, canvas.height)
+      const d = img.data
+      for (let i = 0; i < d.length; i += 4) {
+        const v = Math.random() * 255 | 0
+        d[i] = d[i + 1] = d[i + 2] = v
+        d[i + 3] = alpha
+      }
+      ctx.putImageData(img, 0, 0)
+      rafId = requestAnimationFrame(draw)
+    }
+    rafId = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(rafId)
+  }, [alpha])
+  return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
+}
+
+function BouncingHum() {
+  const elRef = useRef(null)
+  const pos = useRef(null)
+  const vel = useRef(null)
+  const raf = useRef(null)
+
+  useEffect(() => {
+    const el = elRef.current
+    if (!el) return
+    const w = window.innerWidth
+    const h = window.innerHeight
+    pos.current = { x: w * 0.2, y: h * 0.3 }
+    const angle = (Math.PI / 6) + Math.random() * 0.4
+    const speed = 0.352
+    vel.current = { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed }
+
+    const tick = () => {
+      const cw = window.innerWidth
+      const ch = window.innerHeight
+      const ew = el.offsetWidth
+      const eh = el.offsetHeight
+      let { x, y } = pos.current
+      let { vx, vy } = vel.current
+      x += vx
+      y += vy
+      if (x <= 0)        { x = 0;       vx =  Math.abs(vx) }
+      if (x + ew >= cw)  { x = cw - ew; vx = -Math.abs(vx) }
+      if (y <= 0)        { y = 0;       vy =  Math.abs(vy) }
+      if (y + eh >= ch)  { y = ch - eh; vy = -Math.abs(vy) }
+      pos.current = { x, y }
+      vel.current = { vx, vy }
+      el.style.transform = `translate(${x}px, ${y}px)`
+      raf.current = requestAnimationFrame(tick)
+    }
+    raf.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf.current)
+  }, [])
+
+  return (
+    <div
+      ref={elRef}
+      style={{
+        position: 'absolute', top: 0, left: 0,
+        fontFamily: "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif",
+        fontSize: 'clamp(1.5rem, 2.625vw, 3rem)',
+        fontWeight: 600,
+        letterSpacing: '0.15em',
+        color: 'rgba(0, 0, 0, 0.18)',
+        pointerEvents: 'none',
+        userSelect: 'none',
+        willChange: 'transform',
+        zIndex: 1,
+      }}
+    >
+      HUM
+    </div>
+  )
+}
+
 // Main App Component
 function App() {
-  const [view, setView] = useState('archive'); // 'archive', 'issue-detail', 'experience', 'reads', 'listens'
+  const [view, setView] = useState('archive'); // 'archive', 'issue-detail', 'experience', 'reads', 'listens', 'hum'
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedTrack, setSelectedTrack] = useState(null);
@@ -23,8 +110,11 @@ function App() {
   const [hoveredIssue, setHoveredIssue] = useState(null);
   const [expandedRead, setExpandedRead] = useState(null);
   const [activeIssue, setActiveIssue] = useState(3); // newest published issue
+  const [issue3Screen, setIssue3Screen] = useState(0);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const audioRef = useRef(null);
+  const wallaRef = useRef(null);
+  const wallaFadeRef = useRef(null);
   const exitButtonTimeout = useRef(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const deferredInstallPrompt = useRef(null);
@@ -116,6 +206,19 @@ function App() {
     link.rel = 'stylesheet';
     document.head.appendChild(link);
   }, []);
+
+  // Dynamic document title
+  useEffect(() => {
+    const base = "Oswin Journal";
+    const titleMap = {
+      archive: `${base} — a slow web experience`,
+      experience: `Issue 0${activeIssue} — ${base}`,
+      'issue-detail': `Issue 0${activeIssue} — ${base}`,
+      reads: `Reads — ${base}`,
+      listens: `Listens — ${base}`,
+    };
+    document.title = titleMap[view] ?? `${base} — a slow web experience`;
+  }, [view, activeIssue]);
 
   // Track viewport size for responsive alignment and images
   const [screenSize, setScreenSize] = useState('desktop'); // 'phone', 'tablet', 'desktop'
@@ -455,8 +558,76 @@ function App() {
           ]
         }
       ]
+    },
+    {
+      id: 3,
+      title: 'Arnold Schoenberg Piano 1908–1917',
+      artist: 'Audio Study',
+      albumArt: '#F5DD33',
+      tracks: [],
+      videos: { desktop: [], tablet: [], phone: [] },
+      slideshow: [],
     }
   ];
+
+  const HUM_PARAGRAPHS = [
+    `As you walk through a store, the music and screens change to your taste. But the music is in your head. Everyone has their version. The screens are HUM's — billboards, store displays, transit panels, the lobby screen at your building. Designated surfaces. If you're WOCCA, they go black.`,
+    `Those who hear no music or see no visuals at all are known as WOCCA. They're rare, hardly ever last, and frankly think of themselves as important.`,
+    `The glasses are part of it. Mandatory since UV-C started punching through the atmosphere — Class 4 tinted frames, revised Radiation Protection Standard, you can't legally leave the house without them. Everyone knows they track, the sneakers you lingered on, the team whose scores you check, the exact blue you keep returning to. What most people don't clock is the depth. Every fixation timestamped, every saccade logged, the side of the frame you look at first, the thing you flinched away from. The glasses see what you see. The audio responds.`,
+    `You near the wine aisle at a grocery store and a signal fires from one of the Bluetooth beacons above the shelving. Newer stores use UWB, most still run the old mesh, and the musak shifts to what you'd be doing that night. At least, a prediction. Most nights after work, you buy wine and watch a show. The musak knows the show and will play something that alludes to it. Not the melody per se. A hint.`,
+    `The philosophy behind HUM is to recognise patterns and remove barriers. It was sold to reduce stress, to help with mental health. Everyone was on board.`,
+    `The musak shifts depending on the environment. It's subtle but shown to morph attitudes.`,
+    `The glasses have settings. They don't do anything. Every glance is noted and saved. Ready for when you're weak. Ready to pounce on you. Except in your own home, or at night, though there's a beta program to push the night frames, softer tint, still tracking, marketed as reducing "contrast fatigue." It's catching on. People love the glasses. Chanel. Burberry. Prada does a really beautiful pair in tortoiseshell.`,
+    `The wine aisle is the entry point. Every industry is vying for its share, particularly the dodgier ones. It really took off in the adult industry, it counts on men having types. So every glance is registered and stored, then fed back to you later to reinforce your vulnerabilities. The old algorithms guessed. This one knows.`,
+    `All of it uploads to the parent company's cloud. Sitting there as proof of everything imaginable.`,
+    `So your glance at anything shifts the sound, ever so slightly. It's not music we're talking about here. This is purely generative, the model spitting out audio per frame based on what your eyes just did. But at the same time it could be music. And it's impossible to hear the same thing twice.`,
+    `WOCCA hear nothing. They see a grey city. Everyone else, the whole thing is illuminated.`,
+  ];
+
+  const ISSUE3_SCREENS = [
+    { bg: '#F97316', image: '/images/issue3/orange.jpg' },
+    { type: 'text', bg: '#f5f4f0' },
+    { bg: '#F5DD33', image: '/images/issue3/yellow.jpg' },
+    { bg: '#E8196A', image: '/images/issue3/red.jpg' },
+    { bg: '#9333EA', image: '/images/issue3/purple.jpg' },
+    { bg: '#3B82F6', image: '/images/issue3/blue.jpg' },
+    { bg: '#22C55E', image: '/images/issue3/green.jpg' },
+  ];
+
+  const stopWalla = () => {
+    clearInterval(wallaFadeRef.current);
+    if (wallaRef.current) {
+      wallaRef.current.pause();
+      wallaRef.current.currentTime = 0;
+      wallaRef.current = null;
+    }
+  };
+
+  const handleIssue3Enter = () => {
+    setSelectedIssue(issues[2]);
+    transitionToView('experience');
+    stopWalla();
+    const audio = new Audio('/audio/crowd-walla.wav');
+    audio.loop = true;
+    audio.volume = 0;
+    wallaRef.current = audio;
+    audio.play().catch(() => {});
+    const target = 0.28;
+    const steps = 60;
+    const duration = 6000;
+    const interval = duration / steps;
+    const increment = target / steps;
+    wallaFadeRef.current = setInterval(() => {
+      if (!wallaRef.current) { clearInterval(wallaFadeRef.current); return; }
+      const next = wallaRef.current.volume + increment;
+      if (next >= target) {
+        wallaRef.current.volume = target;
+        clearInterval(wallaFadeRef.current);
+      } else {
+        wallaRef.current.volume = next;
+      }
+    }, interval);
+  };
 
   const fadeInAudio = (audio, duration = 4000) => {
     audio.volume = 0;
@@ -482,9 +653,13 @@ function App() {
 
   // Load + play cover track when on archive and audio is on, or when issue switches
   useEffect(() => {
-    if (view !== 'archive' || !audioPlaying || !audioRef.current) return;
+    if (view !== 'archive' || !audioRef.current) return;
     const track = homeCoverTracks[activeIssue];
-    if (!track) return;
+    if (!track) {
+      audioRef.current.pause();
+      return;
+    }
+    if (!audioPlaying) return;
     if (!audioRef.current.src.endsWith(track.src)) {
       audioRef.current.src = track.src;
       setSelectedTrack(track);
@@ -567,6 +742,7 @@ function App() {
   };
 
   const handleBackToArchive = () => {
+    stopWalla();
     transitionToView('archive', () => {
       setSelectedIssue(null);
       setSelectedTrack(null);
@@ -578,7 +754,7 @@ function App() {
   };
 
   const handleExitExperience = () => {
-    // Return to audio screen (issue-detail), not archive
+    stopWalla();
     setView('issue-detail');
   };
 
@@ -800,7 +976,7 @@ function App() {
                   {/* Top row: audio off (left) | hamburger (right) */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', pointerEvents: 'auto' }}>
                     <button
-                      onClick={() => setAudioPlaying(!audioPlaying)}
+                      onClick={() => { Tone.start(); setAudioPlaying(!audioPlaying); }}
                       style={{ fontSize: '16px', fontFamily: hn, fontWeight: 500, letterSpacing: '0.1em', color: '#E8196A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
                     >
                       audio {audioPlaying ? 'on' : 'off'}
@@ -825,9 +1001,12 @@ function App() {
                   {activeIssue === 3 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908-1917</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908–1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
+                      <button
+                        onClick={handleIssue3Enter}
+                        style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                      >enter</button>
                     </div>
                   )}
 
@@ -844,7 +1023,7 @@ function App() {
                     fontSize: '16px', fontStyle: 'italic', fontFamily: hn,
                     fontWeight: 300, letterSpacing: '0.1em', color: activeIssue === 3 ? '#1A1A1A' : 'white',
                     textAlign: 'center', margin: '4px 0 16px', lineHeight: 1
-                  }}>it's audio/visual & words...</p>
+                  }}>a slow web experience...</p>
 
                   {/* Numbers — 75vw */}
                   <div style={{ width: '75vw', margin: '0 auto', pointerEvents: 'auto' }}>
@@ -899,7 +1078,7 @@ function App() {
                 {/* Left: audio toggle + issue caption */}
                 <div style={{ flex: 1, position: 'relative' }}>
                   <button
-                    onClick={() => setAudioPlaying(!audioPlaying)}
+                    onClick={() => { Tone.start(); setAudioPlaying(!audioPlaying); }}
                     style={{
                       fontSize: '16px',
                       fontFamily: hn,
@@ -931,9 +1110,12 @@ function App() {
                   {activeIssue === 3 && (
                     <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
-                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908-1917</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908–1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>coming soon</span>
+                      <button
+                        onClick={handleIssue3Enter}
+                        style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
+                      >enter</button>
                     </div>
                   )}
                 </div>
@@ -981,7 +1163,7 @@ function App() {
                 lineHeight: 1,
                 paddingLeft: MARGIN,
                 paddingRight: MARGIN
-              }}>it's audio/visual & words...</p>
+              }}>a slow web experience...</p>
 
               {/* Numbers row — middle third of screen */}
               <div style={{ width: '33.33%', margin: '0 auto', marginBottom: '40px' }}>
@@ -3536,6 +3718,145 @@ function App() {
     );
   };
 
+  const renderIssue3Experience = () => {
+    const HN = '"Helvetica Neue", Helvetica, Arial, sans-serif';
+    const isDesktopView = windowWidth > 820;
+    const blueScale = {
+      C4: 'rgba(232, 232, 228, 0.28)', D4: 'rgba(199, 207, 223, 0.34)',
+      E4: 'rgba(166, 181, 218, 0.40)', F4: 'rgba(133, 156, 213, 0.46)',
+      G4: 'rgba(100, 131, 208, 0.51)', A4: 'rgba(66,  106, 203, 0.57)',
+      B4: 'rgba(33,  80,  198, 0.63)', C5: 'rgba(0,   55,  193, 0.69)',
+    };
+    const screen = ISSUE3_SCREENS[issue3Screen];
+    const { bg } = screen;
+    const isTextScreen = screen.type === 'text';
+    const total = ISSUE3_SCREENS.length;
+    const screenBarImages = isTextScreen ? null : Array(8).fill(screen.image);
+    const goPrev = () => setIssue3Screen(s => (s - 1 + total) % total);
+    const goNext = () => setIssue3Screen(s => (s + 1) % total);
+
+    const arrowStyle = {
+      position: 'absolute', top: '50%', transform: 'translateY(-50%)',
+      zIndex: 20, background: 'none', border: 'none', cursor: 'pointer',
+      padding: 12, color: 'rgba(26,26,26,0.35)',
+      display: 'flex', alignItems: 'center',
+    };
+
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: bg, transition: 'background-color 0.5s ease' }}>
+
+        {isTextScreen ? (
+          <div style={{ position: 'absolute', inset: 0, fontFamily: "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
+            {/* Background static */}
+            <NoiseCanvas alpha={22} />
+            {/* Bouncing HUM — behind the white rectangle */}
+            <BouncingHum />
+            {/* Scrollable text — centred across full screen width, on top of HUM */}
+            <div
+              style={{ position: 'absolute', inset: 0, overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: isDesktopView ? '72px 48px 96px' : '52px 28px 80px', zIndex: 2 }}
+              onTouchStart={(e) => { const t = e.touches[0]; e.currentTarget._tx = t.clientX; e.currentTarget._ty = t.clientY; }}
+              onTouchEnd={(e) => {
+                const dx = e.changedTouches[0].clientX - (e.currentTarget._tx ?? 0);
+                const dy = e.changedTouches[0].clientY - (e.currentTarget._ty ?? 0);
+                if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                  dx < 0 ? goNext() : goPrev();
+                }
+              }}
+            >
+              <div style={{ width: '50vw', background: 'rgba(255,255,255,0.45)', padding: isDesktopView ? '52px 56px' : '36px 28px', boxShadow: '0 2px 40px rgba(0,0,0,0.07)', backdropFilter: 'blur(2px)' }}>
+                {HUM_PARAGRAPHS.map((p, i) => (
+                  <p key={i} style={{ fontSize: 15, lineHeight: 1.8, color: '#1a1a1a', marginBottom: 24, fontWeight: 400, letterSpacing: '0.01em' }}>
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </div>
+            {/* Small bar rectangles — centred in left and right margins */}
+            {isDesktopView && (
+              <>
+                <div style={{ position: 'absolute', left: 'calc(12.5vw - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3 }}>
+                  <PianoBarsArt
+                    audioPlaying={audioPlaying}
+                    windowWidth={windowWidth}
+                    background="#ece9e2"
+                    barImages={[]}
+                    barColors={blueScale}
+                  />
+                </div>
+                <div style={{ position: 'absolute', left: 'calc(87.5vw - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3 }}>
+                  <PianoBarsArt
+                    audioPlaying={audioPlaying}
+                    windowWidth={windowWidth}
+                    background="#ece9e2"
+                    barImages={[]}
+                    barColors={blueScale}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <PianoBarsArt
+            audioPlaying={audioPlaying}
+            windowWidth={windowWidth}
+            barImages={screenBarImages}
+            background="transparent"
+            onSwipeLeft={goNext}
+            onSwipeRight={goPrev}
+          />
+        )}
+
+        {/* Touch-anywhere-to-start overlay when audio is off */}
+        {!audioPlaying && (
+          <div
+            style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'pointer', touchAction: 'manipulation' }}
+            onClick={() => { Tone.start(); setAudioPlaying(true); }}
+            onTouchStart={(e) => { e.preventDefault(); Tone.start(); setAudioPlaying(true); }}
+          >
+            <div style={{ position: 'absolute', bottom: 52, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+              <span style={{ fontFamily: HN, fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.45)' }}>touch to begin</span>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop prev/next arrows */}
+        {isDesktopView && (
+          <>
+            <button onClick={goPrev} style={{ ...arrowStyle, left: 20 }} aria-label="Previous">
+              <svg width="13" height="22" viewBox="0 0 13 22" fill="none">
+                <polyline points="11,1 1,11 11,21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+            <button onClick={goNext} style={{ ...arrowStyle, right: 20 }} aria-label="Next">
+              <svg width="13" height="22" viewBox="0 0 13 22" fill="none">
+                <polyline points="1,1 11,11 1,21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </button>
+          </>
+        )}
+
+        {/* Back to home */}
+        <button
+          onClick={handleBackToArchive}
+          style={{ position: 'absolute', top: 20, left: isDesktopView ? 52 : 20, zIndex: 20, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+          aria-label="Back"
+        >
+          <svg width="22" height="14" viewBox="0 0 22 14" fill="none">
+            <polyline points="8,1 1,7 8,13" stroke="rgba(26,26,26,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <line x1="1" y1="7" x2="21" y2="7" stroke="rgba(26,26,26,0.35)" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+
+        {/* Screen indicator dots */}
+        <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 8, zIndex: 20, pointerEvents: 'none' }}>
+          {ISSUE3_SCREENS.map((_, i) => (
+            <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i === issue3Screen ? 'rgba(26,26,26,0.55)' : 'rgba(26,26,26,0.2)', transition: 'background 0.3s' }} />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   // Single return with persistent audio element
   return (
     <>
@@ -3547,7 +3868,8 @@ function App() {
       {view === 'reads' && renderReadsView()}
       {view === 'listens' && renderListensView()}
       {view === 'issue-detail' && selectedIssue && renderIssueDetailView()}
-      {view === 'experience' && selectedIssue && (
+      {view === 'experience' && selectedIssue?.id === 3 && renderIssue3Experience()}
+      {view === 'experience' && selectedIssue && selectedIssue.id !== 3 && (
         selectedIssue.id === 2 && screenSize === 'phone'
           ? renderHorizontalExperienceView()
           : renderExperienceView()
