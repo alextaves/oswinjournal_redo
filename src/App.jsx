@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import * as Tone from 'tone';
 import CreditTitlePage from './CreditTitlePage';
 import PianoBarsArt from './PianoBarsArt';
+import HumMixer from './HumMixer';
 
 function NoiseCanvas({ alpha = 20 }) {
   const ref = useRef(null)
@@ -30,61 +31,107 @@ function NoiseCanvas({ alpha = 20 }) {
   return <canvas ref={ref} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
 }
 
-function BouncingHum() {
-  const elRef = useRef(null)
-  const pos = useRef(null)
-  const vel = useRef(null)
-  const raf = useRef(null)
+const DETROIT_IMAGES = [
+  '/images/detroit/01.jpg','/images/detroit/02.jpg','/images/detroit/04.jpg',
+  '/images/detroit/06.jpg','/images/detroit/07 copy 2.jpg','/images/detroit/07 copy.jpg',
+  '/images/detroit/08.jpg','/images/detroit/08b copy.jpg','/images/detroit/09.jpg',
+  '/images/detroit/10.jpg','/images/detroit/11.jpg','/images/detroit/12.jpg',
+  '/images/detroit/13.jpg','/images/detroit/15.jpg','/images/detroit/16.jpg',
+  '/images/detroit/17.jpg','/images/detroit/18.jpg','/images/detroit/20.jpg',
+  '/images/detroit/21.jpg','/images/detroit/23.jpg','/images/detroit/24 copy.jpg',
+  '/images/detroit/24.jpg','/images/detroit/25.jpg','/images/detroit/26.jpg',
+  '/images/detroit/27.jpg','/images/detroit/28 copy.jpg','/images/detroit/28.jpg',
+  '/images/detroit/29.jpg','/images/detroit/30.jpg','/images/detroit/31 copy.jpg',
+  '/images/detroit/32b copy.jpg',
+]
+
+function StrobeImages({ triggerRef, viewMode }) {
+  const containerRef = useRef(null)
+  const viewModeRef = useRef(viewMode)
+  useEffect(() => { viewModeRef.current = viewMode }, [viewMode])
 
   useEffect(() => {
-    const el = elRef.current
-    if (!el) return
-    const w = window.innerWidth
-    const h = window.innerHeight
-    pos.current = { x: w * 0.2, y: h * 0.3 }
-    const angle = (Math.PI / 6) + Math.random() * 0.4
-    const speed = 0.352
-    vel.current = { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed }
+    const container = containerRef.current
+    if (!container) return
 
-    const tick = () => {
-      const cw = window.innerWidth
-      const ch = window.innerHeight
-      const ew = el.offsetWidth
-      const eh = el.offsetHeight
-      let { x, y } = pos.current
-      let { vx, vy } = vel.current
-      x += vx
-      y += vy
-      if (x <= 0)        { x = 0;       vx =  Math.abs(vx) }
-      if (x + ew >= cw)  { x = cw - ew; vx = -Math.abs(vx) }
-      if (y <= 0)        { y = 0;       vy =  Math.abs(vy) }
-      if (y + eh >= ch)  { y = ch - eh; vy = -Math.abs(vy) }
-      pos.current = { x, y }
-      vel.current = { vx, vy }
-      el.style.transform = `translate(${x}px, ${y}px)`
+    triggerRef.current = () => {
+      if (viewModeRef.current === 'read') return
+      const src = DETROIT_IMAGES[Math.floor(Math.random() * DETROIT_IMAGES.length)]
+      const img = document.createElement('img')
+      img.src = encodeURI(src)
+      let x, y
+      {
+        x = Math.random() * (window.innerWidth - 220)
+        y = Math.random() * (window.innerHeight - 220)
+      }
+      img.style.cssText = [
+        'position:absolute',
+        `left:${x}px`,
+        `top:${y}px`,
+        'height:200px',
+        'width:auto',
+        'opacity:0',
+        'transition:opacity 150ms ease',
+        'pointer-events:none',
+        'z-index:1',
+        'border-radius:3px',
+        'mask-image:radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+        '-webkit-mask-image:radial-gradient(ellipse 90% 90% at 50% 50%, black 60%, transparent 100%)',
+      ].join(';')
+      container.appendChild(img)
+      requestAnimationFrame(() => requestAnimationFrame(() => { img.style.opacity = '0.75' }))
+      setTimeout(() => {
+        img.style.transition = 'opacity 300ms ease'
+        img.style.opacity = '0'
+        setTimeout(() => img.remove(), 320)
+      }, 1500)
+    }
+
+    return () => { triggerRef.current = null }
+  }, [triggerRef])
+
+  return <div ref={containerRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1 }} />
+}
+
+function StackedHum({ word = 'HUM', color = 'rgba(0, 55, 193, 0.69)', fontSize = 'clamp(1.125rem, 1.968vw, 2.25rem)' }) {
+  const letterRefs = useRef([])
+  const raf = useRef(null)
+  const startTime = useRef(null)
+  const letters = word.split('')
+
+  useEffect(() => {
+    const speed = 0.0005
+    const amplitude = () => (letterRefs.current[0]?.offsetWidth ?? 25) * 0.75
+
+    const tick = (ts) => {
+      if (!startTime.current) startTime.current = ts
+      const offset = Math.sin((ts - startTime.current) * speed) * amplitude()
+      letterRefs.current.forEach((el, i) => {
+        if (el) el.style.transform = `translateX(${i % 2 === 0 ? offset : -offset}px)`
+      })
       raf.current = requestAnimationFrame(tick)
     }
     raf.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf.current)
   }, [])
 
+  const letterStyle = {
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+    fontSize,
+    fontWeight: 600,
+    color,
+    userSelect: 'none',
+    lineHeight: 0.9,
+    marginBottom: '5px',
+    willChange: 'transform',
+    display: 'block',
+  }
+
   return (
-    <div
-      ref={elRef}
-      style={{
-        position: 'absolute', top: 0, left: 0,
-        fontFamily: "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif",
-        fontSize: 'clamp(1.5rem, 2.625vw, 3rem)',
-        fontWeight: 600,
-        letterSpacing: '0.15em',
-        color: 'rgba(0, 0, 0, 0.18)',
-        pointerEvents: 'none',
-        userSelect: 'none',
-        willChange: 'transform',
-        zIndex: 1,
-      }}
-    >
-      HUM
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      {letters.map((l, i) => (
+        <span key={i} ref={el => letterRefs.current[i] = el} style={letterStyle}>{l}</span>
+      ))}
     </div>
   )
 }
@@ -96,6 +143,7 @@ function App() {
   const [selectedIssue, setSelectedIssue] = useState(null);
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [showExitButton, setShowExitButton] = useState(false);
+  const [issue3Fullscreen, setIssue3Fullscreen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -111,11 +159,16 @@ function App() {
   const [expandedRead, setExpandedRead] = useState(null);
   const [activeIssue, setActiveIssue] = useState(3); // newest published issue
   const [issue3Screen, setIssue3Screen] = useState(0);
+  const [issue3ViewMode, setIssue3ViewMode] = useState('read');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const audioRef = useRef(null);
   const wallaRef = useRef(null);
   const wallaFadeRef = useRef(null);
+  const rainRef = useRef(null);
+  const rainFadeRef = useRef(null);
+  const strobeSpawnRef = useRef(null);
   const exitButtonTimeout = useRef(null);
+  const trackPositionsRef = useRef({});
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const deferredInstallPrompt = useRef(null);
 
@@ -571,27 +624,57 @@ function App() {
   ];
 
   const HUM_PARAGRAPHS = [
-    `As you walk through a store, the music and screens change to your taste. But the music is in your head. Everyone has their version. The screens are HUM's — billboards, store displays, transit panels, the lobby screen at your building. Designated surfaces. If you're WOCCA, they go black.`,
-    `Those who hear no music or see no visuals at all are known as WOCCA. They're rare, hardly ever last, and frankly think of themselves as important.`,
-    `The glasses are part of it. Mandatory since UV-C started punching through the atmosphere — Class 4 tinted frames, revised Radiation Protection Standard, you can't legally leave the house without them. Everyone knows they track, the sneakers you lingered on, the team whose scores you check, the exact blue you keep returning to. What most people don't clock is the depth. Every fixation timestamped, every saccade logged, the side of the frame you look at first, the thing you flinched away from. The glasses see what you see. The audio responds.`,
-    `You near the wine aisle at a grocery store and a signal fires from one of the Bluetooth beacons above the shelving. Newer stores use UWB, most still run the old mesh, and the musak shifts to what you'd be doing that night. At least, a prediction. Most nights after work, you buy wine and watch a show. The musak knows the show and will play something that alludes to it. Not the melody per se. A hint.`,
-    `The philosophy behind HUM is to recognise patterns and remove barriers. It was sold to reduce stress, to help with mental health. Everyone was on board.`,
-    `The musak shifts depending on the environment. It's subtle but shown to morph attitudes.`,
-    `The glasses have settings. They don't do anything. Every glance is noted and saved. Ready for when you're weak. Ready to pounce on you. Except in your own home, or at night, though there's a beta program to push the night frames, softer tint, still tracking, marketed as reducing "contrast fatigue." It's catching on. People love the glasses. Chanel. Burberry. Prada does a really beautiful pair in tortoiseshell.`,
-    `The wine aisle is the entry point. Every industry is vying for its share, particularly the dodgier ones. It really took off in the adult industry, it counts on men having types. So every glance is registered and stored, then fed back to you later to reinforce your vulnerabilities. The old algorithms guessed. This one knows.`,
-    `All of it uploads to the parent company's cloud. Sitting there as proof of everything imaginable.`,
+    `As you walk through a store, the music and screens change to your taste. But the music is in your head. Everyone has their version. The screens are Hum's, billboards, store displays, transit panels, the lobby screen at your building. Designated surfaces. If you're WOCCA, they go black. I've lowered my glasses a few times out of curiosity. Not wearing them seems sad and lonely.`,
+    `Those who hear no music or see no visuals at all are known as WOCCA. Apparently they're around, I don't know any.`,
+    `The glasses are part of it. Mandatory since UV-C started punching through the atmosphere. Class 4 tinted frames, revised Radiation Protection Standard, you can't legally leave the house without them. Everyone knows they track. The sneakers you linger on, the sports team whose scores you check, the exact blue you keep returning to. What most people don't clock is the depth. Every fixation timestamped, every saccade logged. The glasses see what you see, and the audio responds.`,
+    `You near the wine aisle at a grocery store and a signal fires from one of the Knowisphere mesh beacons above the shelving. Newer stores use KWM III, most still run the old mesh. The musak shifts to what you'd be doing that night. At least, a prediction. Most nights after work, you buy wine and watch a show. The musak knows the show and will play something that alludes to it. Not the melody per se. A hint. Or if you are heading to see your sport team play, the atmosphere shifts through sight and sound to let you pre-enjoy self. Of course you can adjust the settings. I'm hungry, or I need to prep for an exam. Billboard screens turn into cue cards.`,
+    `Every glance is noted and saved. Except in your own home, or at night, though there's a beta program to push the night frames, softer tint, still tracking, marketed as reducing contrast fatigue. It's catching on. People love the glasses. Chanel. Burberry. Prada does a really beautiful pair in tortoiseshell.`,
+    `Every industry is vying for its share, particularly the dodgier ones. It really took off in the adult industry, it counts on men having types. Social media used to guess. Hum doesn't have to. Someone you saw on the subway reappears later as a tease.`,
     `So your glance at anything shifts the sound, ever so slightly. It's not music we're talking about here. This is purely generative, the model spitting out audio per frame based on what your eyes just did. But at the same time it could be music. And it's impossible to hear the same thing twice.`,
     `WOCCA hear nothing. They see a grey city. Everyone else, the whole thing is illuminated.`,
   ];
 
+  const GRAFT_PARAGRAPHS = [
+    `Synthetic to organic. Fibreglass to oak. Silicone to rose stem.`,
+    `It started with lawns. The first generation focused on creating a self-caring lawn. The grass blades grew exactly an inch and stopped. It smelled, and more or less looked, real, and was sold to families wanting the perfect lawn but lacking the time to really care for it. The pitch was set and forget it. It gained popularity fast, but then the backlash came. It looked too perfect. No lawn looks like that. The second generation fixed it. The science got smarter. It introduced irregularity. Some blades were wider, some thin, some deep green, some struggling to survive. A random variable was introduced into the code and the outcome was a real-looking lawn. A patch near the driveway looked worn in. A slight dip in the ground looked slightly over-watered. Third and fourth generations rolled out, and within five years synthetic/real and organic lawns looked indistinguishable. Over a decade, the distinction had stopped mattering. People eventually no longer knew what theirs was.`,
+    `The next phase became a playground of strange experiments, particularly in cutting-edge cuisines. The oliverry was the most popular: olive grafted to cherry, an eight-month dinner-party story. Other combinations had their moment. The craze went on for a couple of years. Then it was nothing.`,
+    `The next generation is different.`,
+    `The combinations became more extreme. The new science that merged biology and computer programming, called bioinformatics, went through a period of wild experimentation. The grass had been a mild version of what came after.`,
+    `A tree was the outer wrapper. Inside the tree were leaves, fruit, flowers, trunk, branches, stems, all smaller functions that wove together to keep the tree alive. Each function carried its own set of instructions. The instructions functioned as memory. The variables (temperature, moisture, wind, soil pH) were a separate problem, and not a small one.`,
+    `Sir Jagadish Chandra Bose, a Bengali physicist, had said in 1902 that plants responded. Bioinformatics, a hundred and twenty years later, said: if they respond, they compute. If they compute, they can be programmed.`,
+    `The breakthroughs seemed to be happening weekly. Bioinformaticians could confuse trees by replacing the memory of an inner function. Drawing on Rupert Sheldrake's morphic resonance: an oak grows oak leaves because every previous oak grew oak leaves. Memory is the field, not the seed. Researchers found they could rewrite the field. Strange outcomes followed. A banana apple tree (not very successful). A lot of these are in the wild now, spreading like weeds in some cases. A new variety of bioinfo natives.`,
+    `The next era came with speed, by combining self-creating synthetics, known as autopoiesis, into the tree. Autopoiesis was an old idea. Two Chilean biologists had named it in the early 1970s, around the same time bioinformatics started to find its feet. Like Bose, like Sheldrake, the establishment had let it sit on a shelf for fifty years before someone needed it.`,
+    `Most of this was done in a lab. But clever individuals got hold of the inner mechanics. The practice didn't stay contained to houseplants. Plant collage, it got called. Most of the home results were Frankenstein. A few were good.`,
+    `The forests came next. Bioinformaticians, climate scientists, and autopoiesis researchers all saw an opportunity. Trees were grown in labs first, then released into the wild at accelerated rates. Instead of gaining one ring per year, a tree gained ten. A ten-year-old tree carried the structure of a hundred-year-old. If you sat still, you could literally see the tree grow. Some grew silicone into bark, which protected the tree from disease and environmental stress.`,
+    `Then came the buildings.`,
+    `The first hybrid apartment block went up in Hefei. Load-bearing walls made from polymer-cellulose composite, seeded at the edges with mycelium designed to grow over the structure within five years. By the time the tenants moved in, the exterior and some of the interior were organic. The building was legally a plant.`,
+    `The floors grew denser in high-traffic areas, and thin where nobody walked. The rooms adjusted to your life over time. Because it was programmable, you could influence the design: the colour, the addition of a new room. Things were far from instant. If you wanted red walls, they would slowly arrive within a few weeks.`,
+    `Next came sending versions of this to the moon. Plants were designed to release oxygen and carbon dioxide simultaneously, so the lack of atmosphere was no longer an issue.`,
+    `And so here we are…`,
+  ];
+
+  const SIPHON_PARAGRAPHS = [
+    `She located her phone at the bottom of her bag, one hand on the steering wheel. Blinkers and wipers were constantly confused, and the music was a bit too loud. She sat too close to the steering wheel. Today she pumped an extra spray of perfume, the newest J.Lo.`,
+    `So Billy pulled me into his computer cave last night, she said. He's always trying to get me in there to show me what he is doing. I'm like, babe, you need to give this a rest. I guess it's cool. He showed me this interface of a website and typed his name, and uploaded ten images of himself, when he was a kid, from last week, in group shots, you name it. And the photographs started arriving by the hundreds within a few minutes. It didn't stop. Hundreds more.`,
+    `He went on to tell me to think of it like a cloud architecture that was like ivy going through brickwork. iCloud, Dropbox, Google Photos, OneDrive, Instagram, TikTok, Snapchat, every image reservoir on the planet, tapped at what he calls the API level, which sounds like some sort of patch cord to suck data from a source. But it didn't stop at the cloud. It wormed into local storage, DCIM folders on phones, cached thumbnails on laptops, even the ghost files, the ones users thought they'd deleted. They weren't deleted. They never were.`,
+    `Within seventy-two hours, he had indexed something like eleven billion images. Within a week, forty-three billion, or was it a million? Security cameras, dashcams, Ring, ATM feeds, body-worn footage, anything that passed through a network, even briefly, got swept into the architecture. No permissions. No warrants. No one even noticed.`,
+    `Then he started in on the next part.`,
+    `He built this facial recognition engine that can reconstruct a face from just a fragment of an image. You know when you go to open your phone and it does that face thing, sometimes you didn't even do it right and it still knows it's you. It's like that, but even crazier. All it needs is a jawline or an ear. It's near perfectly accurate, too. He found images of himself that didn't even make sense at first. He was reflected in a store window, looking at his phone. The photo was of a family on holiday; he just happened to be in the reflection. It's kind of bananas.`,
+    `He called the database Siphon. He says it's an art project, which is fine. He wants to take over the Tate, of all places, like they'd just hand him a wing, and showcase one person's life in every possible way. You start at one end, the beginning of a person's life, and as you walk through images, projections of every conceivable moment are all on display. And this could be done for anyone. He wants the first exhibit to be of himself. He's not part of the art scene, so he sent the curation team 1000 photos of themselves as a friendly gesture with a note saying I have more. I was like babe, that's a bit much don't ya think? I guess it's sweet - but a bit weird.`,
+    `Yeah, so that's my boyfriend. Weird, right. I'm like, babe, let's go see a movie. Let's go to Target or to the mall. Let the database go for a day.`,
+    `Her friend Cheryl, seeming a bit confused, went into her purse, pulled out a candy, unwrapped it methodically, then folded the wrapper and placed it in her pocket. She popped the candy in her mouth and continued scrolling through Instagram. Well, at least he does stuff.`,
+  ];
+
   const ISSUE3_SCREENS = [
-    { bg: '#F97316', image: '/images/issue3/orange.jpg' },
-    { type: 'text', bg: '#f5f4f0' },
-    { bg: '#F5DD33', image: '/images/issue3/yellow.jpg' },
-    { bg: '#E8196A', image: '/images/issue3/red.jpg' },
-    { bg: '#9333EA', image: '/images/issue3/purple.jpg' },
+    { bg: '#F5DD33', image: '/images/issue3/yellow.jpg', id: 'yellow' },
+    { type: 'text', bg: '#f5f4f0', id: 'hum' },
+    { bg: '#22C55E', image: '/images/issue3/green.jpg', id: 'green' },
+    { type: 'text', bg: '#f5f4f0', id: 'graft' },
+    { type: 'text', bg: '#f5f4f0', id: 'siphon' },
     { bg: '#3B82F6', image: '/images/issue3/blue.jpg' },
-    { bg: '#22C55E', image: '/images/issue3/green.jpg' },
+    { bg: '#9333EA', image: '/images/issue3/purple.jpg' },
+    { bg: '#E8196A', image: '/images/issue3/red.jpg' },
+    { bg: '#F97316', image: '/images/issue3/orange.jpg' },
   ];
 
   const stopWalla = () => {
@@ -606,27 +689,6 @@ function App() {
   const handleIssue3Enter = () => {
     setSelectedIssue(issues[2]);
     transitionToView('experience');
-    stopWalla();
-    const audio = new Audio('/audio/crowd-walla.wav');
-    audio.loop = true;
-    audio.volume = 0;
-    wallaRef.current = audio;
-    audio.play().catch(() => {});
-    const target = 0.28;
-    const steps = 60;
-    const duration = 6000;
-    const interval = duration / steps;
-    const increment = target / steps;
-    wallaFadeRef.current = setInterval(() => {
-      if (!wallaRef.current) { clearInterval(wallaFadeRef.current); return; }
-      const next = wallaRef.current.volume + increment;
-      if (next >= target) {
-        wallaRef.current.volume = target;
-        clearInterval(wallaFadeRef.current);
-      } else {
-        wallaRef.current.volume = next;
-      }
-    }, interval);
   };
 
   const fadeInAudio = (audio, duration = 4000) => {
@@ -643,6 +705,69 @@ function App() {
       }
     }, interval);
   };
+
+  const fadeOutAudio = (audio, duration = 2000) => {
+    clearInterval(rainFadeRef.current)
+    const start = audio.volume
+    const steps = 20
+    const interval = duration / steps
+    const decrement = start / steps
+    rainFadeRef.current = setInterval(() => {
+      if (audio.volume - decrement <= 0) {
+        audio.volume = 0
+        audio.pause()
+        clearInterval(rainFadeRef.current)
+      } else {
+        audio.volume -= decrement
+      }
+    }, interval)
+  }
+
+  // Ambient audio for issue 3 screens: crowd on yellow+hum, rain on green
+  useEffect(() => {
+    const inExp = view === 'experience' && selectedIssue?.id === 3
+    const screen = ISSUE3_SCREENS[issue3Screen]
+    const onCrowd = inExp && (screen?.id === 'yellow' || screen?.id === 'hum')
+    const onRain = inExp && (screen?.id === 'green' || screen?.id === 'graft')
+
+    // Crowd walla — yellow + hum
+    if (onCrowd && audioPlaying) {
+      if (!wallaRef.current) {
+        const audio = new Audio('/audio/crowd-walla.wav')
+        audio.loop = true
+        audio.volume = 0
+        wallaRef.current = audio
+        audio.play().catch(() => {})
+        const target = 0.28, steps = 60, duration = 6000
+        const increment = target / steps
+        wallaFadeRef.current = setInterval(() => {
+          if (!wallaRef.current) { clearInterval(wallaFadeRef.current); return }
+          const next = wallaRef.current.volume + increment
+          if (next >= target) { wallaRef.current.volume = target; clearInterval(wallaFadeRef.current) }
+          else { wallaRef.current.volume = next }
+        }, duration / steps)
+      }
+    } else {
+      stopWalla()
+    }
+
+    // Rain — green + graft
+    if (onRain && audioPlaying) {
+      clearInterval(rainFadeRef.current)
+      if (!rainRef.current) {
+        const audio = new Audio('/audio/rain.mp3')
+        audio.loop = true
+        audio.volume = 0.7
+        rainRef.current = audio
+        audio.play().catch(() => {})
+      } else {
+        rainRef.current.volume = 0.7
+        rainRef.current.play().catch(() => {})
+      }
+    } else {
+      if (rainRef.current) fadeOutAudio(rainRef.current)
+    }
+  }, [view, issue3Screen, audioPlaying, selectedIssue])
 
   // Cover tracks for the home screen
   const homeCoverTracks = {
@@ -704,9 +829,13 @@ function App() {
 
   const handleTrackClick = (track) => {
     if (!track.available) return;
+    if (audioRef.current && selectedTrack) {
+      trackPositionsRef.current[selectedTrack.src] = audioRef.current.currentTime;
+    }
     setSelectedTrack(track);
     if (audioRef.current) {
       audioRef.current.src = track.src;
+      audioRef.current.currentTime = trackPositionsRef.current[track.src] ?? 0;
       audioRef.current.play().then(() => setAudioPlaying(true));
     }
     // Auto-enter experience view
@@ -716,6 +845,7 @@ function App() {
   // Auto-advance to next track when current track ends
   const handleTrackEnded = () => {
     if (!selectedIssue || !selectedTrack) return;
+    trackPositionsRef.current[selectedTrack.src] = 0;
     const availableTracks = selectedIssue.tracks.filter(t => t.available);
     const currentIndex = availableTracks.findIndex(t => t.src === selectedTrack.src);
     const nextIndex = (currentIndex + 1) % availableTracks.length;
@@ -723,6 +853,7 @@ function App() {
     setSelectedTrack(nextTrack);
     if (audioRef.current) {
       audioRef.current.src = nextTrack.src;
+      audioRef.current.currentTime = trackPositionsRef.current[nextTrack.src] ?? 0;
       audioRef.current.play().then(() => setAudioPlaying(true));
     }
   };
@@ -741,8 +872,14 @@ function App() {
     setView('experience');
   };
 
+  const stopRain = () => {
+    clearInterval(rainFadeRef.current)
+    if (rainRef.current) { rainRef.current.pause(); rainRef.current = null }
+  }
+
   const handleBackToArchive = () => {
     stopWalla();
+    stopRain();
     transitionToView('archive', () => {
       setSelectedIssue(null);
       setSelectedTrack(null);
@@ -755,6 +892,7 @@ function App() {
 
   const handleExitExperience = () => {
     stopWalla();
+    stopRain();
     setView('issue-detail');
   };
 
@@ -765,6 +903,27 @@ function App() {
       setShowExitButton(false);
     }, 3000);
   };
+
+  const handleIssue3Fullscreen = () => {
+    if (issue3Fullscreen) {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    } else {
+      const el = document.documentElement;
+      if (el.requestFullscreen) el.requestFullscreen();
+      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const onChange = () => setIssue3Fullscreen(!!(document.fullscreenElement || document.webkitFullscreenElement));
+    document.addEventListener('fullscreenchange', onChange);
+    document.addEventListener('webkitfullscreenchange', onChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', onChange);
+      document.removeEventListener('webkitfullscreenchange', onChange);
+    };
+  }, []);
 
   // Render content based on view
   const renderArchiveView = () => (
@@ -3727,13 +3886,28 @@ function App() {
       G4: 'rgba(100, 131, 208, 0.51)', A4: 'rgba(66,  106, 203, 0.57)',
       B4: 'rgba(33,  80,  198, 0.63)', C5: 'rgba(0,   55,  193, 0.69)',
     };
+    const redScale = {
+      C4: 'rgba(232, 232, 228, 0.28)', D4: 'rgba(232, 205, 200, 0.34)',
+      E4: 'rgba(229, 178, 171, 0.40)', F4: 'rgba(226, 152, 143, 0.46)',
+      G4: 'rgba(223, 125, 114, 0.51)', A4: 'rgba(220,  98,  86, 0.57)',
+      B4: 'rgba(217,  72,  58, 0.63)', C5: 'rgba(210,  45,  30, 0.69)',
+    };
+    const greenScale = {
+      C4: 'rgba(232, 232, 228, 0.28)', D4: 'rgba(209, 229, 214, 0.34)',
+      E4: 'rgba(178, 218, 189, 0.40)', F4: 'rgba(144, 203, 161, 0.46)',
+      G4: 'rgba(108, 185, 132, 0.51)', A4: 'rgba(72,  163, 100, 0.57)',
+      B4: 'rgba(39,  135,  68, 0.63)', C5: 'rgba(22,  101,  52, 0.69)',
+    };
     const screen = ISSUE3_SCREENS[issue3Screen];
     const { bg } = screen;
     const isTextScreen = screen.type === 'text';
+    const textParagraphs = screen.id === 'siphon' ? SIPHON_PARAGRAPHS : screen.id === 'graft' ? GRAFT_PARAGRAPHS : HUM_PARAGRAPHS;
+    const stackedWord = screen.id === 'siphon' ? 'SIPHON' : screen.id === 'graft' ? 'GRAFT' : 'HUM';
+    const keyScale = screen.id === 'siphon' ? redScale : screen.id === 'graft' ? greenScale : blueScale;
     const total = ISSUE3_SCREENS.length;
     const screenBarImages = isTextScreen ? null : Array(8).fill(screen.image);
-    const goPrev = () => setIssue3Screen(s => (s - 1 + total) % total);
-    const goNext = () => setIssue3Screen(s => (s + 1) % total);
+    const goPrev = () => { setIssue3Screen(s => (s - 1 + total) % total); setIssue3ViewMode('read'); };
+    const goNext = () => { setIssue3Screen(s => (s + 1) % total); setIssue3ViewMode('read'); };
 
     const arrowStyle = {
       position: 'absolute', top: '50%', transform: 'translateY(-50%)',
@@ -3743,17 +3917,44 @@ function App() {
     };
 
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: bg, transition: 'background-color 0.5s ease' }}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: bg, transition: 'background-color 0.5s ease' }} onMouseMove={handleInteraction}>
 
         {isTextScreen ? (
           <div style={{ position: 'absolute', inset: 0, fontFamily: "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
             {/* Background static */}
             <NoiseCanvas alpha={22} />
-            {/* Bouncing HUM — behind the white rectangle */}
-            <BouncingHum />
-            {/* Scrollable text — centred across full screen width, on top of HUM */}
+            {/* Strobing detroit images — triggered by notes */}
+            {screen.id === 'siphon' && <StrobeImages triggerRef={strobeSpawnRef} viewMode={issue3ViewMode} />}
+            {/* Read / Visual tabs — always visible, pinned near top */}
+            <div style={{ position: 'absolute', top: isDesktopView ? 20 : Math.floor(windowWidth / 4) * 2 + 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 20, zIndex: 20 }}>
+              {[{ id: 'read', label: 'Read' }, { id: 'visual', label: 'Enhanced Sound' }].map(({ id, label }) => (
+                <button key={id} onClick={() => setIssue3ViewMode(id)} style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                  fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
+                  color: issue3ViewMode === id ? 'rgba(26,26,26,0.75)' : 'rgba(26,26,26,0.3)',
+                  borderBottom: issue3ViewMode === id ? '1px solid rgba(26,26,26,0.4)' : '1px solid transparent',
+                  paddingBottom: 2,
+                }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* Horizontal key bar — mobile/tablet only, fixed at top */}
+            {!isDesktopView && (
+              <PianoBarsArt
+                horizontal
+                audioPlaying={audioPlaying}
+                windowWidth={windowWidth}
+                barImages={[]}
+                barColors={keyScale}
+                onNote={() => strobeSpawnRef.current?.()}
+              />
+            )}
+
+            {/* Scrollable text + rectangle — hidden in visual mode */}
             <div
-              style={{ position: 'absolute', inset: 0, overflowY: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'flex-start', padding: isDesktopView ? '72px 48px 96px' : '52px 28px 80px', zIndex: 2 }}
+              style={{ position: 'absolute', inset: 0, overflowY: 'auto', display: issue3ViewMode === 'read' ? 'flex' : 'none', justifyContent: 'center', alignItems: 'flex-start', padding: isDesktopView ? '72px 48px 96px' : `${Math.floor(windowWidth / 4) * 2 + 42}px 20px 80px`, zIndex: 2 }}
               onTouchStart={(e) => { const t = e.touches[0]; e.currentTarget._tx = t.clientX; e.currentTarget._ty = t.clientY; }}
               onTouchEnd={(e) => {
                 const dx = e.changedTouches[0].clientX - (e.currentTarget._tx ?? 0);
@@ -3763,33 +3964,54 @@ function App() {
                 }
               }}
             >
-              <div style={{ width: '50vw', background: 'rgba(255,255,255,0.45)', padding: isDesktopView ? '52px 56px' : '36px 28px', boxShadow: '0 2px 40px rgba(0,0,0,0.07)', backdropFilter: 'blur(2px)' }}>
-                {HUM_PARAGRAPHS.map((p, i) => (
-                  <p key={i} style={{ fontSize: 15, lineHeight: 1.8, color: '#1a1a1a', marginBottom: 24, fontWeight: 400, letterSpacing: '0.01em' }}>
-                    {p}
-                  </p>
-                ))}
+              <div style={{ width: isDesktopView ? '50vw' : '92vw', maxWidth: '680px', background: 'rgba(255,255,255,0.45)', padding: isDesktopView ? '80px 56px 52px' : '32px 24px 48px', boxShadow: '0 2px 40px rgba(0,0,0,0.07)', backdropFilter: 'blur(2px)' }}>
+                {textParagraphs.map((p, i) => {
+                  const humColor = screen.id === 'siphon' ? 'rgba(210, 45, 30, 0.69)' : screen.id === 'graft' ? 'rgba(22, 101, 52, 0.69)' : 'rgba(0, 55, 193, 0.69)';
+                  const indentW = isDesktopView ? 52 : 40;
+                  const gap = 14;
+                  if (i === 0) return (
+                    <div key={i} style={{ display: 'flex', gap, marginBottom: 24, alignItems: 'flex-start' }}>
+                      <div style={{ flexShrink: 0, width: indentW, paddingTop: 4 }}>
+                        <StackedHum word={stackedWord} color={humColor} fontSize={isDesktopView ? 'clamp(0.844rem, 1.476vw, 1.688rem)' : 'clamp(1.125rem, 1.968vw, 2.25rem)'} />
+                      </div>
+                      <p style={{ fontSize: 15, lineHeight: 1.8, color: '#1a1a1a', margin: 0, fontWeight: 400, letterSpacing: '0.01em' }}>{p}</p>
+                    </div>
+                  );
+                  return (
+                    <p key={i} style={{ fontSize: 15, lineHeight: 1.8, color: '#1a1a1a', marginBottom: 24, fontWeight: 400, letterSpacing: '0.01em' }}>
+                      {p}
+                    </p>
+                  );
+                })}
               </div>
             </div>
-            {/* Small bar rectangles — centred in left and right margins */}
+            {/* HumMixer — always mounted on HUM screen so audio persists across READ/VISUAL toggle */}
+            {screen.id === 'hum' && (
+              <div style={{ position: 'absolute', inset: 0, zIndex: 4, display: issue3ViewMode === 'visual' ? 'block' : 'none' }}>
+                <HumMixer audioPlaying={audioPlaying} />
+              </div>
+            )}
+            {/* Small bar rectangles — centred in left and right margins; hidden (not unmounted) in HUM visual so Schoenberg keeps playing */}
             {isDesktopView && (
               <>
-                <div style={{ position: 'absolute', left: 'calc(12.5vw - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3 }}>
+                <div style={{ position: 'absolute', left: 'calc((50vw - min(25vw, 340px)) / 2 - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3, visibility: (screen.id === 'hum' && issue3ViewMode === 'visual') ? 'hidden' : 'visible' }}>
                   <PianoBarsArt
                     audioPlaying={audioPlaying}
                     windowWidth={windowWidth}
                     background="#ece9e2"
                     barImages={[]}
-                    barColors={blueScale}
+                    barColors={keyScale}
+                    onNote={() => strobeSpawnRef.current?.()}
                   />
                 </div>
-                <div style={{ position: 'absolute', left: 'calc(87.5vw - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3 }}>
+                <div style={{ position: 'absolute', left: 'calc(100vw - (50vw - min(25vw, 340px)) / 2 - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3, visibility: (screen.id === 'hum' && issue3ViewMode === 'visual') ? 'hidden' : 'visible' }}>
                   <PianoBarsArt
                     audioPlaying={audioPlaying}
                     windowWidth={windowWidth}
                     background="#ece9e2"
                     barImages={[]}
-                    barColors={blueScale}
+                    barColors={keyScale}
+                    onNote={() => strobeSpawnRef.current?.()}
                   />
                 </div>
               </>
@@ -3813,7 +4035,7 @@ function App() {
             onClick={() => { Tone.start(); setAudioPlaying(true); }}
             onTouchStart={(e) => { e.preventDefault(); Tone.start(); setAudioPlaying(true); }}
           >
-            <div style={{ position: 'absolute', bottom: 52, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
+            <div style={{ position: 'absolute', top: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
               <span style={{ fontFamily: HN, fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.45)' }}>touch to begin</span>
             </div>
           </div>
@@ -3835,24 +4057,48 @@ function App() {
           </>
         )}
 
-        {/* Back to home */}
-        <button
-          onClick={handleBackToArchive}
-          style={{ position: 'absolute', top: 20, left: isDesktopView ? 52 : 20, zIndex: 20, background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-          aria-label="Back"
-        >
-          <svg width="22" height="14" viewBox="0 0 22 14" fill="none">
-            <polyline points="8,1 1,7 8,13" stroke="rgba(26,26,26,0.35)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <line x1="1" y1="7" x2="21" y2="7" stroke="rgba(26,26,26,0.35)" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </button>
-
-        {/* Screen indicator dots */}
-        <div style={{ position: 'absolute', bottom: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 8, zIndex: 20, pointerEvents: 'none' }}>
-          {ISSUE3_SCREENS.map((_, i) => (
-            <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: i === issue3Screen ? 'rgba(26,26,26,0.55)' : 'rgba(26,26,26,0.2)', transition: 'background 0.3s' }} />
-          ))}
+        {/* Circle — go home, fades in on mouse activity */}
+        <div style={{ position: 'fixed', bottom: 48, left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 20 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleBackToArchive(); }}
+            className="transition-all duration-500"
+            style={{
+              width: 48, height: 48, borderRadius: '50%',
+              backgroundColor: 'rgba(255,255,255,0.5)',
+              border: 'none', cursor: 'pointer',
+              opacity: showExitButton ? 0.9 : 0,
+              transform: showExitButton ? 'scale(1)' : 'scale(0.8)',
+              pointerEvents: showExitButton ? 'auto' : 'none',
+            }}
+            onMouseEnter={(e) => { if (showExitButton) e.currentTarget.style.opacity = '1'; }}
+            onMouseLeave={(e) => { if (showExitButton) e.currentTarget.style.opacity = '0.9'; }}
+          />
         </div>
+
+        {/* Fullscreen button — desktop only, fades in on mouse activity */}
+        {isDesktopView && (
+          <button
+            onClick={handleIssue3Fullscreen}
+            className="transition-all duration-500"
+            style={{
+              position: 'fixed', top: 20, right: 20, zIndex: 20,
+              background: 'rgba(0,0,0,0.15)', border: 'none', cursor: 'pointer',
+              borderRadius: 4, padding: 8,
+              opacity: showExitButton ? 0.7 : 0,
+              pointerEvents: showExitButton ? 'auto' : 'none',
+            }}
+          >
+            {issue3Fullscreen ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,26,0.8)" strokeWidth="2">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(26,26,26,0.8)" strokeWidth="2">
+                <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
     );
   };
