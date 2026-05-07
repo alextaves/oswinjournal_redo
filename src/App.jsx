@@ -180,7 +180,7 @@ function App() {
   // Show install banner on first mobile visit (if not already installed)
   useEffect(() => {
     if (isStandalone) return;
-    const dismissed = localStorage.getItem('oswin-install-dismissed');
+    const dismissed = sessionStorage.getItem('oswin-install-dismissed');
     if (!dismissed) {
       const timer = setTimeout(() => setShowInstallBanner(true), 3000);
       return () => clearTimeout(timer);
@@ -211,7 +211,7 @@ function App() {
 
   const dismissInstallBanner = () => {
     setShowInstallBanner(false);
-    localStorage.setItem('oswin-install-dismissed', 'true');
+    sessionStorage.setItem('oswin-install-dismissed', 'true');
   };
 
   const handleInstallClick = async () => {
