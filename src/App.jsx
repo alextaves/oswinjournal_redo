@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import CreditTitlePage from './CreditTitlePage';
 import PianoBarsArt from './PianoBarsArt';
 import HumMixer from './HumMixer';
+import SiphonGallery from './SiphonGallery';
 
 function NoiseCanvas({ alpha = 20 }) {
   const ref = useRef(null)
@@ -1130,7 +1131,7 @@ function App() {
                   backdropFilter: 'blur(2px)',
                   WebkitBackdropFilter: 'blur(2px)',
                   padding: '52px 20px 30px',
-                  pointerEvents: activeIssue === 3 ? 'none' : 'auto',
+                  pointerEvents: 'auto',
                 }}>
                   {/* Top row: audio off (left) | hamburger (right) */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', pointerEvents: 'auto' }}>
@@ -3989,6 +3990,12 @@ function App() {
             {screen.id === 'hum' && (
               <div style={{ position: 'absolute', inset: 0, zIndex: 4, display: issue3ViewMode === 'visual' ? 'block' : 'none' }}>
                 <HumMixer audioPlaying={audioPlaying} />
+              </div>
+            )}
+            {/* SiphonGallery — Three.js spatial gallery for SIPHON Enhanced Sound */}
+            {screen.id === 'siphon' && (
+              <div style={{ position: 'absolute', inset: 0, zIndex: 4, display: issue3ViewMode === 'visual' ? 'block' : 'none' }}>
+                <SiphonGallery />
               </div>
             )}
             {/* Small bar rectangles — centred in left and right margins; hidden (not unmounted) in HUM visual so Schoenberg keeps playing */}
