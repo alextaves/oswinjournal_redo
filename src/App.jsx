@@ -1136,7 +1136,8 @@ function App() {
                   {/* Top row: audio off (left) | hamburger (right) */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', pointerEvents: 'auto' }}>
                     <button
-                      onClick={() => { Tone.start(); setAudioPlaying(!audioPlaying); }}
+                      onTouchStart={(e) => { e.preventDefault(); Tone.start().then(() => setAudioPlaying(p => !p)); }}
+                      onClick={() => Tone.start().then(() => setAudioPlaying(p => !p))}
                       style={{ fontSize: '16px', fontFamily: hn, fontWeight: 500, letterSpacing: '0.1em', color: '#E8196A', background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1 }}
                     >
                       audio {audioPlaying ? 'on' : 'off'}
