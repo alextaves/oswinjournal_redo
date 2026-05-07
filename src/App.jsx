@@ -4130,7 +4130,7 @@ function App() {
       )}
 
       {/* Install PWA Banner */}
-      {showInstallBanner && !isStandalone && screenSize === 'phone' && (
+      {showInstallBanner && !isStandalone && (screenSize === 'phone' || screenSize === 'tablet') && (
         <div
           className="fixed z-50 bottom-0 left-0 right-0 flex justify-center"
           style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}

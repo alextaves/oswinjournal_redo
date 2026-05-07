@@ -50,9 +50,10 @@ const NOTE_TO_BAR = {
 
 const MOBILE_NOTES = new Set(['F4', 'G4', 'A4', 'B4', 'C5'])
 
-export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, background, barColors, onSwipeLeft, onSwipeRight }) {
+export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, background, barColors, onSwipeLeft, onSwipeRight, onNote, horizontal }) {
   const colors = barColors ?? BASE_GREY
   const isMobile = windowWidth <= 820
+  const keySize = horizontal ? Math.floor(windowWidth / 4) : null
   const barRefs = useRef({})
   const imageRefs = useRef({})
   const noiseCanvasRefs = useRef({})
@@ -61,6 +62,8 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   const started = useRef(false)
   const activeTouches = useRef({})
   const swipeTrack = useRef({})
+  const onNoteRef = useRef(onNote)
+  useEffect(() => { onNoteRef.current = onNote }, [onNote])
 
   const showStrip = useCallback((note, duration = 80) => {
     const el = imageRefs.current[note]
@@ -88,6 +91,7 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
       el.style.backgroundColor = colors[barNote] ?? ''
       hideStrip(barNote, 2800)
     }, 380)
+    onNoteRef.current?.()
   }, [showStrip, hideStrip])
 
   useEffect(() => {
@@ -196,13 +200,12 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   }, [])
 
   // Start/stop Transport and mute based on audioPlaying
+  // Tone.start() is called by the button handler (within the user gesture) before audioPlaying is set
   useEffect(() => {
     if (audioPlaying) {
-      Tone.start().then(() => {
-        Tone.getDestination().mute = false
-        if (Tone.Transport.state !== 'started') Tone.Transport.start()
-        started.current = true
-      })
+      Tone.getDestination().mute = false
+      if (Tone.Transport.state !== 'started') Tone.Transport.start()
+      started.current = true
     } else {
       Tone.getDestination().mute = true
     }
@@ -211,6 +214,7 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   const playNote = useCallback(async (note) => {
     if (!audioPlaying) return
     touchSamplerRef.current?.triggerAttackRelease(note, '2n', undefined, 0.5)
+    onNoteRef.current?.()
   }, [audioPlaying])
 
   const handleEnter = useCallback((e, note) => {
@@ -306,7 +310,14 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
 
   return (
     <div
-      style={{
+      style={horizontal ? {
+        position: 'fixed', top: 0, left: 0, right: 0,
+        height: keySize * 2,
+        background: background ?? 'transparent',
+        display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
+        zIndex: 10,
+        touchAction: 'none',
+      } : {
         position: 'absolute', inset: 0,
         background: background ?? '#F5DD33',
         display: 'flex', flexDirection: 'column',
@@ -324,7 +335,16 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
           <div
             key={note}
             ref={(el) => { barRefs.current[note] = el }}
-            style={{
+            style={horizontal ? {
+              width: keySize,
+              height: keySize,
+              cursor: 'pointer',
+              userSelect: 'none',
+              position: 'relative',
+              overflow: 'hidden',
+              backgroundColor: colors[note],
+              flexShrink: 0,
+            } : {
               flex: 1,
               borderBottom: '1px solid rgba(255,255,255,0.08)',
               cursor: 'pointer',
