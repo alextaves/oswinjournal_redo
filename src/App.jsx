@@ -1127,8 +1127,9 @@ function App() {
                     loop
                     muted
                     playsInline
-                    onCanPlay={e => e.target.play()}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+                    onCanPlay={e => e.target.play().catch(() => {})}
+                    onPlay={e => { e.target.style.opacity = '1' }}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, opacity: 0, transition: 'opacity 0.4s' }}
                   >
                     <source src={
                       activeIssue === 2 ? '/videos/issue2/chris_mobile_bluespin_gradual02.mp4' :
