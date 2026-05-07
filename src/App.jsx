@@ -1121,21 +1121,29 @@ function App() {
                     <PianoBarsArt audioPlaying={audioPlaying} windowWidth={windowWidth} />
                   </div>
                 ) : (
-                  <video
-                    key={activeIssue}
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    poster={activeIssue === 2 ? '/images/issue2/mobile_poster.jpg' : undefined}
-                    onCanPlay={e => e.target.play().catch(() => {})}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
-                  >
-                    <source src={
-                      activeIssue === 2 ? '/videos/issue2/chris_mobile_bluespin_gradual02.mp4' :
-                      '/videos/phone_hurdles.mp4'
-                    } type="video/mp4" />
-                  </video>
+                  <>
+                    {activeIssue === 2 && (
+                      <img
+                        src="/images/issue2/mobile_poster.jpg"
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0 }}
+                      />
+                    )}
+                    <video
+                      key={activeIssue}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      onCanPlay={e => e.target.play().catch(() => {})}
+                      onPlay={e => { e.target.style.opacity = '1' }}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 1, opacity: 0, transition: 'opacity 0.5s' }}
+                    >
+                      <source src={
+                        activeIssue === 2 ? '/videos/issue2/chris_mobile_bluespin_gradual02.mp4' :
+                        '/videos/phone_hurdles.mp4'
+                      } type="video/mp4" />
+                    </video>
+                  </>
                 )}
 
                 {/* Single white rectangle from top */}
