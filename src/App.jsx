@@ -1167,6 +1167,7 @@ function App() {
                         onClick={handleIssue3Enter}
                         style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
                       >enter</button>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#9a9a9a', letterSpacing: '0.05em', lineHeight: 1 }}>(in progress)</span>
                     </div>
                   )}
 
@@ -1276,6 +1277,7 @@ function App() {
                         onClick={handleIssue3Enter}
                         style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
                       >enter</button>
+                      <span style={{ fontSize: '11px', fontFamily: hn, fontWeight: 400, color: '#9a9a9a', letterSpacing: '0.05em', lineHeight: 1 }}>(in progress)</span>
                     </div>
                   )}
                 </div>
