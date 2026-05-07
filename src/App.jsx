@@ -1164,10 +1164,7 @@ function App() {
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908–1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      <button
-                        onClick={handleIssue3Enter}
-                        style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-                      >enter <span style={{ color: '#E8196A' }}>(in progress)</span></button>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#9a9a9a', letterSpacing: '0.05em', lineHeight: 1 }}>mobile version under construction</span>
                     </div>
                   )}
 
@@ -1273,10 +1270,10 @@ function App() {
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908–1917</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      <button
-                        onClick={handleIssue3Enter}
-                        style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}
-                      >enter <span style={{ color: '#E8196A' }}>(in progress)</span></button>
+                      {isDesktopView
+                        ? <button onClick={handleIssue3Enter} style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>enter <span style={{ color: '#E8196A' }}>(in progress)</span></button>
+                        : <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#9a9a9a', letterSpacing: '0.05em', lineHeight: 1 }}>mobile version under construction</span>
+                      }
                     </div>
                   )}
                 </div>
