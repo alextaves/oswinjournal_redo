@@ -197,6 +197,18 @@ function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // iOS blocks video autoplay until a user gesture — unlock all videos on first touch
+  useEffect(() => {
+    const unlock = () => {
+      document.querySelectorAll('video').forEach(v => {
+        if (v.paused) v.play().catch(() => {})
+      })
+      document.removeEventListener('touchstart', unlock)
+    }
+    document.addEventListener('touchstart', unlock, { once: true, passive: true })
+    return () => document.removeEventListener('touchstart', unlock)
+  }, []);
+
   const dismissInstallBanner = () => {
     setShowInstallBanner(false);
     localStorage.setItem('oswin-install-dismissed', 'true');
