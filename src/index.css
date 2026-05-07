@@ -4,6 +4,15 @@ html {
   background-color: #000;
 }
 
+/* Suppress native browser video play button overlay */
+video::-webkit-media-controls,
+video::-webkit-media-controls-panel,
+video::-webkit-media-controls-play-button,
+video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+  -webkit-appearance: none;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
