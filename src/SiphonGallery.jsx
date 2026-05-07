@@ -1,10 +1,52 @@
 import { useRef, useEffect, useState, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { useTexture } from '@react-three/drei'
+import { useTexture, MeshReflectorMaterial } from '@react-three/drei'
 import * as THREE from 'three'
 import * as Tone from 'tone'
 
 const SANS = '"Helvetica Neue", Helvetica, Arial, sans-serif'
+
+const noiseTime = { value: 0 }
+const glitchTime = { value: 0 }
+
+function addFilmGrain(mat, offset = 0) {
+  mat.customProgramCacheKey = () => 'film-grain-glitch'
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.noiseTime = noiseTime
+    shader.uniforms.glitchTime = glitchTime
+    shader.uniforms.glitchOffset = { value: offset }
+    shader.fragmentShader = `uniform float noiseTime;\nuniform float glitchTime;\nuniform float glitchOffset;\n` +
+      shader.fragmentShader
+        .replace(
+          '#include <map_fragment>',
+          `#ifdef USE_MAP
+             float _gt = glitchTime + glitchOffset;
+             float _win = 8.0;
+             float _ep = floor(_gt / _win);
+             float _hit = step(0.78, fract(sin(_ep * 743.1) * 43758.5453));
+             float _t = fract(_gt / _win);
+             float _gi = _hit * smoothstep(0.0, 0.12, _t) * smoothstep(0.45, 0.18, _t);
+             float _band = floor(vMapUv.y * 20.0);
+             float _bRand = fract(sin(_band * 311.7 + _ep) * 43758.5453);
+             float _shift = (_bRand - 0.5) * 0.018 * _gi;
+             vec2 _gUv = vMapUv + vec2(_shift, 0.0);
+             float _ca = 0.003 * _gi;
+             vec4 _rS = texture2D(map, _gUv + vec2(_ca, 0.0));
+             vec4 _gS = texture2D(map, _gUv);
+             vec4 _bS = texture2D(map, _gUv - vec2(_ca, 0.0));
+             diffuseColor *= vec4(_rS.r, _gS.g, _bS.b, _gS.a);
+           #endif`
+        )
+        .replace(
+          '#include <dithering_fragment>',
+          `#include <dithering_fragment>
+           vec2 _px = floor(gl_FragCoord.xy / 3.0);
+           float _g = fract(sin(_px.x * 127.1 + _px.y * 311.7 + noiseTime) * 43758.5453);
+           gl_FragColor.rgb = mix(gl_FragColor.rgb, vec3(_g), 0.07);`
+        )
+  }
+  return mat
+}
 
 const ALL_IMGS = [
   '/images/detroit/32b copy.jpg',
@@ -61,12 +103,12 @@ function ArtCube({ position, speed, imgs }) {
   const materials = useMemo(() => {
     const blank = new THREE.MeshBasicMaterial({ color: '#ffffff' })
     return [
-      new THREE.MeshBasicMaterial({ map: textures[0] }),
-      new THREE.MeshBasicMaterial({ map: textures[1] }),
+      addFilmGrain(new THREE.MeshBasicMaterial({ map: textures[0] }), Math.random() * 100),
+      addFilmGrain(new THREE.MeshBasicMaterial({ map: textures[1] }), Math.random() * 100),
       blank,
       blank,
-      new THREE.MeshBasicMaterial({ map: textures[2] }),
-      new THREE.MeshBasicMaterial({ map: textures[3] }),
+      addFilmGrain(new THREE.MeshBasicMaterial({ map: textures[2] }), Math.random() * 100),
+      addFilmGrain(new THREE.MeshBasicMaterial({ map: textures[3] }), Math.random() * 100),
     ]
   }, [textures])
 
@@ -77,7 +119,7 @@ function ArtCube({ position, speed, imgs }) {
   )
 }
 
-function Scene({ scrollRef }) {
+function Scene({ scrollRef, mouseTargetRef }) {
   const { camera, scene } = useThree()
   const cameraZ = useRef(4)
 
@@ -87,6 +129,9 @@ function Scene({ scrollRef }) {
   }, [scene])
 
   useFrame(() => {
+    noiseTime.value = Math.random() * 1000
+    glitchTime.value = performance.now() * 0.001
+    scrollRef.current = THREE.MathUtils.lerp(scrollRef.current, mouseTargetRef.current, 0.0045)
     cameraZ.current = THREE.MathUtils.lerp(cameraZ.current, scrollRef.current, 0.06)
     camera.position.z = cameraZ.current
   })
@@ -99,7 +144,19 @@ function Scene({ scrollRef }) {
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -1.5, -21]}>
         <planeGeometry args={[30, 120]} />
-        <meshStandardMaterial color="#d5d6d8" roughness={0.05} metalness={0.2} />
+        <MeshReflectorMaterial
+          color="#d5d6d8"
+          roughness={0.1}
+          metalness={0.0}
+          mirror={0.9}
+          blur={[400, 100]}
+          resolution={1024}
+          mixBlur={6}
+          mixStrength={1.5}
+          depthScale={1}
+          minDepthThreshold={0.4}
+          maxDepthThreshold={1.4}
+        />
       </mesh>
 
       {CUBES.map((c, i) => (
@@ -181,26 +238,38 @@ function useDrone(playing) {
   }, [playing])
 }
 
-export default function SiphonGallery() {
+export default function SiphonGallery({ active = true, audioPlaying = false }) {
   const scrollRef = useRef(4)
+  const mouseTargetRef = useRef(4)
   const [droneOn, setDroneOn] = useState(false)
   useDrone(droneOn)
 
   useEffect(() => {
+    if (active && audioPlaying) setDroneOn(true)
+    if (!active) setDroneOn(false)
+  }, [active, audioPlaying])
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const t = e.clientY / window.innerHeight
+      mouseTargetRef.current = THREE.MathUtils.lerp(4, -38, t)
+    }
     const handleWheel = (e) => {
-      scrollRef.current = THREE.MathUtils.clamp(scrollRef.current - e.deltaY * 0.01, -50, 4)
+      mouseTargetRef.current = THREE.MathUtils.clamp(mouseTargetRef.current - e.deltaY * 0.01, -50, 4)
     }
     let touchStartY = 0
     const handleTouchStart = (e) => { touchStartY = e.touches[0].clientY }
     const handleTouchMove = (e) => {
       const delta = touchStartY - e.touches[0].clientY
       touchStartY = e.touches[0].clientY
-      scrollRef.current = THREE.MathUtils.clamp(scrollRef.current - delta * 0.02, -50, 4)
+      mouseTargetRef.current = THREE.MathUtils.clamp(mouseTargetRef.current - delta * 0.02, -50, 4)
     }
+    window.addEventListener('mousemove', handleMouseMove)
     window.addEventListener('wheel', handleWheel, { passive: true })
     window.addEventListener('touchstart', handleTouchStart, { passive: true })
     window.addEventListener('touchmove', handleTouchMove, { passive: true })
     return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
       window.removeEventListener('wheel', handleWheel)
       window.removeEventListener('touchstart', handleTouchStart)
       window.removeEventListener('touchmove', handleTouchMove)
@@ -210,7 +279,7 @@ export default function SiphonGallery() {
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <Canvas camera={{ position: [0, 0, 4], fov: 60 }}>
-        <Scene scrollRef={scrollRef} />
+        <Scene scrollRef={scrollRef} mouseTargetRef={mouseTargetRef} />
       </Canvas>
 
       <button

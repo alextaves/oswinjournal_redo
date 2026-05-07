@@ -834,6 +834,16 @@ function App() {
     }
   }, [audioPlaying]);
 
+  // Pause Schoenberg when SIPHON Enhanced Sound is active; resume when leaving
+  useEffect(() => {
+    const siphonVisual = ISSUE3_SCREENS[issue3Screen]?.id === 'siphon' && issue3ViewMode === 'visual';
+    if (siphonVisual) {
+      if (Tone.Transport.state === 'started') Tone.Transport.pause();
+    } else {
+      if (audioPlaying && Tone.Transport.state === 'paused') Tone.Transport.start();
+    }
+  }, [issue3Screen, issue3ViewMode, audioPlaying]);
+
   const handleIssueClick = (issue) => {
     setSelectedIssue(issue);
     setVisitedIssues(prev => new Set([...prev, issue.id]));
@@ -3946,6 +3956,12 @@ function App() {
             <NoiseCanvas alpha={22} />
             {/* Strobing detroit images — triggered by notes */}
             {screen.id === 'siphon' && <StrobeImages triggerRef={strobeSpawnRef} viewMode={issue3ViewMode} />}
+            {/* move mouse hint — siphon visual only */}
+            {screen.id === 'siphon' && issue3ViewMode === 'visual' && (
+              <div style={{ position: 'absolute', top: isDesktopView ? 20 : Math.floor(windowWidth / 4) * 2 + 12, left: 24, zIndex: 20, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.3)', pointerEvents: 'none', lineHeight: 1 }}>
+                move mouse to navigate
+              </div>
+            )}
             {/* Read / Visual tabs — always visible, pinned near top */}
             <div style={{ position: 'absolute', top: isDesktopView ? 20 : Math.floor(windowWidth / 4) * 2 + 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 20, zIndex: 20 }}>
               {[{ id: 'read', label: 'Read' }, { id: 'visual', label: 'Enhanced Sound' }].map(({ id, label }) => (
@@ -4014,8 +4030,8 @@ function App() {
             )}
             {/* SiphonGallery — Three.js spatial gallery for SIPHON Enhanced Sound */}
             {screen.id === 'siphon' && (
-              <div style={{ position: 'absolute', inset: 0, zIndex: 4, display: issue3ViewMode === 'visual' ? 'block' : 'none' }}>
-                <SiphonGallery />
+              <div style={{ position: 'absolute', inset: 0, zIndex: 4, visibility: issue3ViewMode === 'visual' ? 'visible' : 'hidden', pointerEvents: issue3ViewMode === 'visual' ? 'auto' : 'none' }}>
+                <SiphonGallery active={issue3ViewMode === 'visual'} audioPlaying={audioPlaying} />
               </div>
             )}
             {/* Small bar rectangles — centred in left and right margins; hidden (not unmounted) in HUM visual so Schoenberg keeps playing */}
