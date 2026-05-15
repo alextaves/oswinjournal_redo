@@ -161,7 +161,7 @@ function App() {
   const [visitedIssues, setVisitedIssues] = useState(new Set());
   const [hoveredIssue, setHoveredIssue] = useState(null);
   const [expandedRead, setExpandedRead] = useState(null);
-  const [activeIssue, setActiveIssue] = useState(window.innerWidth <= 1200 ? 2 : 3);
+  const [activeIssue, setActiveIssue] = useState(3);
   const [issue3Screen, setIssue3Screen] = useState(0);
   const [issue3ViewMode, setIssue3ViewMode] = useState('read');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
