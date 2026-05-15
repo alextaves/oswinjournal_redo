@@ -696,8 +696,9 @@ function App() {
   const stopWalla = () => {
     clearInterval(wallaFadeRef.current);
     if (wallaRef.current) {
-      wallaRef.current.pause();
-      wallaRef.current.currentTime = 0;
+      wallaRef.current.audio.pause();
+      wallaRef.current.audio.currentTime = 0;
+      wallaRef.current.gain.disconnect();
       wallaRef.current = null;
     }
   };
@@ -746,21 +747,27 @@ function App() {
     const CROWD_TARGET = windowWidth > 820 ? 0.06 : 0.015
     if (inExp && audioPlaying) {
       if (!wallaRef.current) {
+        const actx = Tone.getContext().rawContext
         const audio = new Audio('/audio/crowd-walla.mp3')
         audio.loop = true
-        audio.volume = 0
-        wallaRef.current = audio
+        audio.crossOrigin = 'anonymous'
+        const source = actx.createMediaElementSource(audio)
+        const gain = actx.createGain()
+        gain.gain.value = 0
+        source.connect(gain)
+        gain.connect(actx.destination)
+        wallaRef.current = { audio, gain }
         audio.play().catch(() => {})
         const steps = 60, duration = 6000
         const increment = CROWD_TARGET / steps
         wallaFadeRef.current = setInterval(() => {
           if (!wallaRef.current) { clearInterval(wallaFadeRef.current); return }
-          const next = wallaRef.current.volume + increment
-          if (next >= CROWD_TARGET) { wallaRef.current.volume = CROWD_TARGET; clearInterval(wallaFadeRef.current) }
-          else { wallaRef.current.volume = next }
+          const next = wallaRef.current.gain.gain.value + increment
+          if (next >= CROWD_TARGET) { wallaRef.current.gain.gain.value = CROWD_TARGET; clearInterval(wallaFadeRef.current) }
+          else { wallaRef.current.gain.gain.value = next }
         }, duration / steps)
       } else {
-        wallaRef.current.volume = CROWD_TARGET
+        wallaRef.current.gain.gain.value = CROWD_TARGET
       }
     } else {
       stopWalla()
