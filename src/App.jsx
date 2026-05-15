@@ -743,7 +743,7 @@ function App() {
   useEffect(() => {
     const inExp = view === 'experience' && selectedIssue?.id === 3
     // Crowd walla — always on in experience
-    const CROWD_TARGET = isDesktopView ? 0.06 : 0.015
+    const CROWD_TARGET = windowWidth > 820 ? 0.06 : 0.015
     if (inExp && audioPlaying) {
       if (!wallaRef.current) {
         const audio = new Audio('/audio/crowd-walla.mp3')
