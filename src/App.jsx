@@ -3929,8 +3929,15 @@ const handleIssueClick = (issue) => {
           </div>
         )}
 
-        {/* Circle — go home, fades in on mouse activity */}
-        <div style={{ position: 'fixed', bottom: 48, left: 0, right: 0, display: 'flex', justifyContent: 'center', zIndex: 20 }}>
+        {/* Circle — go home */}
+        <div style={{
+          position: 'fixed',
+          ...(isDesktopView
+            ? { bottom: 48, left: 0, right: 0 }
+            : { top: 0, left: 0, right: 0, paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }
+          ),
+          display: 'flex', justifyContent: 'center', zIndex: 20,
+        }}>
           <button
             onClick={(e) => { e.stopPropagation(); handleBackToArchive(); }}
             className="transition-all duration-500"
