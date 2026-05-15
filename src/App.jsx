@@ -4,6 +4,7 @@ import CreditTitlePage from './CreditTitlePage';
 import PianoBarsArt from './PianoBarsArt';
 import HumMixer from './HumMixer';
 import SiphonGallery from './SiphonGallery';
+import { COMPOSITIONS } from './compositions';
 
 function NoiseCanvas({ alpha = 20 }) {
   const ref = useRef(null)
@@ -146,6 +147,8 @@ function App() {
   const [showExitButton, setShowExitButton] = useState(false);
   const [issue3Fullscreen, setIssue3Fullscreen] = useState(false);
   const [audioPlaying, setAudioPlaying] = useState(false);
+  const [composition, setComposition] = useState('schoenberg');
+  const compositionObj = COMPOSITIONS.find(c => c.id === composition) ?? COMPOSITIONS[0];
   const [isDesktop, setIsDesktop] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showAudioMenu, setShowAudioMenu] = useState(false); // Mini audio menu in experience view
@@ -736,51 +739,34 @@ function App() {
     }, interval)
   }
 
-  // Ambient audio for issue 3 screens: crowd on yellow+hum, rain on green
+  // Ambient audio for issue 3: crowd always on in experience, rain on Green
   useEffect(() => {
     const inExp = view === 'experience' && selectedIssue?.id === 3
-    const screen = ISSUE3_SCREENS[issue3Screen]
-    const onCrowd = inExp && (screen?.id === 'yellow' || screen?.id === 'hum')
-    const onRain = inExp && (screen?.id === 'green' || screen?.id === 'graft')
-
-    // Crowd walla — yellow + hum
-    if (onCrowd && audioPlaying) {
+    // Crowd walla — always on in experience
+    const CROWD_TARGET = 0.06
+    if (inExp && audioPlaying) {
       if (!wallaRef.current) {
-        const audio = new Audio('/audio/crowd-walla.wav')
+        const audio = new Audio('/audio/crowd-walla.mp3')
         audio.loop = true
         audio.volume = 0
         wallaRef.current = audio
         audio.play().catch(() => {})
-        const target = 0.28, steps = 60, duration = 6000
-        const increment = target / steps
+        const steps = 60, duration = 6000
+        const increment = CROWD_TARGET / steps
         wallaFadeRef.current = setInterval(() => {
           if (!wallaRef.current) { clearInterval(wallaFadeRef.current); return }
           const next = wallaRef.current.volume + increment
-          if (next >= target) { wallaRef.current.volume = target; clearInterval(wallaFadeRef.current) }
+          if (next >= CROWD_TARGET) { wallaRef.current.volume = CROWD_TARGET; clearInterval(wallaFadeRef.current) }
           else { wallaRef.current.volume = next }
         }, duration / steps)
+      } else {
+        wallaRef.current.volume = CROWD_TARGET
       }
     } else {
       stopWalla()
     }
 
-    // Rain — green + graft
-    if (onRain && audioPlaying) {
-      clearInterval(rainFadeRef.current)
-      if (!rainRef.current) {
-        const audio = new Audio('/audio/rain.mp3')
-        audio.loop = true
-        audio.volume = 0.7
-        rainRef.current = audio
-        audio.play().catch(() => {})
-      } else {
-        rainRef.current.volume = 0.7
-        rainRef.current.play().catch(() => {})
-      }
-    } else {
-      if (rainRef.current) fadeOutAudio(rainRef.current)
-    }
-  }, [view, issue3Screen, audioPlaying, selectedIssue])
+  }, [view, composition, audioPlaying, selectedIssue])
 
   // Cover tracks for the home screen
   const homeCoverTracks = {
@@ -834,17 +820,7 @@ function App() {
     }
   }, [audioPlaying]);
 
-  // Pause Schoenberg when SIPHON Enhanced Sound is active; resume when leaving
-  useEffect(() => {
-    const siphonVisual = ISSUE3_SCREENS[issue3Screen]?.id === 'siphon' && issue3ViewMode === 'visual';
-    if (siphonVisual) {
-      if (Tone.Transport.state === 'started') Tone.Transport.pause();
-    } else {
-      if (audioPlaying && Tone.Transport.state === 'paused') Tone.Transport.start();
-    }
-  }, [issue3Screen, issue3ViewMode, audioPlaying]);
-
-  const handleIssueClick = (issue) => {
+const handleIssueClick = (issue) => {
     setSelectedIssue(issue);
     setVisitedIssues(prev => new Set([...prev, issue.id]));
     transitionToView('issue-detail');
@@ -906,6 +882,7 @@ function App() {
     transitionToView('archive', () => {
       setSelectedIssue(null);
       setSelectedTrack(null);
+      setComposition('schoenberg');
       if (audioRef.current) {
         audioRef.current.pause();
         setAudioPlaying(false);
@@ -1015,14 +992,17 @@ function App() {
                   } else if (item.isReads) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('reads');
                   } else if (item.isListens) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('listens');
                   } else if (item.isHome) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('archive');
                   }
                 }}
@@ -1128,7 +1108,7 @@ function App() {
                 {/* Cover — furthest back */}
                 {activeIssue === 3 ? (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
-                    <PianoBarsArt audioPlaying={audioPlaying} windowWidth={windowWidth} />
+                    <PianoBarsArt audioPlaying={audioPlaying} windowWidth={windowWidth} composition={compositionObj} />
                   </div>
                 ) : (
                   <>
@@ -1195,8 +1175,9 @@ function App() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '20px' }}>
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
                       <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908–1917</span>
+                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>The Oswin Reinterpretations — Op. 11, 19, 33</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      <span style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#9a9a9a', letterSpacing: '0.05em', lineHeight: 1 }}>mobile version under construction</span>
+                      <button onClick={handleIssue3Enter} style={{ fontSize: '16px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>enter</button>
                     </div>
                   )}
 
@@ -1301,11 +1282,9 @@ function App() {
                     <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Audio Study</span>
                       <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>Arnold Schoenberg Piano 1908–1917</span>
+                      <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#1A1A1A', letterSpacing: '0.05em', lineHeight: 1 }}>The Oswin Reinterpretations — Op. 11, 19, 33</span>
                       <span style={{ lineHeight: 1 }}>&nbsp;</span>
-                      {isDesktopView
-                        ? <button onClick={handleIssue3Enter} style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>enter <span style={{ color: '#E8196A' }}>(in progress)</span></button>
-                        : <span style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#9a9a9a', letterSpacing: '0.05em', lineHeight: 1 }}>mobile version under construction</span>
-                      }
+                      <button onClick={handleIssue3Enter} style={{ fontSize: '13px', fontFamily: hn, fontWeight: 400, color: '#E8196A', letterSpacing: '0.05em', lineHeight: 1, background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left' }}>enter</button>
                     </div>
                   )}
                 </div>
@@ -1363,7 +1342,7 @@ function App() {
               {/* Cover — fills remaining space */}
               <div style={{ flex: 1, marginLeft: MARGIN, marginRight: MARGIN, marginBottom: bottomPad, overflow: 'hidden', position: 'relative' }}>
                 {activeIssue === 3 ? (
-                  <PianoBarsArt audioPlaying={audioPlaying} />
+                  <PianoBarsArt audioPlaying={audioPlaying} composition={compositionObj} />
                 ) : (
                   <video
                     key={activeIssue}
@@ -1608,14 +1587,17 @@ function App() {
                   } else if (item.isReads) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('reads');
                   } else if (item.isListens) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('listens');
                   } else if (item.isHome) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('archive');
                   }
                 }}
@@ -2094,14 +2076,17 @@ function App() {
                   } else if (item.isReads) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('reads');
                   } else if (item.isListens) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('listens');
                   } else if (item.isHome) {
                     e.preventDefault();
                     setMenuOpen(false);
+                    stopWalla();
                     transitionToView('archive');
                   }
                 }}
@@ -3911,165 +3896,18 @@ function App() {
   const renderIssue3Experience = () => {
     const HN = '"Helvetica Neue", Helvetica, Arial, sans-serif';
     const isDesktopView = windowWidth > 820;
-    const blueScale = {
-      C4: 'rgba(232, 232, 228, 0.28)', D4: 'rgba(199, 207, 223, 0.34)',
-      E4: 'rgba(166, 181, 218, 0.40)', F4: 'rgba(133, 156, 213, 0.46)',
-      G4: 'rgba(100, 131, 208, 0.51)', A4: 'rgba(66,  106, 203, 0.57)',
-      B4: 'rgba(33,  80,  198, 0.63)', C5: 'rgba(0,   55,  193, 0.69)',
-    };
-    const redScale = {
-      C4: 'rgba(232, 232, 228, 0.28)', D4: 'rgba(232, 205, 200, 0.34)',
-      E4: 'rgba(229, 178, 171, 0.40)', F4: 'rgba(226, 152, 143, 0.46)',
-      G4: 'rgba(223, 125, 114, 0.51)', A4: 'rgba(220,  98,  86, 0.57)',
-      B4: 'rgba(217,  72,  58, 0.63)', C5: 'rgba(210,  45,  30, 0.69)',
-    };
-    const greenScale = {
-      C4: 'rgba(232, 232, 228, 0.28)', D4: 'rgba(209, 229, 214, 0.34)',
-      E4: 'rgba(178, 218, 189, 0.40)', F4: 'rgba(144, 203, 161, 0.46)',
-      G4: 'rgba(108, 185, 132, 0.51)', A4: 'rgba(72,  163, 100, 0.57)',
-      B4: 'rgba(39,  135,  68, 0.63)', C5: 'rgba(22,  101,  52, 0.69)',
-    };
-    const screen = ISSUE3_SCREENS[issue3Screen];
-    const { bg } = screen;
-    const isTextScreen = screen.type === 'text';
-    const textParagraphs = screen.id === 'siphon' ? SIPHON_PARAGRAPHS : screen.id === 'graft' ? GRAFT_PARAGRAPHS : HUM_PARAGRAPHS;
-    const stackedWord = screen.id === 'siphon' ? 'SIPHON' : screen.id === 'graft' ? 'GRAFT' : 'HUM';
-    const keyScale = screen.id === 'siphon' ? redScale : screen.id === 'graft' ? greenScale : blueScale;
-    const total = ISSUE3_SCREENS.length;
-    const screenBarImages = isTextScreen ? null : Array(8).fill(screen.image);
-    const goPrev = () => { setIssue3Screen(s => (s - 1 + total) % total); setIssue3ViewMode('read'); };
-    const goNext = () => { setIssue3Screen(s => (s + 1) % total); setIssue3ViewMode('read'); };
-
-    const arrowStyle = {
-      position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-      zIndex: 20, background: 'none', border: 'none', cursor: 'pointer',
-      padding: 12, color: 'rgba(26,26,26,0.35)',
-      display: 'flex', alignItems: 'center',
-    };
+    const barImages = compositionObj?.image ? Array(8).fill(compositionObj.image) : [];
 
     return (
-      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: bg, transition: 'background-color 0.5s ease' }} onMouseMove={handleInteraction}>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: compositionObj?.bg ?? '#F5DD33', transition: 'background-color 0.5s ease' }} onMouseMove={handleInteraction}>
 
-        {isTextScreen ? (
-          <div style={{ position: 'absolute', inset: 0, fontFamily: "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
-            {/* Background static */}
-            <NoiseCanvas alpha={22} />
-            {/* Strobing detroit images — triggered by notes */}
-            {screen.id === 'siphon' && <StrobeImages triggerRef={strobeSpawnRef} viewMode={issue3ViewMode} />}
-            {/* move mouse hint — siphon visual only */}
-            {screen.id === 'siphon' && issue3ViewMode === 'visual' && (
-              <div style={{ position: 'absolute', top: isDesktopView ? 20 : Math.floor(windowWidth / 4) * 2 + 12, left: 24, zIndex: 20, fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.3)', pointerEvents: 'none', lineHeight: 1 }}>
-                move mouse to navigate
-              </div>
-            )}
-            {/* Read / Visual tabs — always visible, pinned near top */}
-            <div style={{ position: 'absolute', top: isDesktopView ? 20 : Math.floor(windowWidth / 4) * 2 + 12, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 20, zIndex: 20 }}>
-              {[{ id: 'read', label: 'Read' }, { id: 'visual', label: 'Enhanced Sound' }].map(({ id, label }) => (
-                <button key={id} onClick={() => setIssue3ViewMode(id)} style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                  fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase',
-                  color: issue3ViewMode === id ? 'rgba(26,26,26,0.75)' : 'rgba(26,26,26,0.3)',
-                  borderBottom: issue3ViewMode === id ? '1px solid rgba(26,26,26,0.4)' : '1px solid transparent',
-                  paddingBottom: 2,
-                }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-            {/* Horizontal key bar — mobile/tablet only, fixed at top */}
-            {!isDesktopView && (
-              <PianoBarsArt
-                horizontal
-                audioPlaying={audioPlaying}
-                windowWidth={windowWidth}
-                barImages={[]}
-                barColors={keyScale}
-                onNote={() => strobeSpawnRef.current?.()}
-              />
-            )}
-
-            {/* Scrollable text + rectangle — hidden in visual mode */}
-            <div
-              style={{ position: 'absolute', inset: 0, overflowY: 'auto', display: issue3ViewMode === 'read' ? 'flex' : 'none', justifyContent: 'center', alignItems: 'flex-start', padding: isDesktopView ? '72px 48px 96px' : `${Math.floor(windowWidth / 4) * 2 + 42}px 20px 80px`, zIndex: 2 }}
-              onTouchStart={(e) => { const t = e.touches[0]; e.currentTarget._tx = t.clientX; e.currentTarget._ty = t.clientY; }}
-              onTouchEnd={(e) => {
-                const dx = e.changedTouches[0].clientX - (e.currentTarget._tx ?? 0);
-                const dy = e.changedTouches[0].clientY - (e.currentTarget._ty ?? 0);
-                if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-                  dx < 0 ? goNext() : goPrev();
-                }
-              }}
-            >
-              <div style={{ width: isDesktopView ? '50vw' : '92vw', maxWidth: '680px', background: 'rgba(255,255,255,0.45)', padding: isDesktopView ? '80px 56px 52px' : '32px 24px 48px', boxShadow: '0 2px 40px rgba(0,0,0,0.07)', backdropFilter: 'blur(2px)' }}>
-                {textParagraphs.map((p, i) => {
-                  const humColor = screen.id === 'siphon' ? 'rgba(210, 45, 30, 0.69)' : screen.id === 'graft' ? 'rgba(22, 101, 52, 0.69)' : 'rgba(0, 55, 193, 0.69)';
-                  const indentW = isDesktopView ? 52 : 40;
-                  const gap = 14;
-                  if (i === 0) return (
-                    <div key={i} style={{ display: 'flex', gap, marginBottom: 24, alignItems: 'flex-start' }}>
-                      <div style={{ flexShrink: 0, width: indentW, paddingTop: 4 }}>
-                        <StackedHum word={stackedWord} color={humColor} fontSize={isDesktopView ? 'clamp(0.844rem, 1.476vw, 1.688rem)' : 'clamp(1.125rem, 1.968vw, 2.25rem)'} />
-                      </div>
-                      <p style={{ fontSize: 15, lineHeight: 1.8, color: '#1a1a1a', margin: 0, fontWeight: 400, letterSpacing: '0.01em' }}>{p}</p>
-                    </div>
-                  );
-                  return (
-                    <p key={i} style={{ fontSize: 15, lineHeight: 1.8, color: '#1a1a1a', marginBottom: 24, fontWeight: 400, letterSpacing: '0.01em' }}>
-                      {p}
-                    </p>
-                  );
-                })}
-              </div>
-            </div>
-            {/* HumMixer — always mounted on HUM screen so audio persists across READ/VISUAL toggle */}
-            {screen.id === 'hum' && (
-              <div style={{ position: 'absolute', inset: 0, zIndex: 4, display: issue3ViewMode === 'visual' ? 'block' : 'none' }}>
-                <HumMixer audioPlaying={audioPlaying} />
-              </div>
-            )}
-            {/* SiphonGallery — Three.js spatial gallery for SIPHON Enhanced Sound */}
-            {screen.id === 'siphon' && (
-              <div style={{ position: 'absolute', inset: 0, zIndex: 4, visibility: issue3ViewMode === 'visual' ? 'visible' : 'hidden', pointerEvents: issue3ViewMode === 'visual' ? 'auto' : 'none' }}>
-                <SiphonGallery active={issue3ViewMode === 'visual'} audioPlaying={audioPlaying} />
-              </div>
-            )}
-            {/* Small bar rectangles — centred in left and right margins; hidden (not unmounted) in HUM visual so Schoenberg keeps playing */}
-            {isDesktopView && (
-              <>
-                <div style={{ position: 'absolute', left: 'calc((50vw - min(25vw, 340px)) / 2 - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3, visibility: (screen.id === 'hum' && issue3ViewMode === 'visual') ? 'hidden' : 'visible' }}>
-                  <PianoBarsArt
-                    audioPlaying={audioPlaying}
-                    windowWidth={windowWidth}
-                    background="#ece9e2"
-                    barImages={[]}
-                    barColors={keyScale}
-                    onNote={() => strobeSpawnRef.current?.()}
-                  />
-                </div>
-                <div style={{ position: 'absolute', left: 'calc(100vw - (50vw - min(25vw, 340px)) / 2 - 50px)', top: '50%', transform: 'translateY(-50%)', width: 100, height: 350, overflow: 'hidden', zIndex: 3, visibility: (screen.id === 'hum' && issue3ViewMode === 'visual') ? 'hidden' : 'visible' }}>
-                  <PianoBarsArt
-                    audioPlaying={audioPlaying}
-                    windowWidth={windowWidth}
-                    background="#ece9e2"
-                    barImages={[]}
-                    barColors={keyScale}
-                    onNote={() => strobeSpawnRef.current?.()}
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        ) : (
-          <PianoBarsArt
-            audioPlaying={audioPlaying}
-            windowWidth={windowWidth}
-            barImages={screenBarImages}
-            background="transparent"
-            onSwipeLeft={goNext}
-            onSwipeRight={goPrev}
-          />
-        )}
+        <PianoBarsArt
+          audioPlaying={audioPlaying}
+          windowWidth={windowWidth}
+          barImages={barImages}
+          background="transparent"
+          composition={compositionObj}
+        />
 
         {/* Touch-anywhere-to-start overlay when audio is off */}
         {!audioPlaying && (
@@ -4082,22 +3920,6 @@ function App() {
               <span style={{ fontFamily: HN, fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.45)' }}>touch to begin</span>
             </div>
           </div>
-        )}
-
-        {/* Desktop prev/next arrows */}
-        {isDesktopView && (
-          <>
-            <button onClick={goPrev} style={{ ...arrowStyle, left: 20 }} aria-label="Previous">
-              <svg width="13" height="22" viewBox="0 0 13 22" fill="none">
-                <polyline points="11,1 1,11 11,21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-            <button onClick={goNext} style={{ ...arrowStyle, right: 20 }} aria-label="Next">
-              <svg width="13" height="22" viewBox="0 0 13 22" fill="none">
-                <polyline points="1,1 11,11 1,21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </>
         )}
 
         {/* Circle — go home, fades in on mouse activity */}
@@ -4117,6 +3939,59 @@ function App() {
             onMouseLeave={(e) => { if (showExitButton) e.currentTarget.style.opacity = '0.9'; }}
           />
         </div>
+
+        {/* Composition selector */}
+        {isDesktopView ? (
+          <div style={{
+            position: 'fixed', top: '50%', transform: 'translateY(-50%)', left: 25, zIndex: 20,
+            opacity: showExitButton ? 1 : 0,
+            pointerEvents: showExitButton ? 'auto' : 'none',
+            transition: 'opacity 0.5s',
+            display: 'flex', flexDirection: 'column', gap: 6,
+          }}>
+            {COMPOSITIONS.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setComposition(c.id)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  textAlign: 'left', fontFamily: HN,
+                  fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  color: composition === c.id ? 'rgba(26,26,26,0.85)' : 'rgba(26,26,26,0.3)',
+                  lineHeight: 1.4, transition: 'color 0.2s',
+                }}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div style={{
+            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 20,
+            display: 'flex', flexDirection: 'row',
+            justifyContent: 'space-around', alignItems: 'center',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(8px)',
+          }}>
+            {COMPOSITIONS.map(c => (
+              <button
+                key={c.id}
+                onClick={() => setComposition(c.id)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  padding: '14px 8px', flex: 1,
+                  fontFamily: HN, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: composition === c.id ? 'rgba(26,26,26,0.9)' : 'rgba(26,26,26,0.35)',
+                  transition: 'color 0.2s',
+                  minHeight: 44,
+                }}
+              >
+                {c.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Fullscreen button — desktop only, fades in on mouse activity */}
         {isDesktopView && (

@@ -50,7 +50,7 @@ const NOTE_TO_BAR = {
 
 const MOBILE_NOTES = new Set(['F4', 'G4', 'A4', 'B4', 'C5'])
 
-export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, background, barColors, onSwipeLeft, onSwipeRight, onNote, horizontal }) {
+export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, background, barColors, onSwipeLeft, onSwipeRight, onNote, horizontal, composition }) {
   const colors = barColors ?? BASE_GREY
   const isMobile = windowWidth <= 820
   const keySize = horizontal ? Math.floor(windowWidth / 4) : null
@@ -63,7 +63,9 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   const activeTouches = useRef({})
   const swipeTrack = useRef({})
   const onNoteRef = useRef(onNote)
+  const audioPlayingRef = useRef(audioPlaying)
   useEffect(() => { onNoteRef.current = onNote }, [onNote])
+  useEffect(() => { audioPlayingRef.current = audioPlaying }, [audioPlaying])
 
   const showStrip = useCallback((note, duration = 80) => {
     const el = imageRefs.current[note]
@@ -95,27 +97,17 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   }, [showStrip, hideStrip])
 
   useEffect(() => {
+    if (!composition?.tracks?.length) return
     let disposed = false
     const parts = []
+    const trackNodes = []
 
-    // Shared reverb — the main source of warmth
     const reverb = new Tone.Reverb({ decay: 3, wet: 0.4 }).toDestination()
-
-    // Ch1: Op.19 Complete — Vol -2, Pitch -1 semitone (via detune), subtle dist
-    const dist1 = new Tone.Distortion({ distortion: 0.3, wet: 0.35 }).connect(reverb)
-    const vol1  = new Tone.Volume(-2).connect(dist1)
-
-    // Ch2: Op.19 No.2 — Vol -11, Pitch -6 semitones (via detune), no dist
-    const vol2  = new Tone.Volume(-11).connect(reverb)
-
-    // Touch sampler — clean path, no distortion, quiet
     const volTouch = new Tone.Volume(-6).connect(reverb)
     const touchSampler = new Tone.Sampler(SAMPLES, {
       baseUrl: '/audio/salamander/',
       onload: () => { touchSamplerRef.current = touchSampler },
     }).connect(volTouch)
-
-    let s1Ready = false, s2Ready = false
 
     function buildParts(midi, sampler) {
       midi.tracks.forEach(track => {
@@ -133,45 +125,56 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
       })
     }
 
-    function trySetup() {
-      if (!s1Ready || !s2Ready || disposed) return
-      Promise.all([
-        Midi.fromUrl('/midi/op19.mid'),
-        Midi.fromUrl('/midi/op19no2.mid'),
-      ]).then(([midi1, midi2]) => {
-        if (disposed) return
-        buildParts(midi1, sampler1)
-        buildParts(midi2, sampler2)
-        samplerRef.current = sampler1
-
-      }).catch(console.error)
+    function afterSetup() {
+      if (disposed) return
+      if (audioPlayingRef.current && Tone.Transport.state !== 'started') Tone.Transport.start()
     }
 
-    // detune in cents: -1 semitone = -100c, -6 semitones = -600c
-    const sampler1 = new Tone.Sampler(SAMPLES, {
-      baseUrl: '/audio/salamander/',
-      onload: () => { s1Ready = true; trySetup() },
-    }).connect(vol1)
-    sampler1.detune = -100
+    let readyCount = 0
+    const totalTracks = composition.tracks.length
 
-    const sampler2 = new Tone.Sampler(SAMPLES, {
-      baseUrl: '/audio/salamander/',
-      onload: () => { s2Ready = true; trySetup() },
-    }).connect(vol2)
-    sampler2.detune = -600
+    composition.tracks.forEach((trackCfg, i) => {
+      let dist = null
+      let endpoint = reverb
+      if (trackCfg.dist) {
+        dist = new Tone.Distortion(trackCfg.dist).connect(reverb)
+        endpoint = dist
+      }
+      const vol = new Tone.Volume(trackCfg.volume ?? 0).connect(endpoint)
+      const sampler = new Tone.Sampler(SAMPLES, {
+        baseUrl: '/audio/salamander/',
+        onload: () => {
+          if (disposed) return
+          Midi.fromUrl(trackCfg.midi).then(midi => {
+            if (disposed) return
+            buildParts(midi, sampler)
+            if (i === 0) samplerRef.current = sampler
+            readyCount++
+            if (readyCount === totalTracks) afterSetup()
+          }).catch(console.error)
+        },
+      }).connect(vol)
+      sampler.detune = trackCfg.detune ?? 0
+      trackNodes.push({ sampler, vol, dist })
+    })
 
     return () => {
       disposed = true
       Tone.Transport.stop()
+      Tone.Transport.cancel()
       parts.forEach(p => p.dispose())
-      sampler1.dispose(); sampler2.dispose(); touchSampler.dispose()
-      vol1.dispose(); dist1.dispose()
-      vol2.dispose(); volTouch.dispose()
+      trackNodes.forEach(({ sampler, vol, dist }) => {
+        sampler.dispose()
+        vol.dispose()
+        if (dist) dist.dispose()
+      })
+      touchSampler.dispose()
+      volTouch.dispose()
       reverb.dispose()
       samplerRef.current = null
       touchSamplerRef.current = null
     }
-  }, [glowBar])
+  }, [glowBar, composition])
 
   useEffect(() => {
     let rafId
@@ -362,7 +365,7 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
                 position: 'absolute', inset: 0,
                 backgroundImage: `url(${imgSrc})`,
                 backgroundSize: 'cover',
-                backgroundPosition: 'center center',
+                backgroundPosition: windowWidth <= 820 ? '35% center' : 'center center',
                 backgroundAttachment: 'fixed',
                 backgroundRepeat: 'no-repeat',
                 opacity: 0,
