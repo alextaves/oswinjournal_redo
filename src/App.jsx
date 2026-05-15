@@ -743,7 +743,7 @@ function App() {
   useEffect(() => {
     const inExp = view === 'experience' && selectedIssue?.id === 3
     // Crowd walla — always on in experience
-    const CROWD_TARGET = 0.06
+    const CROWD_TARGET = isDesktopView ? 0.06 : 0.015
     if (inExp && audioPlaying) {
       if (!wallaRef.current) {
         const audio = new Audio('/audio/crowd-walla.mp3')
@@ -3956,7 +3956,7 @@ const handleIssueClick = (issue) => {
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                   textAlign: 'left', fontFamily: HN,
-                  fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase',
+                  fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
                   color: composition === c.id ? 'rgba(26,26,26,0.85)' : 'rgba(26,26,26,0.3)',
                   lineHeight: 1.4, transition: 'color 0.2s',
                 }}
