@@ -766,7 +766,7 @@ function App() {
       stopWalla()
     }
 
-  }, [view, composition, audioPlaying, selectedIssue])
+  }, [view, composition, audioPlaying, selectedIssue, windowWidth])
 
   // Cover tracks for the home screen
   const homeCoverTracks = {
