@@ -50,7 +50,7 @@ const NOTE_TO_BAR = {
 
 const MOBILE_NOTES = new Set(['F4', 'G4', 'A4', 'B4', 'C5'])
 
-export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, background, barColors, onSwipeLeft, onSwipeRight, onNote, horizontal, composition }) {
+export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, background, barColors, onSwipeLeft, onSwipeRight, onNote, horizontal, composition, allKeysActive }) {
   const colors = barColors ?? BASE_GREY
   const isMobile = windowWidth <= 820
   const keySize = horizontal ? Math.floor(windowWidth / 4) : null
@@ -221,7 +221,7 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   }, [audioPlaying])
 
   const handleEnter = useCallback((e, note) => {
-    if (isMobile && !MOBILE_NOTES.has(note)) return
+    if (isMobile && !allKeysActive && !MOBILE_NOTES.has(note)) return
     const el = e.currentTarget
     el.style.transition = 'background-color 80ms ease-in'
     el.style.backgroundColor = BLOOM_HOVER
@@ -237,7 +237,7 @@ export default function PianoBarsArt({ audioPlaying, windowWidth, barImages, bac
   }, [hideStrip])
 
   const activateBar = useCallback((note) => {
-    if (isMobile && !MOBILE_NOTES.has(note)) return
+    if (isMobile && !allKeysActive && !MOBILE_NOTES.has(note)) return
     const el = barRefs.current[note]
     if (!el) return
     el.style.transition = 'background-color 80ms ease-in'

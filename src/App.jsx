@@ -3914,6 +3914,7 @@ const handleIssueClick = (issue) => {
           barImages={barImages}
           background="transparent"
           composition={compositionObj}
+          allKeysActive
         />
 
         {/* Touch-anywhere-to-start overlay when audio is off */}
