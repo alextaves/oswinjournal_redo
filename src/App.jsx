@@ -4,6 +4,7 @@ import CreditTitlePage from './CreditTitlePage';
 import PianoBarsArt from './PianoBarsArt';
 import HumMixer from './HumMixer';
 import SiphonGallery from './SiphonGallery';
+import Playground from './Playground';
 import { COMPOSITIONS } from './compositions';
 
 function NoiseCanvas({ alpha = 20 }) {
@@ -165,6 +166,7 @@ function App() {
   const [issue3Screen, setIssue3Screen] = useState(0);
   const [issue3ViewMode, setIssue3ViewMode] = useState('read');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [playgroundInitialExperiment, setPlaygroundInitialExperiment] = useState('cubes');
   const audioRef = useRef(null);
   const wallaRef = useRef(null);
   const wallaFadeRef = useRef(null);
@@ -983,6 +985,7 @@ const handleIssueClick = (issue) => {
               { name: 'home', href: '#home', isHome: true },
               { name: 'reads', href: '#reads', isReads: true },
               { name: 'listens', href: '#listens', isListens: true },
+              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
@@ -1006,6 +1009,11 @@ const handleIssueClick = (issue) => {
                     setMenuOpen(false);
                     stopWalla();
                     transitionToView('listens');
+                  } else if (item.isPlayground) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    stopWalla();
+                    transitionToView('playground');
                   } else if (item.isHome) {
                     e.preventDefault();
                     setMenuOpen(false);
@@ -1578,6 +1586,7 @@ const handleIssueClick = (issue) => {
               { name: 'home', href: '#home', isHome: true },
               { name: 'reads', href: '#reads', isReads: true },
               { name: 'listens', href: '#listens', isListens: true },
+              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
@@ -1601,6 +1610,11 @@ const handleIssueClick = (issue) => {
                     setMenuOpen(false);
                     stopWalla();
                     transitionToView('listens');
+                  } else if (item.isPlayground) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    stopWalla();
+                    transitionToView('playground');
                   } else if (item.isHome) {
                     e.preventDefault();
                     setMenuOpen(false);
@@ -2067,6 +2081,7 @@ const handleIssueClick = (issue) => {
               { name: 'home', href: '#home', isHome: true },
               { name: 'reads', href: '#reads', isReads: true },
               { name: 'listens', href: '#listens', isListens: true },
+              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
@@ -2090,6 +2105,11 @@ const handleIssueClick = (issue) => {
                     setMenuOpen(false);
                     stopWalla();
                     transitionToView('listens');
+                  } else if (item.isPlayground) {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    stopWalla();
+                    transitionToView('playground');
                   } else if (item.isHome) {
                     e.preventDefault();
                     setMenuOpen(false);
@@ -3979,6 +3999,21 @@ const handleIssueClick = (issue) => {
                 {c.name}
               </button>
             ))}
+            <button
+              onClick={() => { setPlaygroundInitialExperiment('schoenberg'); transitionToView('playground'); }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                textAlign: 'left', fontFamily: HN,
+                fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: 'rgba(26,26,26,0.3)',
+                lineHeight: 1.4, transition: 'color 0.2s',
+                marginTop: 4,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(26,26,26,0.7)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(26,26,26,0.3)' }}
+            >
+              Playground
+            </button>
           </div>
         ) : (
           <div style={{
@@ -4005,6 +4040,19 @@ const handleIssueClick = (issue) => {
                 {c.name}
               </button>
             ))}
+            <button
+              onClick={() => { setPlaygroundInitialExperiment('schoenberg'); transitionToView('playground'); }}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '14px 8px', flex: 1,
+                fontFamily: HN, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
+                color: 'rgba(26,26,26,0.35)',
+                transition: 'color 0.2s',
+                minHeight: 44,
+              }}
+            >
+              Playground
+            </button>
           </div>
         )}
 
@@ -4046,6 +4094,7 @@ const handleIssueClick = (issue) => {
       {view === 'archive' && renderArchiveView()}
       {view === 'reads' && renderReadsView()}
       {view === 'listens' && renderListensView()}
+      {view === 'playground' && <Playground onBack={() => transitionToView('archive')} initialExperiment={playgroundInitialExperiment} />}
       {view === 'issue-detail' && selectedIssue && renderIssueDetailView()}
       {view === 'experience' && selectedIssue?.id === 3 && renderIssue3Experience()}
       {view === 'experience' && selectedIssue && selectedIssue.id !== 3 && (
