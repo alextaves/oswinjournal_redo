@@ -983,9 +983,9 @@ const handleIssueClick = (issue) => {
           <div className="space-y-6">
             {[
               { name: 'home', href: '#home', isHome: true },
+              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'reads', href: '#reads', isReads: true },
               { name: 'listens', href: '#listens', isListens: true },
-              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
@@ -1584,9 +1584,9 @@ const handleIssueClick = (issue) => {
           <div className="space-y-6">
             {[
               { name: 'home', href: '#home', isHome: true },
+              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'reads', href: '#reads', isReads: true },
               { name: 'listens', href: '#listens', isListens: true },
-              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
@@ -2079,9 +2079,9 @@ const handleIssueClick = (issue) => {
           <div className="space-y-6">
             {[
               { name: 'home', href: '#home', isHome: true },
+              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'reads', href: '#reads', isReads: true },
               { name: 'listens', href: '#listens', isListens: true },
-              { name: 'playground', href: '#playground', isPlayground: true },
               { name: 'instagram', href: 'https://www.instagram.com/oswin_journal/' },
               { name: 'contact', href: '#contact', isContact: true }
             ].map((item, i) => (
