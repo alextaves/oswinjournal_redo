@@ -4018,7 +4018,7 @@ const handleIssueClick = (issue) => {
 
               {/* Playground */}
               <button
-                onClick={() => window.open('https://playground.oswinjournal.com', '_blank')}
+                onClick={() => { setAudioPlaying(false); window.open('https://playground.oswinjournal.com', '_blank') }}
                 style={{
                   background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
                   textAlign: 'left', fontFamily: HN,
@@ -4178,7 +4178,7 @@ const handleIssueClick = (issue) => {
               </button>
             ))}
             <button
-              onClick={() => window.open('https://playground.oswinjournal.com', '_blank')}
+              onClick={() => { setAudioPlaying(false); window.open('https://playground.oswinjournal.com', '_blank') }}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                 textAlign: 'left', fontFamily: HN,
