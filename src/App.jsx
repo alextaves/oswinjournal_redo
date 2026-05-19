@@ -1110,19 +1110,30 @@ const handleIssueClick = (issue) => {
 
           if (isMobileView) {
             // MOBILE: grey box fills full screen, content overlaid
-            const HamburgerLines = ({ color }) => (
-              <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                style={{ width: '36px', height: '36px', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
-              >
-                <span style={{ position: 'absolute', width: '24px', height: '2px', backgroundColor: color, borderRadius: '9999px', transform: menuOpen ? 'rotate(45deg)' : 'translateY(-5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
-                <span style={{ position: 'absolute', width: '24px', height: '2px', backgroundColor: color, borderRadius: '9999px', opacity: menuOpen ? 0 : 1, transition: 'all 0.5s' }} />
-                <span style={{ position: 'absolute', width: '24px', height: '2px', backgroundColor: color, borderRadius: '9999px', transform: menuOpen ? 'rotate(-45deg)' : 'translateY(5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
-              </button>
-            );
+            const hamburgerColor = activeIssue === 3 && !menuOpen ? '#1A1A1A' : 'white'
+            const HamburgerLines = ({ color }) => null;
 
             return (
               <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', zIndex: 0 }}>
+
+                {/* Fixed hamburger — top-right corner */}
+                <button
+                  onClick={() => setMenuOpen(o => !o)}
+                  style={{
+                    position: 'fixed',
+                    top: 'calc(env(safe-area-inset-top) + 10px)',
+                    right: 16,
+                    zIndex: 200,
+                    width: 44, height: 44,
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                  }}
+                >
+                  <span style={{ position: 'absolute', width: 24, height: 2, backgroundColor: hamburgerColor, borderRadius: 9999, transform: menuOpen ? 'rotate(45deg)' : 'translateY(-5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
+                  <span style={{ position: 'absolute', width: 24, height: 2, backgroundColor: hamburgerColor, borderRadius: 9999, opacity: menuOpen ? 0 : 1, transition: 'all 0.5s' }} />
+                  <span style={{ position: 'absolute', width: 24, height: 2, backgroundColor: hamburgerColor, borderRadius: 9999, transform: menuOpen ? 'rotate(-45deg)' : 'translateY(5px)', transition: 'all 0.5s', transformOrigin: 'center' }} />
+                </button>
+
                 {/* Cover — furthest back */}
                 {activeIssue === 3 ? (
                   <div style={{ position: 'absolute', inset: 0, zIndex: 0 }}>
@@ -1163,8 +1174,8 @@ const handleIssueClick = (issue) => {
                   padding: '52px 20px 30px',
                   pointerEvents: 'auto',
                 }}>
-                  {/* Top row: audio off (left) | hamburger (right) */}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', pointerEvents: 'auto' }}>
+                  {/* Audio toggle */}
+                  <div style={{ marginBottom: '8px', pointerEvents: 'auto' }}>
                     <button
                       onTouchStart={(e) => { e.preventDefault(); Tone.start(); setAudioPlaying(p => !p); }}
                       onClick={() => { Tone.start(); setAudioPlaying(p => !p); }}
@@ -1172,7 +1183,6 @@ const handleIssueClick = (issue) => {
                     >
                       audio {audioPlaying ? 'on' : 'off'}
                     </button>
-                    <HamburgerLines color="white" />
                   </div>
 
                   {/* Issue caption below audio off */}
