@@ -2,6 +2,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { useTexture, MeshReflectorMaterial } from '@react-three/drei'
 import { useRef, useEffect, useState } from 'react'
 import * as THREE from 'three'
+import * as Tone from 'tone'
 import PlaygroundDrone from './PlaygroundDrone'
 import PlaygroundHamburger from './PlaygroundHamburger'
 import SpinApp from './SpinApp'
@@ -188,18 +189,18 @@ export default function Playground({ onBack, initialExperiment = 'cubes' }) {
             <Scene scrollRef={scrollRef} cubes={cubes} mobile={mobile} />
           </Canvas>
           <div style={{
-            position: 'fixed', bottom: 32, left: '50%', transform: 'translateX(-50%)',
-            display: 'flex', alignItems: 'center', gap: 24,
+            position: 'fixed', top: 32, left: 28,
+            display: 'flex', flexDirection: 'column', gap: 10,
           }}>
             <span style={{ fontFamily: SANS, fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(0,0,0,0.25)', pointerEvents: 'none' }}>
               scroll or swipe to move
             </span>
             <button
-              onClick={() => setPlaying(p => !p)}
+              onClick={() => { Tone.start(); setPlaying(p => !p) }}
               style={{
                 fontFamily: SANS, fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase',
                 color: playing ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.25)',
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left',
               }}
             >
               {playing ? '■ sound' : '▶ sound'}

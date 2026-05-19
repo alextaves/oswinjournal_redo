@@ -167,6 +167,9 @@ function App() {
   const [issue3ViewMode, setIssue3ViewMode] = useState('read');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [playgroundInitialExperiment, setPlaygroundInitialExperiment] = useState('cubes');
+  const [showIssue3Note, setShowIssue3Note] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
   const audioRef = useRef(null);
   const wallaRef = useRef(null);
   const wallaFadeRef = useRef(null);
@@ -3937,17 +3940,121 @@ const handleIssueClick = (issue) => {
           allKeysActive
         />
 
-        {/* Touch-anywhere-to-start overlay when audio is off */}
-        {!audioPlaying && (
-          <div
-            style={{ position: 'absolute', inset: 0, zIndex: 10, cursor: 'pointer', touchAction: 'manipulation' }}
-            onClick={() => { Tone.start(); setAudioPlaying(true); }}
-            onTouchStart={(e) => { e.preventDefault(); Tone.start(); setAudioPlaying(true); }}
-          >
-            <div style={{ position: 'absolute', top: 24, left: 0, right: 0, display: 'flex', justifyContent: 'center', pointerEvents: 'none' }}>
-              <span style={{ fontFamily: HN, fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.45)' }}>touch to begin</span>
+        {/* Mobile: AUDIO button top-left + slide-down panel */}
+        {!isDesktopView && (
+          <>
+            <button
+              onClick={() => {
+                if (!audioPlaying) { Tone.start(); setAudioPlaying(true); }
+                setShowMobileMenu(m => !m);
+              }}
+              style={{
+                position: 'fixed',
+                top: 'calc(env(safe-area-inset-top) + 16px)',
+                left: 20,
+                zIndex: 40,
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                fontFamily: HN, fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase',
+                color: audioPlaying ? 'rgba(26,26,26,0.75)' : 'rgba(26,26,26,0.4)',
+              }}
+            >
+              Audio
+            </button>
+
+            {/* Backdrop */}
+            {showMobileMenu && (
+              <div
+                onClick={() => setShowMobileMenu(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 38 }}
+              />
+            )}
+
+            {/* Slide-down panel */}
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, zIndex: 39,
+              background: 'rgba(247,247,245,0.97)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              transform: showMobileMenu ? 'translateY(0)' : 'translateY(-100%)',
+              transition: 'transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              paddingTop: 'calc(env(safe-area-inset-top) + 56px)',
+              paddingBottom: 40,
+              paddingLeft: 28, paddingRight: 28,
+              display: 'flex', flexDirection: 'column', gap: 0,
+            }}>
+              {/* Songs */}
+              <p style={{ margin: '0 0 14px', fontFamily: HN, fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'rgba(26,26,26,0.3)' }}>
+                Songs
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginBottom: 28 }}>
+                {COMPOSITIONS.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setComposition(c.id); setShowMobileMenu(false); }}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
+                      textAlign: 'left', fontFamily: HN,
+                      fontSize: 15, letterSpacing: '0.08em', textTransform: 'uppercase',
+                      color: composition === c.id ? 'rgba(26,26,26,0.85)' : 'rgba(26,26,26,0.3)',
+                      transition: 'color 0.2s',
+                    }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Playground */}
+              <button
+                onClick={() => window.open('https://playground.oswinjournal.com', '_blank')}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
+                  textAlign: 'left', fontFamily: HN,
+                  fontSize: 15, letterSpacing: '0.08em', textTransform: 'uppercase',
+                  color: 'rgba(26,26,26,0.3)',
+                }}
+              >
+                Playground
+              </button>
+
+              {/* Divider */}
+              <div style={{ height: 1, background: 'rgba(26,26,26,0.08)', margin: '20px 0 4px' }} />
+
+              {/* Notes — collapsible */}
+              <button
+                onClick={() => setMobileNotesOpen(n => !n)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '12px 0',
+                  textAlign: 'left', fontFamily: HN, fontSize: 10, letterSpacing: '0.2em',
+                  textTransform: 'uppercase', color: 'rgba(26,26,26,0.3)',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                }}
+              >
+                Notes
+                <span style={{
+                  display: 'inline-block',
+                  transform: mobileNotesOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.3s',
+                  fontSize: 8, opacity: 0.5,
+                }}>▼</span>
+              </button>
+              {mobileNotesOpen && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                  {[
+                    `Issue 3 is focused on Arnold Schoenberg's atonal piano pieces from the early 1900s, digitized, made into midi files, then manipulated in JavaScript while being paired with an unidentified muscle man flexing from the same period. The connection between the two is not obvious, it's not meant to be, but sitting with the work, it somehow makes sense. At least to me it does.`,
+                    `This was created during an anxious period in my life. The world we have known seems to be slipping out of our grasp, and our places are shifting. Tools are changing at a lightning pace, so is today's creative output. What will it look like in one year, two? It's like the world has its foot on the accelerator and no brakes.`,
+                    `Working with Schoenberg's pieces, the parallel felt right. He broke the tonal system, the whole inherited grammar of Western music, to make something the system couldn't hold. Atonality is itself a binary, tonal or not, yes or no on the entire frame. The strongman photograph carries a similar residue, a medium still strange enough that the act of being photographed was itself the subject.`,
+                  ].map((p, i) => (
+                    <p key={i} style={{ margin: '0 0 16px', fontFamily: HN, fontSize: 13, lineHeight: 1.75, color: 'rgba(26,26,26,0.65)', fontWeight: 400 }}>
+                      {p}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
+          </>
         )}
 
         {/* Circle — go home */}
@@ -3975,6 +4082,54 @@ const handleIssueClick = (issue) => {
           />
         </div>
 
+        {/* Issue 3 note slide-out panel */}
+        {isDesktopView && (
+          <>
+            {showIssue3Note && (
+              <div
+                onClick={() => setShowIssue3Note(false)}
+                style={{ position: 'fixed', inset: 0, zIndex: 29 }}
+              />
+            )}
+            <div style={{
+              position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 30,
+              width: 360,
+              background: 'rgba(247,247,245,0.97)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
+              transform: showIssue3Note ? 'translateX(0)' : 'translateX(100%)',
+              transition: 'transform 0.5s cubic-bezier(0.4, 0.0, 0.2, 1)',
+              padding: '64px 36px 48px',
+              overflowY: 'auto',
+              display: 'flex', flexDirection: 'column', gap: 20,
+            }}>
+              <button
+                onClick={() => setShowIssue3Note(false)}
+                style={{
+                  position: 'absolute', top: 24, right: 24,
+                  background: 'none', border: 'none', cursor: 'pointer', padding: 4,
+                  fontFamily: HN, fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase',
+                  color: 'rgba(26,26,26,0.35)',
+                }}
+              >
+                Close
+              </button>
+              {[
+                `Issue 3 is focused on Arnold Schoenberg's atonal piano pieces from the early 1900s, digitized, made into midi files, then manipulated in JavaScript while being paired with an unidentified muscle man flexing from the same period. The connection between the two is not obvious, it's not meant to be, but sitting with the work, it somehow makes sense. At least to me it does.`,
+                `This was created during an anxious period in my life. The world we have known seems to be slipping out of our grasp, and our places are shifting. Tools are changing at a lightning pace, so is today's creative output. What will it look like in one year, two? It's like the world has its foot on the accelerator and no brakes.`,
+                `Working with Schoenberg's pieces, the parallel felt right. He broke the tonal system, the whole inherited grammar of Western music, to make something the system couldn't hold. Atonality is itself a binary, tonal or not, yes or no on the entire frame. The strongman photograph carries a similar residue, a medium still strange enough that the act of being photographed was itself the subject.`,
+              ].map((p, i) => (
+                <p key={i} style={{
+                  margin: 0, fontFamily: HN, fontSize: 13, lineHeight: 1.75,
+                  color: 'rgba(26,26,26,0.7)', fontWeight: 400,
+                }}>
+                  {p}
+                </p>
+              ))}
+            </div>
+          </>
+        )}
+
         {/* Composition selector */}
         {isDesktopView ? (
           <div style={{
@@ -3984,6 +4139,19 @@ const handleIssueClick = (issue) => {
             transition: 'opacity 0.5s',
             display: 'flex', flexDirection: 'column', gap: 6,
           }}>
+            <button
+              onClick={() => setShowIssue3Note(n => !n)}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                textAlign: 'left', fontFamily: HN,
+                fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
+                color: showIssue3Note ? 'rgba(26,26,26,0.85)' : 'rgba(26,26,26,0.3)',
+                lineHeight: 1.4, transition: 'color 0.2s',
+                marginBottom: 4,
+              }}
+            >
+              Note.
+            </button>
             {COMPOSITIONS.map(c => (
               <button
                 key={c.id}
@@ -4000,7 +4168,7 @@ const handleIssueClick = (issue) => {
               </button>
             ))}
             <button
-              onClick={() => { setPlaygroundInitialExperiment('schoenberg'); transitionToView('playground'); }}
+              onClick={() => window.open('https://playground.oswinjournal.com', '_blank')}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer', padding: 0,
                 textAlign: 'left', fontFamily: HN,
@@ -4015,46 +4183,7 @@ const handleIssueClick = (issue) => {
               Playground
             </button>
           </div>
-        ) : (
-          <div style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 20,
-            display: 'flex', flexDirection: 'row',
-            justifyContent: 'space-around', alignItems: 'center',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            background: 'rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(8px)',
-          }}>
-            {COMPOSITIONS.map(c => (
-              <button
-                key={c.id}
-                onClick={() => setComposition(c.id)}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  padding: '14px 8px', flex: 1,
-                  fontFamily: HN, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
-                  color: composition === c.id ? 'rgba(26,26,26,0.9)' : 'rgba(26,26,26,0.35)',
-                  transition: 'color 0.2s',
-                  minHeight: 44,
-                }}
-              >
-                {c.name}
-              </button>
-            ))}
-            <button
-              onClick={() => { setPlaygroundInitialExperiment('schoenberg'); transitionToView('playground'); }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: '14px 8px', flex: 1,
-                fontFamily: HN, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: 'rgba(26,26,26,0.35)',
-                transition: 'color 0.2s',
-                minHeight: 44,
-              }}
-            >
-              Playground
-            </button>
-          </div>
-        )}
+        ) : null}
 
         {/* Fullscreen button — desktop only, fades in on mouse activity */}
         {isDesktopView && (

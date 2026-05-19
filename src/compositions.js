@@ -27,7 +27,7 @@ export const COMPOSITIONS = [
   {
     id: 'op19no6-33',
     name: 'Blue',
-    bg: '#3B82F6',
+    bg: '#00BFFF',
     image: '/images/giftshop-blue.jpg',
     tracks: [
       { midi: '/midi/op19no6.mid', volume: 0,   detune: 0 },
