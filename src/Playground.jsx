@@ -196,7 +196,7 @@ export default function Playground({ onBack, initialExperiment = 'cubes' }) {
               scroll or swipe to move
             </span>
             <button
-              onClick={() => { Tone.start(); setPlaying(p => !p) }}
+              onClick={() => { Tone.start(); Tone.getDestination().mute = false; setPlaying(p => !p) }}
               style={{
                 fontFamily: SANS, fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase',
                 color: playing ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.25)',
