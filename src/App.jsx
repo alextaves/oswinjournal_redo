@@ -139,6 +139,195 @@ function StackedHum({ word = 'HUM', color = 'rgba(0, 55, 193, 0.69)', fontSize =
   )
 }
 
+const ISSUES = [
+  {
+    id: 1,
+    title: 'KARLA',
+    artist: 'Alex Taves',
+    albumArt: '#D4FF00',
+    tracks: [
+      { name: 'begin', src: '/audio/begin.mp3', available: true },
+      { name: 'automobile', src: '/audio/automobile.mp3', available: true },
+      { name: 'float', src: '/audio/float.mp3', available: true },
+      { name: 'night walk', src: '/audio/night walk.mp3', available: true }
+    ],
+    videos: {
+      desktop: [
+        '/videos/desktop_preRace2.mp4',
+        '/videos/desktop_raceStart.mp4',
+        '/videos/desktop_hurdles.mp4',
+        '/videos/desktop_legs.mp4',
+        '/videos/desktop-zoom.mp4',
+        '/videos/desktop-marathon.mp4'
+      ],
+      tablet: [
+        '/videos/tablet_PreRace.mp4',
+        '/videos/tablet_crowd.mp4',
+        '/videos/tablet_hurdles.mp4',
+        '/videos/tablet_zoom.mp4'
+      ],
+      phone: [
+        '/videos/phone_PreRace.mp4',
+        '/videos/phone_crowd.mp4',
+        '/videos/phone_hurdles.mp4',
+        '/videos/phone_zoom.mp4'
+      ]
+    },
+    slideshow: [
+      '/images/SLIDESHOW/tokyo-01.jpg',
+      '/images/SLIDESHOW/tokyo-02.jpg',
+      '/images/SLIDESHOW/tokyo-03.jpg',
+      '/images/SLIDESHOW/tokyo-04.jpg',
+      '/images/SLIDESHOW/tokyo-05.jpg',
+      '/images/SLIDESHOW/tokyo-06.jpg',
+      '/images/SLIDESHOW/tokyo-07.jpg',
+      '/images/SLIDESHOW/tokyo-08.jpg',
+      '/images/SLIDESHOW/tokyo-09.jpg',
+      '/images/SLIDESHOW/tokyo-10.jpg',
+      '/images/SLIDESHOW/tokyo-11.jpg',
+      '/images/SLIDESHOW/tokyo-12.jpg',
+      '/images/SLIDESHOW/tokyo-13.jpg'
+    ]
+  },
+  {
+    id: 2,
+    title: 'Christopher Bissonnette',
+    artist: 'Christopher Bissonnette',
+    albumArt: '#4A90D9',
+    tracks: [
+      { name: 'Overture', src: '/audio/c_bissonnette/overture.mp3', available: true },
+      { name: 'Orffyreus Wheel', src: '/audio/c_bissonnette/orffyreus_wheel.mp3', available: true },
+      { name: 'Undertow', src: '/audio/c_bissonnette/undertow.mp3', available: true },
+      { name: 'Color Deceives Continuously', src: '/audio/c_bissonnette/color_deceives.mp3', available: true }
+    ],
+    videos: {
+      desktop: [
+        '/videos/issue2/chris_desktop_bluedancer.mp4',
+        '/videos/issue2/chris_desktop_franticspin.mp4',
+        '/videos/issue2/chris_desktop_blue3_gradual.mp4',
+        '/videos/issue2/chris_desktop_technocolor.mp4',
+        '/videos/issue2/chris_desktop_maybe.mp4',
+        '/videos/issue2/chris_desktop_blue3_fifth.mp4',
+        '/videos/issue2/chris_desktop_pink_spin.mp4',
+        '/videos/issue2/chris_desktop_frantic_slowdown.mp4'
+      ],
+      tablet: [
+        '/videos/issue2/chris_mobile_ballet01.mp4',
+        '/videos/issue2/chris_mobile_ballet02.mp4',
+        '/videos/issue2/chris_mobile_cropped_runner.mp4',
+        '/videos/issue2/chris_mobile_streetrun.mp4',
+        '/videos/issue2/chris_mobile_loopedMan.mp4'
+      ],
+      phone: [
+        { type: 'title', pageId: 'melbourne-1500m' },
+        '/videos/issue2/chris_mobile_cropped_runner_1.mp4',
+        '/videos/issue2/chris_mobile_cropped_runner_2.mp4',
+        '/videos/issue2/chris_mobile_cropped_runner_3.mp4',
+        '/videos/issue2/chris_mobile_cropped_runner_still.mp4',
+        '/videos/issue2/chris_mobile_a1.mp4',
+        '/videos/issue2/chris_mobile_a2.mp4',
+        '/videos/issue2/chris_mobile_a3.mp4',
+        '/videos/issue2/chris_mobile_a4.mp4',
+        '/videos/issue2/chris_mobile_b1.mp4',
+        '/videos/issue2/chris_mobile_b2.mp4',
+        '/videos/issue2/chris_mobile_looped_run.mp4',
+        '/videos/issue2/chris_mobile_b3.mp4',
+        '/videos/issue2/chris_mobile_b4.mp4',
+        '/videos/issue2/chris_mobile_b5.mp4',
+        { type: 'title', pageId: 'figure-skating' },
+        '/videos/issue2/chris_mobile_closeup_spin_01.mp4',
+        '/videos/issue2/chris_mobile_closeup_spin_02.mp4',
+        '/videos/issue2/chris_mobile_closeup_spin_03.mp4',
+        '/videos/issue2/chris_mobile_closeup_spin_04.mp4',
+        '/videos/issue2/chris_mobile_bluespin_fifth.mp4',
+        '/videos/issue2/chris_mobile_bluespin_gradual01.mp4',
+        '/videos/issue2/chris_mobile_bluespin_gradual02.mp4',
+        '/videos/issue2/chris_mobile_bluespin_gradual03.mp4',
+        { type: 'title', pageId: 'wall-street' },
+        '/videos/issue2/chris_mobile_wallstreet_01.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_02.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_03.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_04.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_05.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_06.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_07_scroll.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_07.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_08.mp4',
+        '/videos/issue2/chris_mobile_wallstreet_6.mp4'
+      ]
+    },
+    slideshow: null,
+    panelSets: [
+      {
+        name: 'guy_corner',
+        panels: [
+          '/videos/issue2/panels/guy_corner_panel1.mp4',
+          '/videos/issue2/panels/guy_corner_panel2.mp4',
+          '/videos/issue2/panels/guy_corner_panel3.mp4'
+        ]
+      },
+      {
+        name: 'newyork',
+        panels: [
+          '/videos/issue2/panels/newyork_panel1.mp4',
+          '/videos/issue2/panels/newyork_panel2.mp4',
+          '/videos/issue2/panels/newyork_panel3.mp4'
+        ]
+      },
+      {
+        name: 'streetnoise',
+        panels: [
+          '/videos/issue2/panels/streetnoise_panel1.mp4',
+          '/videos/issue2/panels/streetnoise_panel2.mp4',
+          '/videos/issue2/panels/streetnoise_panel3.mp4'
+        ]
+      },
+      {
+        name: 'wallstreetwalking',
+        panels: [
+          '/videos/issue2/panels/wallstreetwalking_panel1.mp4',
+          '/videos/issue2/panels/wallstreetwalking_panel2.mp4',
+          '/videos/issue2/panels/wallstreetwalking_panel3.mp4'
+        ]
+      },
+      {
+        name: 'cool_guy',
+        panels: [
+          '/videos/issue2/panels/cool_guy_panel1.mp4',
+          '/videos/issue2/panels/cool_guy_panel2.mp4',
+          '/videos/issue2/panels/cool_guy_panel3.mp4'
+        ]
+      },
+      {
+        name: 'cropped_runner',
+        panels: [
+          '/videos/issue2/panels/cropped_runner_panel1.mp4',
+          '/videos/issue2/panels/cropped_runner_panel2.mp4',
+          '/videos/issue2/panels/cropped_runner_panel3.mp4'
+        ]
+      },
+      {
+        name: 'cropped_runner_mobile',
+        offsets: [0, 0.5, 1.0],
+        panels: [
+          '/videos/issue2/panels/cropped_runner_left.mp4',
+          '/videos/issue2/panels/cropped_runner_middle.mp4',
+          '/videos/issue2/panels/cropped_runner_right.mp4'
+        ]
+      }
+    ]
+  },
+  {
+    id: 3,
+    title: 'Arnold Schoenberg Piano 1908–1917',
+    artist: 'Audio Study',
+    albumArt: '#F5DD33',
+    tracks: [],
+    videos: { desktop: [], tablet: [], phone: [] },
+    slideshow: [],
+  }
+];
+
 // Main App Component
 function App() {
   const [view, setView] = useState('archive'); // 'archive', 'issue-detail', 'experience', 'reads', 'listens', 'hum'
@@ -162,7 +351,7 @@ function App() {
   const [visitedIssues, setVisitedIssues] = useState(new Set());
   const [hoveredIssue, setHoveredIssue] = useState(null);
   const [expandedRead, setExpandedRead] = useState(null);
-  const [activeIssue, setActiveIssue] = useState(3);
+  const [activeIssue, setActiveIssue] = useState(2);
   const [issue3Screen, setIssue3Screen] = useState(0);
   const [issue3ViewMode, setIssue3ViewMode] = useState('read');
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
@@ -454,195 +643,7 @@ function App() {
     }
   ];
 
-  // Issue data
-  const issues = [
-    {
-      id: 1,
-      title: 'KARLA',
-      artist: 'Alex Taves',
-      albumArt: '#D4FF00',
-      tracks: [
-        { name: 'begin', src: '/audio/begin.mp3', available: true },
-        { name: 'automobile', src: '/audio/automobile.mp3', available: true },
-        { name: 'float', src: '/audio/float.mp3', available: true },
-        { name: 'night walk', src: '/audio/night walk.mp3', available: true }
-      ],
-      videos: {
-        desktop: [
-          '/videos/desktop_preRace2.mp4',
-          '/videos/desktop_raceStart.mp4',
-          '/videos/desktop_hurdles.mp4',
-          '/videos/desktop_legs.mp4',
-          '/videos/desktop-zoom.mp4',
-          '/videos/desktop-marathon.mp4'
-        ],
-        tablet: [
-          '/videos/tablet_PreRace.mp4',
-          '/videos/tablet_crowd.mp4',
-          '/videos/tablet_hurdles.mp4',
-          '/videos/tablet_zoom.mp4'
-        ],
-        phone: [
-          '/videos/phone_PreRace.mp4',
-          '/videos/phone_crowd.mp4',
-          '/videos/phone_hurdles.mp4',
-          '/videos/phone_zoom.mp4'
-        ]
-      },
-      slideshow: [
-        '/images/SLIDESHOW/tokyo-01.jpg',
-        '/images/SLIDESHOW/tokyo-02.jpg',
-        '/images/SLIDESHOW/tokyo-03.jpg',
-        '/images/SLIDESHOW/tokyo-04.jpg',
-        '/images/SLIDESHOW/tokyo-05.jpg',
-        '/images/SLIDESHOW/tokyo-06.jpg',
-        '/images/SLIDESHOW/tokyo-07.jpg',
-        '/images/SLIDESHOW/tokyo-08.jpg',
-        '/images/SLIDESHOW/tokyo-09.jpg',
-        '/images/SLIDESHOW/tokyo-10.jpg',
-        '/images/SLIDESHOW/tokyo-11.jpg',
-        '/images/SLIDESHOW/tokyo-12.jpg',
-        '/images/SLIDESHOW/tokyo-13.jpg'
-      ]
-    },
-    {
-      id: 2,
-      title: 'Christopher Bissonnette',
-      artist: 'Christopher Bissonnette',
-      albumArt: '#4A90D9',
-      tracks: [
-        { name: 'Overture', src: '/audio/c_bissonnette/overture.mp3', available: true },
-        { name: 'Orffyreus Wheel', src: '/audio/c_bissonnette/orffyreus_wheel.mp3', available: true },
-        { name: 'Undertow', src: '/audio/c_bissonnette/undertow.mp3', available: true },
-        { name: 'Color Deceives Continuously', src: '/audio/c_bissonnette/color_deceives.mp3', available: true }
-      ],
-      videos: {
-        desktop: [
-          '/videos/issue2/chris_desktop_bluedancer.mp4',
-          '/videos/issue2/chris_desktop_franticspin.mp4',
-          '/videos/issue2/chris_desktop_blue3_gradual.mp4',
-          '/videos/issue2/chris_desktop_technocolor.mp4',
-          '/videos/issue2/chris_desktop_maybe.mp4',
-          '/videos/issue2/chris_desktop_blue3_fifth.mp4',
-          '/videos/issue2/chris_desktop_pink_spin.mp4',
-          '/videos/issue2/chris_desktop_frantic_slowdown.mp4'
-        ],
-        tablet: [
-          '/videos/issue2/chris_mobile_ballet01.mp4',
-          '/videos/issue2/chris_mobile_ballet02.mp4',
-          '/videos/issue2/chris_mobile_cropped_runner.mp4',
-          '/videos/issue2/chris_mobile_streetrun.mp4',
-          '/videos/issue2/chris_mobile_loopedMan.mp4'
-        ],
-        phone: [
-          { type: 'title', pageId: 'melbourne-1500m' },
-          '/videos/issue2/chris_mobile_cropped_runner_1.mp4',
-          '/videos/issue2/chris_mobile_cropped_runner_2.mp4',
-          '/videos/issue2/chris_mobile_cropped_runner_3.mp4',
-          '/videos/issue2/chris_mobile_cropped_runner_still.mp4',
-          '/videos/issue2/chris_mobile_a1.mp4',
-          '/videos/issue2/chris_mobile_a2.mp4',
-          '/videos/issue2/chris_mobile_a3.mp4',
-          '/videos/issue2/chris_mobile_a4.mp4',
-          '/videos/issue2/chris_mobile_b1.mp4',
-          '/videos/issue2/chris_mobile_b2.mp4',
-          '/videos/issue2/chris_mobile_looped_run.mp4',
-          '/videos/issue2/chris_mobile_b3.mp4',
-          '/videos/issue2/chris_mobile_b4.mp4',
-          '/videos/issue2/chris_mobile_b5.mp4',
-          { type: 'title', pageId: 'figure-skating' },
-          '/videos/issue2/chris_mobile_closeup_spin_01.mp4',
-          '/videos/issue2/chris_mobile_closeup_spin_02.mp4',
-          '/videos/issue2/chris_mobile_closeup_spin_03.mp4',
-          '/videos/issue2/chris_mobile_closeup_spin_04.mp4',
-          '/videos/issue2/chris_mobile_bluespin_fifth.mp4',
-          '/videos/issue2/chris_mobile_bluespin_gradual01.mp4',
-          '/videos/issue2/chris_mobile_bluespin_gradual02.mp4',
-          '/videos/issue2/chris_mobile_bluespin_gradual03.mp4',
-          { type: 'title', pageId: 'wall-street' },
-          '/videos/issue2/chris_mobile_wallstreet_01.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_02.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_03.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_04.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_05.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_06.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_07_scroll.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_07.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_08.mp4',
-          '/videos/issue2/chris_mobile_wallstreet_6.mp4'
-        ]
-      },
-      slideshow: null,
-      panelSets: [
-        {
-          name: 'guy_corner',
-          panels: [
-            '/videos/issue2/panels/guy_corner_panel1.mp4',
-            '/videos/issue2/panels/guy_corner_panel2.mp4',
-            '/videos/issue2/panels/guy_corner_panel3.mp4'
-          ]
-        },
-        {
-          name: 'newyork',
-          panels: [
-            '/videos/issue2/panels/newyork_panel1.mp4',
-            '/videos/issue2/panels/newyork_panel2.mp4',
-            '/videos/issue2/panels/newyork_panel3.mp4'
-          ]
-        },
-        {
-          name: 'streetnoise',
-          panels: [
-            '/videos/issue2/panels/streetnoise_panel1.mp4',
-            '/videos/issue2/panels/streetnoise_panel2.mp4',
-            '/videos/issue2/panels/streetnoise_panel3.mp4'
-          ]
-        },
-        {
-          name: 'wallstreetwalking',
-          panels: [
-            '/videos/issue2/panels/wallstreetwalking_panel1.mp4',
-            '/videos/issue2/panels/wallstreetwalking_panel2.mp4',
-            '/videos/issue2/panels/wallstreetwalking_panel3.mp4'
-          ]
-        },
-        {
-          name: 'cool_guy',
-          panels: [
-            '/videos/issue2/panels/cool_guy_panel1.mp4',
-            '/videos/issue2/panels/cool_guy_panel2.mp4',
-            '/videos/issue2/panels/cool_guy_panel3.mp4'
-          ]
-        },
-        {
-          name: 'cropped_runner',
-          panels: [
-            '/videos/issue2/panels/cropped_runner_panel1.mp4',
-            '/videos/issue2/panels/cropped_runner_panel2.mp4',
-            '/videos/issue2/panels/cropped_runner_panel3.mp4'
-          ]
-        },
-        {
-          name: 'cropped_runner_mobile',
-          offsets: [0, 0.5, 1.0],
-          panels: [
-            '/videos/issue2/panels/cropped_runner_left.mp4',
-            '/videos/issue2/panels/cropped_runner_middle.mp4',
-            '/videos/issue2/panels/cropped_runner_right.mp4'
-          ]
-        }
-      ]
-    },
-    {
-      id: 3,
-      title: 'Arnold Schoenberg Piano 1908–1917',
-      artist: 'Audio Study',
-      albumArt: '#F5DD33',
-      tracks: [],
-      videos: { desktop: [], tablet: [], phone: [] },
-      slideshow: [],
-    }
-  ];
+  const issues = ISSUES;
 
   const HUM_PARAGRAPHS = [
     `As you walk through a store, the music and screens change to your taste. But the music is in your head. Everyone has their version. The screens are Hum's, billboards, store displays, transit panels, the lobby screen at your building. Designated surfaces. If you're WOCCA, they go black. I've lowered my glasses a few times out of curiosity. Not wearing them seems sad and lonely.`,
