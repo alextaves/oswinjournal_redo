@@ -147,6 +147,27 @@ const group = new THREE.Group()
 group.add(textCard, audioCard)
 scene.add(group)
 
+// ── Click the peeking (back) card to swap it to the front ─────────────────────
+const FRONT_POS = audioCard.position.clone()
+const BACK_POS = textCard.position.clone()
+audioCard.userData.target = FRONT_POS.clone()
+textCard.userData.target = BACK_POS.clone()
+let frontCard = audioCard
+const raycaster = new THREE.Raycaster()
+const ptr = new THREE.Vector2()
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  ptr.x = (e.clientX / innerWidth) * 2 - 1
+  ptr.y = -((e.clientY / innerHeight) * 2 - 1)
+  raycaster.setFromCamera(ptr, camera)
+  const hits = raycaster.intersectObjects([audioCard, textCard], false)
+  if (!hits.length) return
+  const hit = hits[0].object
+  if (hit === frontCard) return   // clicked the one already in front → no-op
+  frontCard.userData.target.copy(BACK_POS)
+  hit.userData.target.copy(FRONT_POS)
+  frontCard = hit
+})
+
 // Redraw the text card once the portrait decodes.
 portrait.onload = () => {
   const face = newFace(); drawTextFace(face.ctx)
@@ -174,6 +195,12 @@ function render() {
   curRY += (targetRY - curRY) * 0.06
   group.rotation.x = curRX
   group.rotation.y = curRY
+  // Ease the cards toward their targets (swap animation) and keep the nearer
+  // one drawing on top.
+  audioCard.position.lerp(audioCard.userData.target, 0.13)
+  textCard.position.lerp(textCard.userData.target, 0.13)
+  audioCard.renderOrder = Math.round(audioCard.position.z * 100)
+  textCard.renderOrder = Math.round(textCard.position.z * 100)
   renderer.render(scene, camera)
 }
 render()
