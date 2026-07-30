@@ -83,6 +83,7 @@ function flipTex(canvas) {
 }
 
 // Audio card face (warm paper, dark type) — the frosted playlist, drawn flat.
+let playingIdx = -1   // active track index (0-3), or -1 for none
 function drawAudioFace(ctx) {
   ctx.clearRect(0, 0, FW, FH)
   ctx.fillStyle = '#ECE9E2'; ctx.fillRect(0, 0, FW, FH)
@@ -93,10 +94,16 @@ function drawAudioFace(ctx) {
   ctx.fillText('Christopher', LM, 150); ctx.fillText('Bissonnette', LM, 198)
   ctx.letterSpacing = '0px'
   const tracks = ['Overture', 'Orffyreus Wheel', 'Undertow', 'Color Deceives Continuously']
-  ctx.font = `500 27px ${FONT}`; ctx.fillStyle = 'rgba(42,38,35,0.82)'
   let y = 280
-  tracks.forEach((t) => { ctx.fillText(t, LM, y); y += 46 })
-  ctx.font = `italic 500 27px ${FONT}`; ctx.fillText('silent mode', LM, y); y += 70
+  tracks.forEach((t, i) => {
+    const on = i === playingIdx
+    ctx.font = on ? `700 27px ${FONT}` : `500 27px ${FONT}`
+    ctx.fillStyle = on ? '#151310' : 'rgba(42,38,35,0.82)'
+    ctx.fillText(t, LM, y)
+    if (on) { ctx.beginPath(); ctx.arc(LM - 22, y - 8, 5, 0, Math.PI * 2); ctx.fill() }
+    y += 46
+  })
+  ctx.font = `italic 500 27px ${FONT}`; ctx.fillStyle = 'rgba(42,38,35,0.82)'; ctx.fillText('silent mode', LM, y); y += 70
   label('Video', LM, y); y += 40
   ctx.font = `700 30px ${FONT}`; ctx.fillStyle = '#282623'; ctx.fillText('OSWIN', LM, y); y += 62
   label('Credit Info', LM, y); y += 40
@@ -182,6 +189,36 @@ function applyLayout() {
   back.material[4].map = focused ? back.userData.faceBlur : back.userData.faceSharp
   back.material[4].needsUpdate = true
 }
+// ── Track playback (click a track on the audio card face) ─────────────────────
+const AUDIO_FILES = ['overture.mp3', 'orffyreus_wheel.mp3', 'undertow.mp3', 'color_deceives.mp3']
+const audioCache = {}
+let currentAudio = null
+function toggleTrack(i) {
+  if (i === 4) {   // silent mode → stop
+    if (currentAudio) currentAudio.pause()
+    currentAudio = null; playingIdx = -1; audioCard.userData.redraw(); return
+  }
+  const file = AUDIO_FILES[i]
+  if (!audioCache[file]) {
+    audioCache[file] = new Audio('audio/c_bissonnette/' + file)
+    audioCache[file].addEventListener('ended', () => { if (playingIdx === i) { playingIdx = -1; currentAudio = null; audioCard.userData.redraw() } })
+  }
+  const a = audioCache[file]
+  if (currentAudio && currentAudio !== a) currentAudio.pause()
+  if (a.paused) { a.play().catch(() => {}); currentAudio = a; playingIdx = i }
+  else { a.pause(); currentAudio = null; playingIdx = -1 }
+  audioCard.userData.redraw()
+}
+// Map a hit UV on the audio face to a track row (0-3 tracks, 4 = silent mode).
+function trackAt(uv) {
+  if (!uv) return -1
+  const cx = uv.x * FW, cy = (1 - uv.y) * FH
+  if (cx < LM - 26 || cx > LM + 430) return -1
+  const base = [280, 326, 372, 418, 464]
+  for (let i = 0; i < base.length; i++) if (cy > base[i] - 34 && cy < base[i] + 10) return i
+  return -1
+}
+
 const raycaster = new THREE.Raycaster()
 const ptr = new THREE.Vector2()
 renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -191,6 +228,11 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const hits = raycaster.intersectObjects([audioCard, textCard], false)
   if (!hits.length) return
   const hit = hits[0].object
+  // A track click on the front audio card plays/stops it (not straighten/swap).
+  if (hit === audioCard && audioCard === frontCard && hits[0].face && hits[0].face.materialIndex === 4) {
+    const i = trackAt(hits[0].uv)
+    if (i >= 0) { toggleTrack(i); return }
+  }
   if (hit === frontCard) focused = !focused        // click the front card → straighten (toggle)
   else { frontCard = hit; focused = false }         // click the back card → swap it to front
   applyLayout()
