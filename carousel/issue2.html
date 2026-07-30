@@ -118,7 +118,7 @@
 
   <!-- CARD A — the issue text -->
   <article class="card card--text">
-    <img class="cover" src="images/chris_portrait.png" alt="Christopher Bissonnette" />
+    <canvas class="cover" id="portraitCanvas" width="1148" height="1138" aria-label="Christopher Bissonnette"></canvas>
     <div class="pad">
       <div class="eyebrow">Oswin Journal · Issue 2</div>
       <h1>Christopher Bissonnette</h1>
@@ -227,6 +227,45 @@
   });
   const silentBtn = document.querySelector('.tk[data-silent]');
   if (silentBtn) silentBtn.addEventListener('click', stopAll);
+
+  // Portrait with the same animated TV static as the homepage cards:
+  // 25% noise (lighten 0.11 + multiply 0.075) plus scanlines, redrawn each frame.
+  (function () {
+    const cv = document.getElementById('portraitCanvas');
+    if (!cv) return;
+    const cx = cv.getContext('2d');
+    const img = new Image();
+    let ready = false;
+    img.onload = () => { cv.width = img.naturalWidth; cv.height = img.naturalHeight; ready = true; };
+    img.src = 'images/chris_portrait.png';
+
+    const nW = 220, nH = 218;
+    const nc = document.createElement('canvas'); nc.width = nW; nc.height = nH;
+    const nctx = nc.getContext('2d');
+    function regen() {
+      const id = nctx.createImageData(nW, nH), d = id.data;
+      for (let i = 0; i < d.length; i += 4) { const v = (Math.random() * 255) | 0; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+      nctx.putImageData(id, 0, 0);
+    }
+    function frame() {
+      if (ready) {
+        const W = cv.width, H = cv.height;
+        cx.clearRect(0, 0, W, H);
+        cx.drawImage(img, 0, 0, W, H);
+        regen();
+        cx.save(); cx.imageSmoothingEnabled = false;
+        cx.globalCompositeOperation = 'lighten'; cx.globalAlpha = 0.11; cx.drawImage(nc, 0, 0, W, H);
+        cx.globalCompositeOperation = 'multiply'; cx.globalAlpha = 0.075; cx.drawImage(nc, 0, 0, W, H);
+        cx.restore();
+        cx.save(); cx.globalAlpha = 0.16; cx.fillStyle = '#000';
+        const step = Math.max(2, Math.round(H / 280));
+        for (let y = 0; y < H; y += step) cx.fillRect(0, y, W, 1);
+        cx.restore();
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
 </script>
 </body>
 </html>
