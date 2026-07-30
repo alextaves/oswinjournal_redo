@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Issue 2 — stacked cards (look & feel)</title>
+<style>
+  html, body { margin:0; height:100%; background:#12151b; overflow:hidden; }
+  canvas { display:block; touch-action:none; }
+</style>
+</head>
+<body>
+<script src="/vendor/three.min.js"></script>
+<script>
+// ── Two homepage-style 3D glass cards, stacked like layers ─────────────────────
+// The audio card sits on top/front; the text card sits behind and lower, so a
+// step of it sticks out. Reuses the ring's material/lighting so they match.
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color('#12151b')
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100)
+camera.position.set(0, 0, 9)
+camera.lookAt(0, 0, 0)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.setSize(innerWidth, innerHeight)
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.appendChild(renderer.domElement)
+
+// Environment (drives the glass reflections) — same idea as the ring.
+const envScene = new THREE.Scene()
+envScene.background = new THREE.Color('#0e0b08')
+;[
+  [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
+  [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
+].forEach(([x, y, z, w, h, b]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(b) }))
+  m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
+})
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(envScene, 0, 0.1, 100).texture
+scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
+const key = new THREE.DirectionalLight('#ffffff', 1.1); key.position.set(4, 6, 5)
+const rim = new THREE.DirectionalLight('#ffcf90', 0.5); rim.position.set(-5, 2, -4)
+scene.add(key, rim)
+
+// ── Card geometry ──────────────────────────────────────────────────────────────
+const PW = 3.0, PH = 4.0, THICK = 0.18
+const panelGeo = new THREE.BoxGeometry(PW, PH, THICK)
+const FRONT_OPACITY = 0.94, BACK_OPACITY = 0.42
+
+// Rounded-corner alpha map (soft edges), same as the ring.
+const roundedAlphaMap = (() => {
+  const W = 128, H = Math.round(W * PH / PW)
+  const c = document.createElement('canvas'); c.width = W; c.height = H
+  const ctx = c.getContext('2d'); const r = 6
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
+  ctx.filter = 'blur(2.5px)'
+  ctx.beginPath()
+  ctx.moveTo(r, 0); ctx.arcTo(W, 0, W, H, r); ctx.arcTo(W, H, 0, H, r)
+  ctx.arcTo(0, H, 0, 0, r); ctx.arcTo(0, 0, W, 0, r); ctx.closePath()
+  ctx.fillStyle = '#fff'; ctx.fill()
+  const t = new THREE.CanvasTexture(c); return t
+})()
+
+// ── Face textures (canvas-drawn, like the ring cards) ──────────────────────────
+const FW = 600, FH = 800, LM = 54
+const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif"
+
+function newFace() {
+  const c = document.createElement('canvas'); c.width = FW; c.height = FH
+  return { c, ctx: c.getContext('2d') }
+}
+function flipTex(canvas) {
+  const c = document.createElement('canvas'); c.width = canvas.width; c.height = canvas.height
+  const ctx = c.getContext('2d'); ctx.translate(c.width, 0); ctx.scale(-1, 1); ctx.drawImage(canvas, 0, 0)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+}
+
+// Audio card face (warm paper, dark type) — the frosted playlist, drawn flat.
+function drawAudioFace(ctx) {
+  ctx.clearRect(0, 0, FW, FH)
+  ctx.fillStyle = '#ECE9E2'; ctx.fillRect(0, 0, FW, FH)
+  ctx.textAlign = 'left'
+  const label = (t, x, y) => { ctx.font = `700 15px ${FONT}`; ctx.letterSpacing = '3px'; ctx.fillStyle = 'rgba(38,34,32,0.5)'; ctx.fillText(t.toUpperCase(), x, y) }
+  label('Audio', LM, 92)
+  ctx.font = `700 44px ${FONT}`; ctx.letterSpacing = '-0.5px'; ctx.fillStyle = '#282623'
+  ctx.fillText('Christopher', LM, 150); ctx.fillText('Bissonnette', LM, 198)
+  ctx.letterSpacing = '0px'
+  const tracks = ['Overture', 'Orffyreus Wheel', 'Undertow', 'Color Deceives Continuously']
+  ctx.font = `500 27px ${FONT}`; ctx.fillStyle = 'rgba(42,38,35,0.82)'
+  let y = 280
+  tracks.forEach((t) => { ctx.fillText(t, LM, y); y += 46 })
+  ctx.font = `italic 500 27px ${FONT}`; ctx.fillText('silent mode', LM, y); y += 70
+  label('Video', LM, y); y += 40
+  ctx.font = `700 30px ${FONT}`; ctx.fillStyle = '#282623'; ctx.fillText('OSWIN', LM, y); y += 62
+  label('Credit Info', LM, y); y += 40
+  label('Notes on Oswin', LM, y)
+}
+
+// Text card face — portrait on top, title strip below.
+const portrait = new Image()
+function drawTextFace(ctx) {
+  ctx.clearRect(0, 0, FW, FH)
+  ctx.fillStyle = '#ECE9E2'; ctx.fillRect(0, 0, FW, FH)
+  const imgH = 540
+  if (portrait.naturalWidth) {
+    const s = Math.max(FW / portrait.naturalWidth, imgH / portrait.naturalHeight)
+    const dw = portrait.naturalWidth * s, dh = portrait.naturalHeight * s
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, FW, imgH); ctx.clip()
+    ctx.drawImage(portrait, (FW - dw) / 2, (imgH - dh) / 2, dw, dh); ctx.restore()
+  }
+  ctx.textAlign = 'left'
+  ctx.font = `700 14px ${FONT}`; ctx.letterSpacing = '3px'; ctx.fillStyle = 'rgba(38,34,32,0.5)'
+  ctx.fillText('OSWIN JOURNAL · ISSUE 2', LM, imgH + 54)
+  ctx.font = `700 40px ${FONT}`; ctx.letterSpacing = '-0.5px'; ctx.fillStyle = '#282623'
+  ctx.fillText('Christopher', LM, imgH + 108); ctx.fillText('Bissonnette', LM, imgH + 152)
+}
+
+function makeCard(drawFace, panelHex) {
+  const face = newFace(); drawFace(face.ctx)
+  const faceTex = new THREE.CanvasTexture(face.c); faceTex.encoding = THREE.sRGBEncoding
+  const backTex = flipTex(face.c)
+  const col = new THREE.Color(panelHex)
+  const faceMat = new THREE.MeshPhysicalMaterial({ map: faceTex, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide, roughness: 0.5, metalness: 0, envMapIntensity: 0.14, color: 0xffffff, alphaMap: roundedAlphaMap })
+  const glassMat = new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: BACK_OPACITY, roughness: 0.6, metalness: 0, envMapIntensity: 0.1 })
+  const backMat = new THREE.MeshPhysicalMaterial({ map: backTex, transparent: true, opacity: 0.72, roughness: 0.6, metalness: 0, color: 0xffffff, alphaMap: roundedAlphaMap })
+  const sideMat = new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: 0.7, roughness: 0.6, metalness: 0, envMapIntensity: 0.1 })
+  const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+  mesh.userData.faceTex = faceTex
+  return mesh
+}
+
+// Text card (back / lower) and audio card (front / upper), offset into a step.
+const textCard = makeCard(drawTextFace, '#E4E0D8')
+textCard.position.set(-0.28, -0.55, -0.18)
+
+const audioCard = makeCard(drawAudioFace, '#E9E5DE')
+audioCard.position.set(0.28, 0.55, 0.24)
+
+const group = new THREE.Group()
+group.add(textCard, audioCard)
+scene.add(group)
+
+// Redraw the text card once the portrait decodes.
+portrait.onload = () => {
+  const face = newFace(); drawTextFace(face.ctx)
+  textCard.material[4].map.image.getContext('2d').drawImage(face.c, 0, 0)
+  textCard.material[4].map.needsUpdate = true
+}
+portrait.src = 'images/chris_portrait.png'
+
+// ── Gentle pointer parallax so the step/depth reads ────────────────────────────
+let targetRX = 0, targetRY = 0, curRX = 0, curRY = 0
+addEventListener('pointermove', (e) => {
+  const nx = (e.clientX / innerWidth) * 2 - 1
+  const ny = (e.clientY / innerHeight) * 2 - 1
+  targetRY = nx * 0.28
+  targetRX = -ny * 0.16
+})
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+
+function render() {
+  requestAnimationFrame(render)
+  curRX += (targetRX - curRX) * 0.06
+  curRY += (targetRY - curRY) * 0.06
+  group.rotation.x = curRX
+  group.rotation.y = curRY
+  renderer.render(scene, camera)
+}
+render()
+</script>
+</body>
+</html>
