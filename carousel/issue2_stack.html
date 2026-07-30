@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>Issue 2 — stacked cards (look & feel)</title>
 <style>
-  html, body { margin:0; height:100%; background:#12151b; overflow:hidden; }
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; }
   canvas { display:block; touch-action:none; }
 </style>
 </head>
@@ -17,19 +17,72 @@
 // step of it sticks out. Reuses the ring's material/lighting so they match.
 
 const scene = new THREE.Scene()
-scene.background = new THREE.Color('#12151b')
+scene.background = null   // transparent — the WallStreet video shows behind the cards
 
 const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100)
 camera.position.set(0, 0, 9)
 camera.lookAt(0, 0, 0)
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })
 renderer.setSize(innerWidth, innerHeight)
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.setClearColor(0x000000, 0)   // transparent so the bg layer shows through
 renderer.outputEncoding = THREE.sRGBEncoding
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.2
+renderer.domElement.style.cssText = 'position:fixed; inset:0; z-index:1;'
 document.body.appendChild(renderer.domElement)
+
+// ── WallStreet video background (ported from alextaves Moving Images) ──────────
+const bgHost = document.createElement('div')
+bgHost.style.cssText = 'position:fixed; inset:0; z-index:0; filter:blur(6px); background:#000;'
+document.body.appendChild(bgHost)
+const bgRenderer = new THREE.WebGLRenderer({ antialias: true })
+bgRenderer.setSize(innerWidth, innerHeight)
+bgRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
+bgRenderer.outputEncoding = THREE.sRGBEncoding
+bgHost.appendChild(bgRenderer.domElement)
+const bgScene = new THREE.Scene(); bgScene.background = new THREE.Color('#000')
+const bgCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100)
+bgCam.position.set(0, 0, 4)
+
+const WS_HALF = 8
+const WS_FRAME_H = 2 * Math.tan((60 / 2) * (Math.PI / 180)) * 4
+const WS_TILE_W = WS_FRAME_H * (9 / 16)
+const WS_SPACING = 2 * WS_TILE_W
+const WS_TOTAL = WS_HALF * WS_SPACING
+const WS_SPEED = WS_TILE_W * 0.4
+
+const wsStripeMat = new THREE.ShaderMaterial({
+  uniforms: { time: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: 'uniform float time; varying vec2 vUv; void main(){ float s=mod(floor((vUv.x+time*0.15)*38.0),2.0); vec3 c = s<1.0? vec3(0.192,0.282,0.345):vec3(1.0); gl_FragColor=vec4(c,1.0); }',
+})
+const wsStripe = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), wsStripeMat)
+wsStripe.position.z = -0.1; bgScene.add(wsStripe)
+
+const wsVideo = document.createElement('video')
+wsVideo.src = 'videos/wallstreet.mp4'; wsVideo.loop = true; wsVideo.muted = true; wsVideo.playsInline = true
+wsVideo.play().catch(() => {})
+const wsTex = new THREE.VideoTexture(wsVideo); wsTex.encoding = THREE.sRGBEncoding
+const wsGeo = new THREE.PlaneGeometry(WS_TILE_W, WS_FRAME_H)
+const wsMat = new THREE.MeshBasicMaterial({ map: wsTex, blending: THREE.MultiplyBlending, transparent: true, opacity: 0.75, depthWrite: false })
+const wsMeshes = []
+;[0, 1, 2, 3, 4, 5].forEach((k) => {
+  const offset = WS_TILE_W * k / 6
+  for (let i = 0; i < WS_HALF * 2; i++) { const m = new THREE.Mesh(wsGeo, wsMat); bgScene.add(m); wsMeshes.push({ m, offset, i }) }
+})
+let wsScroll = 0
+function renderBG(t, dt) {
+  wsStripeMat.uniforms.time.value = t
+  wsScroll += WS_SPEED * dt
+  for (const { m, offset, i } of wsMeshes) {
+    const scroll = wsScroll + offset
+    if (i < WS_HALF) m.position.x = ((i * WS_SPACING - scroll % WS_TOTAL) % WS_TOTAL + WS_TOTAL) % WS_TOTAL - WS_TOTAL / 2
+    else { const j = i - WS_HALF; m.position.x = ((j * WS_SPACING + WS_TILE_W + scroll % WS_TOTAL) % WS_TOTAL + WS_TOTAL) % WS_TOTAL - WS_TOTAL / 2 }
+  }
+  bgRenderer.render(bgScene, bgCam)
+}
 
 // Environment (drives the glass reflections) — same idea as the ring.
 const envScene = new THREE.Scene()
@@ -363,10 +416,17 @@ addEventListener('pointermove', (e) => {
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix()
   renderer.setSize(innerWidth, innerHeight)
+  bgCam.aspect = innerWidth / innerHeight; bgCam.updateProjectionMatrix()
+  bgRenderer.setSize(innerWidth, innerHeight)
 })
 
-function render() {
+let _lastT = performance.now()
+function render(now) {
   requestAnimationFrame(render)
+  now = now || performance.now()
+  const t = now / 1000
+  let dt = (now - _lastT) / 1000; _lastT = now; if (dt > 0.05) dt = 0.05
+  renderBG(t, dt)
   // At rest, a slight angle so the glass thickness/edges read (like the ring);
   // when focused, straighten dead-on.
   const BASE_RX = -0.05, BASE_RY = 0.13
