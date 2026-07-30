@@ -7,9 +7,14 @@
 <style>
   html, body { margin:0; height:100%; background:#12151b; overflow:hidden; }
   canvas { display:block; touch-action:none; }
+  /* Scrollable reader that fades in over the straightened text card */
+  #reader { position:fixed; border:0; opacity:0; pointer-events:none; transition:opacity .35s ease; border-radius:12px; z-index:5; background:#ECE9E2; }
+  #readerClose { position:fixed; z-index:6; width:36px; height:36px; border-radius:50%; border:none; background:rgba(20,19,17,0.55); color:#fff; font-size:17px; line-height:1; cursor:pointer; display:none; align-items:center; justify-content:center; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
 </style>
 </head>
 <body>
+<iframe id="reader" title="Issue 2 text"></iframe>
+<button id="readerClose" aria-label="Close">✕</button>
 <script src="/vendor/three.min.js"></script>
 <script>
 // ── Two homepage-style 3D glass cards, stacked like layers ─────────────────────
@@ -110,23 +115,46 @@ function drawAudioFace(ctx) {
   label('Notes on Oswin', LM, y)
 }
 
-// Text card face — portrait on top, title strip below.
+// Shared noise for the portrait's live TV static (grain only — no scanlines).
+const noiseC = document.createElement('canvas'); noiseC.width = 200; noiseC.height = 200
+const noiseCtx = noiseC.getContext('2d')
+function regenNoise() {
+  const id = noiseCtx.createImageData(200, 200), d = id.data
+  for (let i = 0; i < d.length; i += 4) { const v = (Math.random() * 255) | 0; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255 }
+  noiseCtx.putImageData(id, 0, 0)
+}
+
+// Text card face — portrait (always with live static, no hard bottom line) + title.
+const PAPER = '#ECE9E2'
 const portrait = new Image()
 function drawTextFace(ctx) {
   ctx.clearRect(0, 0, FW, FH)
-  ctx.fillStyle = '#ECE9E2'; ctx.fillRect(0, 0, FW, FH)
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, FW, FH)
   const imgH = 540
   if (portrait.naturalWidth) {
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, FW, imgH); ctx.clip()
     const s = Math.max(FW / portrait.naturalWidth, imgH / portrait.naturalHeight)
     const dw = portrait.naturalWidth * s, dh = portrait.naturalHeight * s
-    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, FW, imgH); ctx.clip()
-    ctx.drawImage(portrait, (FW - dw) / 2, (imgH - dh) / 2, dw, dh); ctx.restore()
+    ctx.filter = 'grayscale(1) contrast(1.32)'   // sharp B&W, higher contrast (kill the sepia)
+    ctx.drawImage(portrait, (FW - dw) / 2, (imgH - dh) / 2, dw, dh)
+    ctx.filter = 'none'
+    // live grain static (no scanlines)
+    regenNoise()
+    ctx.imageSmoothingEnabled = false
+    ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = 0.11; ctx.drawImage(noiseC, 0, 0, FW, imgH)
+    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.075; ctx.drawImage(noiseC, 0, 0, FW, imgH)
+    ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1
+    // fade the bottom into the paper so there's no hard line
+    const g = ctx.createLinearGradient(0, imgH - 120, 0, imgH)
+    g.addColorStop(0, 'rgba(236,233,226,0)'); g.addColorStop(1, 'rgba(236,233,226,1)')
+    ctx.fillStyle = g; ctx.fillRect(0, imgH - 120, FW, 120)
+    ctx.restore()
   }
   ctx.textAlign = 'left'
   ctx.font = `700 14px ${FONT}`; ctx.letterSpacing = '3px'; ctx.fillStyle = 'rgba(38,34,32,0.5)'
-  ctx.fillText('OSWIN JOURNAL · ISSUE 2', LM, imgH + 54)
+  ctx.fillText('OSWIN JOURNAL · ISSUE 2', LM, imgH + 40)
   ctx.font = `700 40px ${FONT}`; ctx.letterSpacing = '-0.5px'; ctx.fillStyle = '#282623'
-  ctx.fillText('Christopher', LM, imgH + 108); ctx.fillText('Bissonnette', LM, imgH + 152)
+  ctx.fillText('Christopher', LM, imgH + 94); ctx.fillText('Bissonnette', LM, imgH + 138)
 }
 
 function makeCard(drawFace, panelHex) {
@@ -151,6 +179,8 @@ function makeCard(drawFace, panelHex) {
   const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
   mesh.userData.faceSharp = faceSharp
   mesh.userData.faceBlur = faceBlur
+  mesh.userData.sctx = sctx
+  mesh.userData.drawFace = drawFace
   mesh.userData.redraw = () => { drawFace(sctx); faceSharp.needsUpdate = true; regenBlur(); faceBlur.needsUpdate = true }
   return mesh
 }
@@ -188,7 +218,38 @@ function applyLayout() {
   frontCard.material[4].needsUpdate = true
   back.material[4].map = focused ? back.userData.faceBlur : back.userData.faceSharp
   back.material[4].needsUpdate = true
+  updateReader()
 }
+
+// The scrollable HTML reader, shown over the text card when it's straightened.
+const reader = document.getElementById('reader')
+const readerClose = document.getElementById('readerClose')
+function cardRect() {
+  const dist = camera.position.z - 0.28
+  const worldH = 2 * dist * Math.tan((camera.fov * Math.PI / 180) / 2)
+  const pxPerWorld = innerHeight / worldH
+  const w = PW * pxPerWorld, h = PH * pxPerWorld
+  return { left: (innerWidth - w) / 2, top: (innerHeight - h) / 2, w, h }
+}
+function updateReader() {
+  const show = focused && frontCard === textCard
+  if (show) {
+    if (!reader.src) reader.src = 'issue2_text.html'
+    const r = cardRect(), pad = Math.round(r.w * 0.03)
+    reader.style.left = (r.left + pad) + 'px'
+    reader.style.top = (r.top + pad) + 'px'
+    reader.style.width = (r.w - pad * 2) + 'px'
+    reader.style.height = (r.h - pad * 2) + 'px'
+    reader.style.opacity = '1'; reader.style.pointerEvents = 'auto'
+    readerClose.style.display = 'flex'
+    readerClose.style.left = (r.left + r.w - pad - 46) + 'px'
+    readerClose.style.top = (r.top + pad + 10) + 'px'
+  } else {
+    reader.style.opacity = '0'; reader.style.pointerEvents = 'none'
+    readerClose.style.display = 'none'
+  }
+}
+readerClose.addEventListener('click', () => { focused = false; applyLayout() })
 // ── Track playback (click a track on the audio card face) ─────────────────────
 const AUDIO_FILES = ['overture.mp3', 'orffyreus_wheel.mp3', 'undertow.mp3', 'color_deceives.mp3']
 const audioCache = {}
@@ -253,6 +314,7 @@ addEventListener('pointermove', (e) => {
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix()
   renderer.setSize(innerWidth, innerHeight)
+  updateReader()
 })
 
 function render() {
@@ -272,6 +334,9 @@ function render() {
   textCard.position.lerp(textCard.userData.target, 0.13)
   audioCard.renderOrder = Math.round(audioCard.position.z * 100)
   textCard.renderOrder = Math.round(textCard.position.z * 100)
+  // Keep the portrait's static alive on the text card face every frame.
+  drawTextFace(textCard.userData.sctx)
+  textCard.userData.faceSharp.needsUpdate = true
   renderer.render(scene, camera)
 }
 render()
