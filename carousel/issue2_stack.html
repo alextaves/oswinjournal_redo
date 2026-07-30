@@ -50,7 +50,7 @@ const rim = new THREE.DirectionalLight('#ffcf90', 0.5); rim.position.set(-5, 2, 
 scene.add(key, rim)
 
 // ── Card geometry ──────────────────────────────────────────────────────────────
-const PW = 4.125, PH = 5.5, THICK = 0.24   // ~90% the on-screen height of a homepage card
+const PW = 4.125, PH = 5.5, THICK = 0.34   // ~90% homepage card height; chunkier glass edge
 const panelGeo = new THREE.BoxGeometry(PW, PH, THICK)
 const FRONT_OPACITY = 0.94, BACK_OPACITY = 0.42
 
@@ -127,10 +127,10 @@ function makeCard(drawFace, panelHex) {
   const faceTex = new THREE.CanvasTexture(face.c); faceTex.encoding = THREE.sRGBEncoding
   const backTex = flipTex(face.c)
   const col = new THREE.Color(panelHex)
-  const faceMat = new THREE.MeshPhysicalMaterial({ map: faceTex, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide, roughness: 0.5, metalness: 0, envMapIntensity: 0.14, color: 0xffffff, alphaMap: roundedAlphaMap })
-  const glassMat = new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: BACK_OPACITY, roughness: 0.6, metalness: 0, envMapIntensity: 0.1 })
-  const backMat = new THREE.MeshPhysicalMaterial({ map: backTex, transparent: true, opacity: 0.72, roughness: 0.6, metalness: 0, color: 0xffffff, alphaMap: roundedAlphaMap })
-  const sideMat = new THREE.MeshStandardMaterial({ color: col, transparent: true, opacity: 0.7, roughness: 0.6, metalness: 0, envMapIntensity: 0.1 })
+  const faceMat = new THREE.MeshPhysicalMaterial({ map: faceTex, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide, roughness: 0.42, metalness: 0, envMapIntensity: 0.28, clearcoat: 0.5, clearcoatRoughness: 0.4, color: 0xffffff, alphaMap: roundedAlphaMap })
+  const glassMat = new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: BACK_OPACITY, roughness: 0.24, metalness: 0, envMapIntensity: 0.7, clearcoat: 0.9, clearcoatRoughness: 0.22 })
+  const backMat = new THREE.MeshPhysicalMaterial({ map: backTex, transparent: true, opacity: 0.85, roughness: 0.5, metalness: 0, envMapIntensity: 0.28, color: 0xffffff, alphaMap: roundedAlphaMap })
+  const sideMat = new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0, envMapIntensity: 0.85, clearcoat: 1.0, clearcoatRoughness: 0.18 })
   const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
   mesh.userData.faceTex = faceTex
   return mesh
@@ -153,6 +153,17 @@ const BACK_POS = textCard.position.clone()
 audioCard.userData.target = FRONT_POS.clone()
 textCard.userData.target = BACK_POS.clone()
 let frontCard = audioCard
+let focused = false   // true = front card pulled dead-centre and straight
+function applyLayout() {
+  const back = frontCard === audioCard ? textCard : audioCard
+  if (focused) {
+    frontCard.userData.target.set(0, 0, 0.28)   // straight, centred
+    back.userData.target.set(0, 0, -0.28)        // tucked directly behind
+  } else {
+    frontCard.userData.target.copy(FRONT_POS)
+    back.userData.target.copy(BACK_POS)
+  }
+}
 const raycaster = new THREE.Raycaster()
 const ptr = new THREE.Vector2()
 renderer.domElement.addEventListener('pointerdown', (e) => {
@@ -162,10 +173,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const hits = raycaster.intersectObjects([audioCard, textCard], false)
   if (!hits.length) return
   const hit = hits[0].object
-  if (hit === frontCard) return   // clicked the one already in front → no-op
-  frontCard.userData.target.copy(BACK_POS)
-  hit.userData.target.copy(FRONT_POS)
-  frontCard = hit
+  if (hit === frontCard) focused = !focused        // click the front card → straighten (toggle)
+  else { frontCard = hit; focused = false }         // click the back card → swap it to front
+  applyLayout()
 })
 
 // Redraw the text card once the portrait decodes.
@@ -191,8 +201,13 @@ addEventListener('resize', () => {
 
 function render() {
   requestAnimationFrame(render)
-  curRX += (targetRX - curRX) * 0.06
-  curRY += (targetRY - curRY) * 0.06
+  // At rest, a slight angle so the glass thickness/edges read (like the ring);
+  // when focused, straighten dead-on.
+  const BASE_RX = -0.05, BASE_RY = 0.13
+  const wantRX = focused ? 0 : (BASE_RX + targetRX)
+  const wantRY = focused ? 0 : (BASE_RY + targetRY)
+  curRX += (wantRX - curRX) * 0.06
+  curRY += (wantRY - curRY) * 0.06
   group.rotation.x = curRX
   group.rotation.y = curRY
   // Ease the cards toward their targets (swap animation) and keep the nearer
