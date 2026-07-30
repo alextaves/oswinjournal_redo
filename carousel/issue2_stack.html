@@ -50,7 +50,7 @@ const rim = new THREE.DirectionalLight('#ffcf90', 0.5); rim.position.set(-5, 2, 
 scene.add(key, rim)
 
 // ── Card geometry ──────────────────────────────────────────────────────────────
-const PW = 3.0, PH = 4.0, THICK = 0.18
+const PW = 4.125, PH = 5.5, THICK = 0.24   // ~90% the on-screen height of a homepage card
 const panelGeo = new THREE.BoxGeometry(PW, PH, THICK)
 const FRONT_OPACITY = 0.94, BACK_OPACITY = 0.42
 
@@ -138,10 +138,10 @@ function makeCard(drawFace, panelHex) {
 
 // Text card (back / lower) and audio card (front / upper), offset into a step.
 const textCard = makeCard(drawTextFace, '#E4E0D8')
-textCard.position.set(-0.28, -0.55, -0.18)
+textCard.position.set(-0.32, -0.62, -0.22)
 
 const audioCard = makeCard(drawAudioFace, '#E9E5DE')
-audioCard.position.set(0.28, 0.55, 0.24)
+audioCard.position.set(0.32, 0.62, 0.32)
 
 const group = new THREE.Group()
 group.add(textCard, audioCard)
