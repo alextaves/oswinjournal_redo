@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Oswin Journal — Issue 2 · Christopher Bissonnette</title>
+<style>
+  :root { --bg:#12151b; --paper:#ECEAE3; --ink:#1b1b1b; --ink-soft:#4a4a48; --ink-faint:#8a8a86; --rule:rgba(0,0,0,0.14); }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    display: flex; gap: 26px;
+    max-width: 1180px; margin: 0 auto;
+    padding: 34px 26px calc(34px + env(safe-area-inset-bottom));
+    align-items: stretch;
+    min-height: 100vh; min-height: 100dvh;
+  }
+  .card {
+    background: var(--paper);
+    border-radius: 10px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    max-height: calc(100vh - 68px); max-height: calc(100dvh - 68px);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  }
+  .card--text { flex: 1.35; }
+  .card--meta { flex: 1; align-self: flex-start; }
+  .pad { padding: 40px 42px 48px; }
+  .cover { display:block; width:100%; height:auto; }
+
+  .eyebrow { font-size:12px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:var(--ink-faint); }
+  h1 { font-size: clamp(30px, 4vw, 44px); font-weight:700; letter-spacing:-0.015em; line-height:1.02; margin:10px 0 4px; }
+  .sub { font-size:14px; font-weight:300; letter-spacing:0.16em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:26px; }
+  h2 { font-size:22px; font-weight:700; letter-spacing:-0.01em; margin:40px 0 4px; padding-top:26px; border-top:1px solid var(--rule); }
+  p { font-size:16px; line-height:1.72; letter-spacing:0.005em; margin:0 0 1.15em; color:#242422; }
+  p.lede { font-size:17.5px; }
+  .signoff { font-weight:700; letter-spacing:0.01em; }
+
+  /* Interview */
+  .qa { margin: 20px 0 4px; }
+  .qa .who { font-size:12px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:5px; }
+  .qa .q { font-size:16.5px; font-weight:600; line-height:1.55; margin:0 0 18px; color:var(--ink); }
+  .qa .a { margin:0 0 30px; }
+
+  /* Meta card */
+  .meta-h { font-size:12px; font-weight:700; letter-spacing:0.2em; text-transform:uppercase; color:var(--ink-faint); margin:34px 0 14px; }
+  .meta-h:first-child { margin-top:0; }
+  .track {
+    display:flex; align-items:center; gap:14px;
+    padding:13px 0; border-top:1px solid var(--rule); cursor:pointer;
+  }
+  .track:last-of-type { border-bottom:1px solid var(--rule); }
+  .track .play {
+    flex:none; width:34px; height:34px; border-radius:50%;
+    border:1.5px solid var(--ink); background:none; color:var(--ink);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    transition: background .15s, color .15s;
+  }
+  .track.playing .play { background:var(--ink); color:var(--paper); }
+  .track .play svg { width:13px; height:13px; }
+  .track .play .ico-pause { display:none; }
+  .track.playing .play .ico-play { display:none; }
+  .track.playing .play .ico-pause { display:block; }
+  .track .name { font-size:16px; font-weight:600; flex:1; }
+  .track.playing .name { }
+  .track .num { font-size:12px; color:var(--ink-faint); font-variant-numeric:tabular-nums; }
+
+  .credit { padding:11px 0; border-top:1px solid var(--rule); }
+  .credit:first-of-type { border-top:none; }
+  .credit .t { font-size:14.5px; font-weight:600; line-height:1.4; }
+  .credit .s { font-size:13px; color:var(--ink-soft); margin-top:2px; }
+  .foot { margin-top:30px; font-size:13px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-faint); }
+
+  @media (max-width: 820px) {
+    .wrap { flex-direction:column; gap:20px; }
+    .card { max-height:none; }
+    .card--meta { align-self:auto; }
+    .pad { padding:30px 26px 38px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- CARD A — the issue text -->
+  <article class="card card--text">
+    <img class="cover" src="images/chris_portrait.png" alt="Christopher Bissonnette" />
+    <div class="pad">
+      <div class="eyebrow">Oswin Journal · Issue 2</div>
+      <h1>Christopher Bissonnette</h1>
+      <div class="sub">Sound &amp; Image</div>
+
+      <p class="lede">I am excited to share Issue 2 of Oswin Journal. This project really began when I had a gallery in Canada called Oswald Collective. We featured the best of the up and coming talent, but my interest lay more and more in the connection between sound and visual. Not in the music video way, which ironically I've never been that interested in. It's how sound and visual have a way of syncing naturally on their own.</p>
+
+      <p>This became apparent a month before moving to Sydney. We'd sold off all our furniture and all we had left was lawn chairs, our stereo and a TV. I began becoming obsessed with the Apple TV screensavers and pairing them to electronic music, more specifically H. Takahashi. One video that resonated the most was an aerial shot of LAX. Parked planes, some getting ready for take off. The pairing had a huge impact on me. Something connected. And it never stopped.</p>
+
+      <p>So Issue 2 just launched, and this issue is with Chris Bissonnette. For me, getting to work with him was such an honour, and the way we came to meet I found extraordinary.</p>
+
+      <p>We first met many years ago in Detroit on a night that has stuck with me my entire life. I was out with friends at a Poor Boy party. These were five-dollar parties held usually in the abandoned industrial area near downtown, and the way one got to these parties was to firstly know where the parking lot was, then catch a van or small bus to the actual location. This backstory is important: that night was, I believe, one of the biggest raids on a rave Detroit has ever seen. Police in riot gear with batons started clubbing people who were dancing. The scene turned into chaos. A few of my friends decided to find an alternative exit. We kicked down a door and ran for it. But because we'd bused from the parking lot we didn't know where we were going. Luckily, I didn't take acid. Like most of us did. We found the parking lot eventually, but our friend who drove had been arrested at the party. So we were stranded. Moments later, a line of police arrived and surrounded the lot. They were fully armed and ran to where we were hiding, guns drawn. We all lined up against the fence, hands up, legs spread. One cop took a guy to the ground and kicked him. They joked that they've been known to slip on the trigger and no one would know. People were so scared they peed themselves, to which the cops made a spectacle of them. We were released as there was no proof of us being at the party, but we were told to leave the lot or face trespassing charges.</p>
+
+      <p>So what remained of our group started to walk back to Canada, and Detroit during this period was incredibly dangerous. This is where I met Chris. He was like a miracle. Arrived in a car that was circling the party, wondering what the fuck was going on. My friend knew Chris and we got a ride back. I sat in the back so Chris never got a look at who I was. But this story has stuck with me. It was both the most terrifying experience and also the most enlightening. I should say this: we were all white kids partying in a place that once housed jobs for a lot of Detroiters. A lot of them are Black. The cops were all Black. I totally get why they hated us. Even though our intentions weren't to be harmful, I could see how complicated Detroit's history was.</p>
+
+      <p>I would never forget Chris's face. He bailed us out of a jam that could have ended really badly.</p>
+
+      <p>It wasn't until 2024 that I met him again. This time, at an art show I was hosting in Windsor. We chatted and had lots in common. I knew I had met him before, and I went through all the possibilities. Regardless, he reminded me of this energy that one only finds in Windsor. Windsor is for me one of the most interesting cities in Canada. Its connection to Detroit, but still distinctly its own flavour. Chris has that flavour. A creative intellect. I get homesick for that energy.</p>
+
+      <p>Then it dawned on me. It was the guy who saved us. It flashed in my mind and I was certain it was him. I wrote him a quick text and indeed, that was how I knew him.</p>
+
+      <p>He bought a painting from me and gave me his latest album on CD. I connected with it on a really personal level. I picked four tracks for the website. All of his work deserves attention, but Orffyreus Wheel, Undertow and Overture I must have listened to over a hundred times. There's something in those pieces that doesn't let go of you. They loop in your head the way the footage loops on screen. Slow, hypnotic, inevitable.</p>
+
+      <p>That's Issue 2. Headphones on. Lights off. If you have a projector, even better. Your living room becomes the installation.</p>
+
+      <p class="signoff">oswinjournal.com</p>
+
+      <h2>About Issue 2</h2>
+      <p>A little about the pairing of visuals with Chris's music. His work felt similar to peeling an onion. It kept reinventing itself over and over and I got completely lost inside the world he created.</p>
+      <p>When I first got started on this issue, I began with something that had been on the back of my mind for years. To work with video of a figure skater in a full spin, then loop that. It worked as good as I imagined it would, hypnotic and transcending. But the footage below opened up the music in a different way.</p>
+      <p>The found footage is taken from interviews of bankers on Wall Street. I wasn't so much interested in the person being interviewed. I was more interested in the people in the background. This is a recurring theme in my work. I went through a long stint with photography and was particularly drawn to urban areas where lots of people were coming and going. I made myself available to it, almost being like a stage, with actors arriving and leaving as if it were a performance.</p>
+      <p>This footage I have watched over and over. Each time I notice something else. It made me hear Chris's music differently. And this is what Oswin Journal is. Opening up music and visuals to experience both as one.</p>
+
+      <h2>The Interview</h2>
+      <div class="qa">
+        <div class="who">Oswin Journal</div>
+        <p class="q">Many people who live and breathe jazz claim the golden era was the late '50s. Where on the timeline do you think we are with electronic music? Has it peaked, or is it still building? Where is it all going?</p>
+        <div class="who">Chris</div>
+        <p class="a">I feel the term "electronic music" is ultimately to be too broad at this point. In the late 60's and early 70s there was a sense that electronic instruments fit into a clear category. There was fear that they would wrongly replace real instruments or even musicians (The Beatles' use of the Mellotron on 'Strawberry Fields Forever'). And that trend seemed to continue into the 80s with a well-defined delineation of synth pop and psych rock's usage of synthesizers and drum machines etc. But the practice of electronic instruments and methods in production are utilized in almost all popular music today. The technology is inseparable from the process and therefore not truly electronic music in a purest sense. So, I guess in very strict terms, the golden era of electronic music has passed. In the 90s I had a narrower vision of what I believed electronic music production should look like. I was ultimately (save for a few exceptions) exclusively listening to electronic music, like techno and sample based experimental music. Since then, my production methods have evolved to include more traditional instruments, although I'm not using them in a conventional manner. And as I have grown older, I have lost touch with the multitude of genres that have splintered. Black MIDI? I had no idea. There are now hundreds of subgenres of electronic music. And with production methods crossing so many categories, hybridizing and evolving so quickly, it suggests that we are well past the golden era and deeper into uncharted territory.</p>
+
+        <div class="who">Oswin Journal</div>
+        <p class="q">What's a piece of art from a completely different medium that shaped how you hear things?</p>
+        <div class="who">Chris</div>
+        <p class="a">During a brief gallery tour in Toronto during my art school years, I encountered an exhibition that profoundly altered my understanding of contemporary art. The exhibition was held at The Ydessa Hendeles Gallery and featured a collection of works by Bill Viola, Gary Hill, and James Coleman. Ydessa had modified the gallery's interior structure to accommodate the artworks. This is where I experienced Bill Viola's Arc of Ascent. The installation comprised a synchronized multi-channel video projected onto a suspended 22-foot translucent scrim. The action depicted, in extreme slow motion, was that of a diver plunging into dark water and subsequently ascending to the surface. The three-second dive is slowed to a lengthy seven minutes, creating a sense of tension as the suspended figure gradually descends on the screen. The audio is also slowed to synchronize with the image on the screen. The sound consists of a thunderous wave of bass and noise, creating a powerful visceral experience. In that moment, I realized how the image was significantly influenced by the presence of the sound. This was not music or sound effects but an aural texture designed to challenge viewers' perceptions. From that point on, I developed an understanding that sound art could be atonal and experiential without the need for elaborate context or extraneous meaning.</p>
+
+        <div class="who">Oswin Journal</div>
+        <p class="q">You've spent your life on the border, Windsor and Detroit — two cities with different energies, but there is something very unusual about Windsor. How do you see this connection between the two places? How has it shaped how you make music?</p>
+        <div class="who">Chris</div>
+        <p class="a">In the early 90s, I spent a considerable amount of time attending warehouse parties and shopping for music at local record shops in Michigan. Detroit has played a significant role in shaping my formative years, providing me with techniques and inspiration. However, the way I currently create music has undergone a significant transformation over the years. Detroit remains an important destination, and it has undergone exponential gentrification and development over the past 25 years. In contrast, Windsor has largely remained unchanged and could potentially learn from Detroit's transformation. Windsor is a border anomaly, and Michiganders regard it like a suburb of Detroit. There are distinct cultural differences, and I think it's important for us to maintain our identity. We really aren't "South Detroit", despite what the Journey song suggests. Nevertheless, the two cities will continue to have a symbiotic relationship, and I hope that this will only improve, despite the current political tensions between the countries.</p>
+
+        <div class="who">Oswin Journal</div>
+        <p class="q">What does your process look like when you're starting something new? Does it begin with a sound you've heard out in the world, or is it more about experimentation once you're in the studio? There's a loneliness to your music that I'm drawn to — not sad, but solitary. Where does that come from?</p>
+        <div class="who">Chris</div>
+        <p class="a">I rarely step into the studio with a clear vision of what I want to create. While I may have a general idea, I mostly begin with experimentation. Some days, I focus on creating patches that I can use later, while other sessions involve composing and mixing. Over the years, I've become more comfortable with my process, allowing errors in the work to become part of the final product. There are times when it is essential for me to be meticulous, and other times when I need to cut the track loose and understand what the music has become. I don't start a track with the intention of producing something melancholic, but it often ends up being that way. I'm not a dark person, but I find that the process of sound production is cathartic. Perhaps there's a psychological explanation for how I end up with sad sounds. I'm not sure I want to find out.</p>
+
+        <div class="who">Oswin Journal</div>
+        <p class="q">Final question: what are you listening to?</p>
+        <div class="who">Chris</div>
+        <p class="a">This is my "Best Of" list for 2025. Not everything on my curated lists is a widely lauded success, but there is most often something about a release that I find interesting or unique.</p>
+      </div>
+    </div>
+  </article>
+
+  <!-- CARD B — the arrival screen: audio tracks + credits -->
+  <aside class="card card--meta">
+    <div class="pad">
+      <div class="eyebrow">Enter Issue 2</div>
+      <h1 style="font-size:clamp(26px,3.2vw,34px);">Listen</h1>
+      <div class="sub">Christopher Bissonnette</div>
+
+      <div class="meta-h">Audio</div>
+      <div class="tracks">
+        <div class="track" data-file="overture.mp3">
+          <button class="play" aria-label="Play">
+            <svg class="ico-play" viewBox="0 0 12 12" fill="currentColor"><path d="M2 1l8 5-8 5z"/></svg>
+            <svg class="ico-pause" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10"/><rect x="7" y="1" width="3" height="10"/></svg>
+          </button>
+          <span class="name">Overture</span><span class="num">01</span>
+        </div>
+        <div class="track" data-file="undertow.mp3">
+          <button class="play" aria-label="Play">
+            <svg class="ico-play" viewBox="0 0 12 12" fill="currentColor"><path d="M2 1l8 5-8 5z"/></svg>
+            <svg class="ico-pause" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10"/><rect x="7" y="1" width="3" height="10"/></svg>
+          </button>
+          <span class="name">Undertow</span><span class="num">02</span>
+        </div>
+        <div class="track" data-file="color_deceives.mp3">
+          <button class="play" aria-label="Play">
+            <svg class="ico-play" viewBox="0 0 12 12" fill="currentColor"><path d="M2 1l8 5-8 5z"/></svg>
+            <svg class="ico-pause" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10"/><rect x="7" y="1" width="3" height="10"/></svg>
+          </button>
+          <span class="name">Color Deceives</span><span class="num">03</span>
+        </div>
+        <div class="track" data-file="orffyreus_wheel.mp3">
+          <button class="play" aria-label="Play">
+            <svg class="ico-play" viewBox="0 0 12 12" fill="currentColor"><path d="M2 1l8 5-8 5z"/></svg>
+            <svg class="ico-pause" viewBox="0 0 12 12" fill="currentColor"><rect x="2" y="1" width="3" height="10"/><rect x="7" y="1" width="3" height="10"/></svg>
+          </button>
+          <span class="name">Orffyreus Wheel</span><span class="num">04</span>
+        </div>
+      </div>
+
+      <div class="meta-h">Music</div>
+      <div class="credit"><div class="t">Christopher Bissonnette</div><div class="s">All tracks written &amp; produced by the artist</div></div>
+
+      <div class="meta-h">Found Footage</div>
+      <div class="credit"><div class="t">Ballet with Edward Villella</div><div class="s">1970 · A/V Geeks 16mm Films</div></div>
+      <div class="credit"><div class="t">Women's 3000m, Los Angeles 1984</div><div class="s">BBC Coverage</div></div>
+      <div class="credit"><div class="t">Figure Skating, Grenoble 1968</div><div class="s">Olympic Coverage</div></div>
+      <div class="credit"><div class="t">Man on the Street Interviews, Wall Street</div><div class="s">1979 · David Hoffman</div></div>
+      <div class="credit"><div class="t">1500 Metre Race, Melbourne 1956</div><div class="s">Olympic Coverage</div></div>
+
+      <div class="meta-h">Curation &amp; Visuals</div>
+      <div class="credit"><div class="t">Oswin Journal</div><div class="s">Alex Taves</div></div>
+
+      <div class="foot">oswinjournal.com</div>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // One-at-a-time audio player for the track list.
+  const cache = {};
+  let current = null, currentRow = null;
+  document.querySelectorAll('.track').forEach((row) => {
+    row.addEventListener('click', () => {
+      const file = row.dataset.file;
+      if (!cache[file]) {
+        cache[file] = new Audio('audio/c_bissonnette/' + file);
+        cache[file].addEventListener('ended', () => row.classList.remove('playing'));
+      }
+      const a = cache[file];
+      if (current && current !== a) { current.pause(); if (currentRow) currentRow.classList.remove('playing'); }
+      if (a.paused) { a.play().catch(() => {}); current = a; currentRow = row; row.classList.add('playing'); }
+      else { a.pause(); row.classList.remove('playing'); }
+    });
+  });
+</script>
+</body>
+</html>
