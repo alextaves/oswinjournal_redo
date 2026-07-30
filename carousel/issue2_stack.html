@@ -170,6 +170,7 @@ function layoutText(ctx, startY) {
   const heading = (t) => { y += 22; ctx.font = `700 22px ${FONT}`; ctx.fillStyle = ink; ctx.fillText(t, LM, y); y += 36 }
   const body = (t, size, lh, color, weight, italic) => { ctx.font = `${italic ? 'italic ' : ''}${weight || 400} ${size || 16}px ${FONT}`; ctx.fillStyle = color || ink; wrapText(ctx, t, maxW).forEach((ln) => { ctx.fillText(ln, LM, y); y += (lh || 26) }); y += 14 }
   label('Oswin Journal · Issue 2')
+  y += 22   // breathing room between the label and the name
   ctx.font = `700 33px ${FONT}`; ctx.fillStyle = ink; ctx.letterSpacing = '-0.6px'
   ctx.fillText('Christopher Bissonnette', LM, y); y += 32; ctx.letterSpacing = '0px'
   ctx.font = `300 14px ${FONT}`; ctx.letterSpacing = '2px'; ctx.fillStyle = soft; ctx.fillText('SOUND & IMAGE', LM, y); y += 36; ctx.letterSpacing = '0px'
