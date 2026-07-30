@@ -9,7 +9,10 @@
   * { box-sizing: border-box; }
   html, body { margin:0; height:100%; }
   body {
-    background: var(--bg);
+    background:
+      linear-gradient(rgba(8,10,14,0.34), rgba(8,10,14,0.46)),
+      url('images/issue2/audio_bg.jpg') center center / cover no-repeat fixed;
+    background-color: #0e0f12;
     color: var(--ink);
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -18,7 +21,7 @@
     display: flex; gap: 26px;
     max-width: 1180px; margin: 0 auto;
     padding: 34px 26px calc(34px + env(safe-area-inset-bottom));
-    align-items: stretch;
+    align-items: flex-start;
     min-height: 100vh; min-height: 100dvh;
   }
   .card {
@@ -29,8 +32,10 @@
     max-height: calc(100vh - 68px); max-height: calc(100dvh - 68px);
     box-shadow: 0 24px 60px rgba(0,0,0,0.45);
   }
-  .card--text { flex: 1.35; }
-  .card--meta { flex: 1; align-self: flex-start; }
+  /* Playlist card (left) — fixed, kept as is. Text card (right) — grows with
+     the screen but never wider than 2x the audio card. */
+  .card--meta { flex: none; width: 360px; align-self: flex-start; order: -1; }
+  .card--text { flex: 1 1 auto; max-width: 720px; }
   .pad { padding: 40px 42px 48px; }
   .cover { display:block; width:100%; height:auto; }
 
@@ -80,7 +85,8 @@
   @media (max-width: 820px) {
     .wrap { flex-direction:column; gap:20px; }
     .card { max-height:none; }
-    .card--meta { align-self:auto; }
+    .card--meta { align-self:auto; width:auto; }
+    .card--text { max-width:none; }
     .pad { padding:30px 26px 38px; }
   }
 </style>
