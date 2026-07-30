@@ -123,16 +123,28 @@ function drawTextFace(ctx) {
 }
 
 function makeCard(drawFace, panelHex) {
-  const face = newFace(); drawFace(face.ctx)
-  const faceTex = new THREE.CanvasTexture(face.c); faceTex.encoding = THREE.sRGBEncoding
-  const backTex = flipTex(face.c)
+  const sc = document.createElement('canvas'); sc.width = FW; sc.height = FH
+  const sctx = sc.getContext('2d'); drawFace(sctx)
+  const faceSharp = new THREE.CanvasTexture(sc); faceSharp.encoding = THREE.sRGBEncoding
+
+  // A blurred copy of the same face — shown when this card is the one tucked
+  // behind a straightened front card, so the front text reads cleanly.
+  const bc = document.createElement('canvas'); bc.width = FW; bc.height = FH
+  const bctx = bc.getContext('2d')
+  const regenBlur = () => { bctx.clearRect(0, 0, FW, FH); bctx.filter = 'blur(11px)'; bctx.drawImage(sc, 0, 0); bctx.filter = 'none' }
+  regenBlur()
+  const faceBlur = new THREE.CanvasTexture(bc); faceBlur.encoding = THREE.sRGBEncoding
+
+  const backTex = flipTex(sc)
   const col = new THREE.Color(panelHex)
-  const faceMat = new THREE.MeshPhysicalMaterial({ map: faceTex, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide, roughness: 0.42, metalness: 0, envMapIntensity: 0.28, clearcoat: 0.5, clearcoatRoughness: 0.4, color: 0xffffff, alphaMap: roundedAlphaMap })
+  const faceMat = new THREE.MeshPhysicalMaterial({ map: faceSharp, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide, roughness: 0.42, metalness: 0, envMapIntensity: 0.28, clearcoat: 0.5, clearcoatRoughness: 0.4, color: 0xffffff, alphaMap: roundedAlphaMap })
   const glassMat = new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: BACK_OPACITY, roughness: 0.24, metalness: 0, envMapIntensity: 0.7, clearcoat: 0.9, clearcoatRoughness: 0.22 })
   const backMat = new THREE.MeshPhysicalMaterial({ map: backTex, transparent: true, opacity: 0.85, roughness: 0.5, metalness: 0, envMapIntensity: 0.28, color: 0xffffff, alphaMap: roundedAlphaMap })
   const sideMat = new THREE.MeshPhysicalMaterial({ color: col, transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0, envMapIntensity: 0.85, clearcoat: 1.0, clearcoatRoughness: 0.18 })
   const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
-  mesh.userData.faceTex = faceTex
+  mesh.userData.faceSharp = faceSharp
+  mesh.userData.faceBlur = faceBlur
+  mesh.userData.redraw = () => { drawFace(sctx); faceSharp.needsUpdate = true; regenBlur(); faceBlur.needsUpdate = true }
   return mesh
 }
 
@@ -163,6 +175,12 @@ function applyLayout() {
     frontCard.userData.target.copy(FRONT_POS)
     back.userData.target.copy(BACK_POS)
   }
+  // Front card always sharp; the tucked-behind card blurs while focused so the
+  // front text reads cleanly through the glass.
+  frontCard.material[4].map = frontCard.userData.faceSharp
+  frontCard.material[4].needsUpdate = true
+  back.material[4].map = focused ? back.userData.faceBlur : back.userData.faceSharp
+  back.material[4].needsUpdate = true
 }
 const raycaster = new THREE.Raycaster()
 const ptr = new THREE.Vector2()
@@ -179,11 +197,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 })
 
 // Redraw the text card once the portrait decodes.
-portrait.onload = () => {
-  const face = newFace(); drawTextFace(face.ctx)
-  textCard.material[4].map.image.getContext('2d').drawImage(face.c, 0, 0)
-  textCard.material[4].map.needsUpdate = true
-}
+portrait.onload = () => { textCard.userData.redraw() }
 portrait.src = 'images/chris_portrait.png'
 
 // ── Gentle pointer parallax so the step/depth reads ────────────────────────────
