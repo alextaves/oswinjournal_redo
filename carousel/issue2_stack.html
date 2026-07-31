@@ -33,63 +33,8 @@ renderer.toneMappingExposure = 1.2
 renderer.domElement.style.cssText = 'position:fixed; inset:0; z-index:1;'
 document.body.appendChild(renderer.domElement)
 
-// ── WallStreet video background (ported from alextaves Moving Images) ──────────
-const bgHost = document.createElement('div')
-bgHost.style.cssText = 'position:fixed; inset:0; z-index:0; filter:blur(6px) brightness(1.35) saturate(1.3); background:#000;'
-document.body.appendChild(bgHost)
-const bgRenderer = new THREE.WebGLRenderer({ antialias: true })
-bgRenderer.setSize(innerWidth, innerHeight)
-bgRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
-// Match react-three-fiber's defaults (ACES tone mapping + sRGB output) so the
-// footage reads as bright and full-colour like the live scene.
-bgRenderer.toneMapping = THREE.ACESFilmicToneMapping
-if ('outputColorSpace' in bgRenderer) bgRenderer.outputColorSpace = THREE.SRGBColorSpace
-else bgRenderer.outputEncoding = THREE.sRGBEncoding
-bgHost.appendChild(bgRenderer.domElement)
-const bgScene = new THREE.Scene(); bgScene.background = new THREE.Color('#000')
-const bgCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100)
-bgCam.position.set(0, 0, 4)
-
-const WS_HALF = 8
-const WS_FRAME_H = 2 * Math.tan((60 / 2) * (Math.PI / 180)) * 4
-const WS_TILE_W = WS_FRAME_H * (9 / 16)
-const WS_SPACING = 2 * WS_TILE_W
-const WS_TOTAL = WS_HALF * WS_SPACING
-const WS_SPEED = WS_TILE_W * 0.4
-
-const wsStripeMat = new THREE.ShaderMaterial({
-  uniforms: { time: { value: 0 } },
-  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
-  fragmentShader: 'uniform float time; varying vec2 vUv; void main(){ float s=mod(floor((vUv.x+time*0.15)*38.0),2.0); vec3 c = s<1.0? vec3(0.192,0.282,0.345):vec3(1.0); gl_FragColor=vec4(c,1.0); }',
-})
-const wsStripe = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), wsStripeMat)
-wsStripe.position.z = -0.1; bgScene.add(wsStripe)
-
-const wsVideo = document.createElement('video')
-wsVideo.src = 'videos/wallstreet.mp4'; wsVideo.loop = true; wsVideo.muted = true; wsVideo.playsInline = true
-wsVideo.play().catch(() => {})
-const wsTex = new THREE.VideoTexture(wsVideo)
-if (THREE.SRGBColorSpace) wsTex.colorSpace = THREE.SRGBColorSpace; else wsTex.encoding = THREE.sRGBEncoding
-const wsGeo = new THREE.PlaneGeometry(WS_TILE_W, WS_FRAME_H)
-const wsMat = new THREE.MeshBasicMaterial({ map: wsTex, blending: THREE.MultiplyBlending, transparent: true, opacity: 0.75, depthWrite: false })
-const wsMeshes = []
-// Fewer weave layers than the live scene: this older bundled three multiplies
-// harder (no opacity on MultiplyBlending), so 3 layers keep it from crushing dark.
-;[0, 2, 4].forEach((k) => {
-  const offset = WS_TILE_W * k / 6
-  for (let i = 0; i < WS_HALF * 2; i++) { const m = new THREE.Mesh(wsGeo, wsMat); bgScene.add(m); wsMeshes.push({ m, offset, i }) }
-})
-let wsScroll = 0
-function renderBG(t, dt) {
-  wsStripeMat.uniforms.time.value = t
-  wsScroll += WS_SPEED * 0.25 * dt   // gentle drift (live is static until you scroll)
-  for (const { m, offset, i } of wsMeshes) {
-    const scroll = wsScroll + offset
-    if (i < WS_HALF) m.position.x = ((i * WS_SPACING - scroll % WS_TOTAL) % WS_TOTAL + WS_TOTAL) % WS_TOTAL - WS_TOTAL / 2
-    else { const j = i - WS_HALF; m.position.x = ((j * WS_SPACING + WS_TILE_W + scroll % WS_TOTAL) % WS_TOTAL + WS_TOTAL) % WS_TOTAL - WS_TOTAL / 2 }
-  }
-  bgRenderer.render(bgScene, bgCam)
-}
+// The WallStreet background is rendered by a separate ES module at the bottom of
+// the page, using the same three r184 the alextaves app uses (so colours match).
 
 // Environment (drives the glass reflections) — same idea as the ring.
 const envScene = new THREE.Scene()
@@ -423,17 +368,10 @@ addEventListener('pointermove', (e) => {
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix()
   renderer.setSize(innerWidth, innerHeight)
-  bgCam.aspect = innerWidth / innerHeight; bgCam.updateProjectionMatrix()
-  bgRenderer.setSize(innerWidth, innerHeight)
 })
 
-let _lastT = performance.now()
-function render(now) {
+function render() {
   requestAnimationFrame(render)
-  now = now || performance.now()
-  const t = now / 1000
-  let dt = (now - _lastT) / 1000; _lastT = now; if (dt > 0.05) dt = 0.05
-  renderBG(t, dt)
   // At rest, a slight angle so the glass thickness/edges read (like the ring);
   // when focused, straighten dead-on.
   const BASE_RX = -0.05, BASE_RY = 0.13
@@ -455,6 +393,74 @@ function render(now) {
   renderer.render(scene, camera)
 }
 render()
+</script>
+
+<!-- WallStreet background — rendered with three r184 (same as the alextaves app)
+     so the colours/brightness match the live Moving Images scene exactly. -->
+<script type="module">
+import * as THREE from './vendor/three184.module.min.js'
+
+const host = document.createElement('div')
+host.style.cssText = 'position:fixed; inset:0; z-index:0; filter:blur(6px); background:#000;'
+document.body.appendChild(host)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true })
+renderer.setSize(innerWidth, innerHeight)
+renderer.setPixelRatio(Math.min(devicePixelRatio, 1.75))
+renderer.toneMapping = THREE.ACESFilmicToneMapping   // react-three-fiber default
+host.appendChild(renderer.domElement)
+
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#000')
+const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100)
+camera.position.set(0, 0, 4)
+
+const HALF = 8
+const FRAME_H = 2 * Math.tan((60 / 2) * (Math.PI / 180)) * 4
+const TILE_W = FRAME_H * (9 / 16)
+const SPACING = 2 * TILE_W
+const TOTAL = HALF * SPACING
+const BASE = TILE_W * 0.4
+
+const stripeMat = new THREE.ShaderMaterial({
+  uniforms: { time: { value: 0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: 'uniform float time; varying vec2 vUv; void main(){ float s=mod(floor((vUv.x+time*0.15)*38.0),2.0); vec3 c = s<1.0? vec3(0.192,0.282,0.345):vec3(1.0); gl_FragColor=vec4(c,1.0); }',
+})
+const stripe = new THREE.Mesh(new THREE.PlaneGeometry(30, 30), stripeMat)
+stripe.position.z = -0.1; scene.add(stripe)
+
+const video = document.createElement('video')
+video.src = 'videos/wallstreet.mp4'; video.loop = true; video.muted = true; video.playsInline = true
+video.play().catch(() => {})
+const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace
+const geo = new THREE.PlaneGeometry(TILE_W, FRAME_H)
+const mat = new THREE.MeshBasicMaterial({ map: tex, blending: THREE.MultiplyBlending, premultipliedAlpha: true, transparent: true, opacity: 0.75, depthWrite: false })
+
+const meshes = []
+;[0, 1, 2, 3, 4, 5].forEach((k) => {
+  const offset = TILE_W * k / 6
+  for (let i = 0; i < HALF * 2; i++) { const m = new THREE.Mesh(geo, mat); scene.add(m); meshes.push({ m, offset, i }) }
+})
+
+let scroll = 0, last = performance.now()
+function frame(now) {
+  requestAnimationFrame(frame)
+  const dt = Math.min(0.05, (now - last) / 1000); last = now
+  stripeMat.uniforms.time.value = now / 1000
+  scroll += BASE * 0.3 * dt   // gentle drift (the live scene is static until scrolled)
+  for (const { m, offset, i } of meshes) {
+    const s = scroll + offset
+    if (i < HALF) m.position.x = ((i * SPACING - s % TOTAL) % TOTAL + TOTAL) % TOTAL - TOTAL / 2
+    else { const j = i - HALF; m.position.x = ((j * SPACING + TILE_W + s % TOTAL) % TOTAL + TOTAL) % TOTAL - TOTAL / 2 }
+  }
+  renderer.render(scene, camera)
+}
+requestAnimationFrame(frame)
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
 </script>
 </body>
 </html>
