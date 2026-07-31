@@ -35,12 +35,16 @@ document.body.appendChild(renderer.domElement)
 
 // ── WallStreet video background (ported from alextaves Moving Images) ──────────
 const bgHost = document.createElement('div')
-bgHost.style.cssText = 'position:fixed; inset:0; z-index:0; filter:blur(6px); background:#000;'
+bgHost.style.cssText = 'position:fixed; inset:0; z-index:0; filter:blur(6px) brightness(1.35) saturate(1.3); background:#000;'
 document.body.appendChild(bgHost)
 const bgRenderer = new THREE.WebGLRenderer({ antialias: true })
 bgRenderer.setSize(innerWidth, innerHeight)
 bgRenderer.setPixelRatio(Math.min(devicePixelRatio, 1.5))
-bgRenderer.outputEncoding = THREE.sRGBEncoding
+// Match react-three-fiber's defaults (ACES tone mapping + sRGB output) so the
+// footage reads as bright and full-colour like the live scene.
+bgRenderer.toneMapping = THREE.ACESFilmicToneMapping
+if ('outputColorSpace' in bgRenderer) bgRenderer.outputColorSpace = THREE.SRGBColorSpace
+else bgRenderer.outputEncoding = THREE.sRGBEncoding
 bgHost.appendChild(bgRenderer.domElement)
 const bgScene = new THREE.Scene(); bgScene.background = new THREE.Color('#000')
 const bgCam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100)
@@ -64,18 +68,21 @@ wsStripe.position.z = -0.1; bgScene.add(wsStripe)
 const wsVideo = document.createElement('video')
 wsVideo.src = 'videos/wallstreet.mp4'; wsVideo.loop = true; wsVideo.muted = true; wsVideo.playsInline = true
 wsVideo.play().catch(() => {})
-const wsTex = new THREE.VideoTexture(wsVideo); wsTex.encoding = THREE.sRGBEncoding
+const wsTex = new THREE.VideoTexture(wsVideo)
+if (THREE.SRGBColorSpace) wsTex.colorSpace = THREE.SRGBColorSpace; else wsTex.encoding = THREE.sRGBEncoding
 const wsGeo = new THREE.PlaneGeometry(WS_TILE_W, WS_FRAME_H)
 const wsMat = new THREE.MeshBasicMaterial({ map: wsTex, blending: THREE.MultiplyBlending, transparent: true, opacity: 0.75, depthWrite: false })
 const wsMeshes = []
-;[0, 1, 2, 3, 4, 5].forEach((k) => {
+// Fewer weave layers than the live scene: this older bundled three multiplies
+// harder (no opacity on MultiplyBlending), so 3 layers keep it from crushing dark.
+;[0, 2, 4].forEach((k) => {
   const offset = WS_TILE_W * k / 6
   for (let i = 0; i < WS_HALF * 2; i++) { const m = new THREE.Mesh(wsGeo, wsMat); bgScene.add(m); wsMeshes.push({ m, offset, i }) }
 })
 let wsScroll = 0
 function renderBG(t, dt) {
   wsStripeMat.uniforms.time.value = t
-  wsScroll += WS_SPEED * dt
+  wsScroll += WS_SPEED * 0.25 * dt   // gentle drift (live is static until you scroll)
   for (const { m, offset, i } of wsMeshes) {
     const scroll = wsScroll + offset
     if (i < WS_HALF) m.position.x = ((i * WS_SPACING - scroll % WS_TOTAL) % WS_TOTAL + WS_TOTAL) % WS_TOTAL - WS_TOTAL / 2
