@@ -442,12 +442,10 @@ const meshes = []
   for (let i = 0; i < HALF * 2; i++) { const m = new THREE.Mesh(geo, mat); scene.add(m); meshes.push({ m, offset, i }) }
 })
 
-let scroll = 0, last = performance.now()
+const scroll = 0   // static weave, exactly like the live scene at rest (only the stripes animate)
 function frame(now) {
   requestAnimationFrame(frame)
-  const dt = Math.min(0.05, (now - last) / 1000); last = now
   stripeMat.uniforms.time.value = now / 1000
-  scroll += BASE * 0.3 * dt   // gentle drift (the live scene is static until scrolled)
   for (const { m, offset, i } of meshes) {
     const s = scroll + offset
     if (i < HALF) m.position.x = ((i * SPACING - s % TOTAL) % TOTAL + TOTAL) % TOTAL - TOTAL / 2
