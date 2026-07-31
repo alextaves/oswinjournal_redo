@@ -434,7 +434,7 @@ video.src = 'videos/wallstreet.mp4'; video.loop = true; video.muted = true; vide
 video.play().catch(() => {})
 const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace
 const geo = new THREE.PlaneGeometry(TILE_W, FRAME_H)
-const mat = new THREE.MeshBasicMaterial({ map: tex, blending: THREE.MultiplyBlending, premultipliedAlpha: true, transparent: true, opacity: 0.75, depthWrite: false })
+const mat = new THREE.MeshBasicMaterial({ map: tex, blending: THREE.MultiplyBlending, transparent: true, opacity: 0.75, depthWrite: false })
 
 const meshes = []
 ;[0, 1, 2, 3, 4, 5].forEach((k) => {
