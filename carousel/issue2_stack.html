@@ -108,11 +108,18 @@ function drawAudioFace(ctx) {
     if (on) { ctx.beginPath(); ctx.arc(LM - 22, y - 8, 5, 0, Math.PI * 2); ctx.fill() }
     y += 46
   })
-  ctx.font = `italic 500 27px ${FONT}`; ctx.fillStyle = 'rgba(42,38,35,0.82)'; ctx.fillText('silent mode', LM, y); y += 70
-  label('Video', LM, y); y += 40
-  ctx.font = `700 30px ${FONT}`; ctx.fillStyle = '#282623'; ctx.fillText('OSWIN', LM, y); y += 62
-  label('Credit Info', LM, y); y += 40
-  label('Notes on Oswin', LM, y)
+  ctx.font = `italic 500 27px ${FONT}`; ctx.fillStyle = 'rgba(42,38,35,0.82)'; ctx.fillText('silent mode', LM, y); y += 60
+  label('Video', LM, y); y += 34
+  ctx.font = `700 26px ${FONT}`; ctx.fillStyle = '#282623'; ctx.fillText('OSWIN', LM, y); y += 50
+  const line = (t) => { ctx.font = `500 15px ${FONT}`; ctx.letterSpacing = '0px'; ctx.fillStyle = 'rgba(42,38,35,0.78)'; ctx.fillText(t, LM, y); y += 21 }
+  label('Credit Info', LM, y); y += 26
+  line('Music — Christopher Bissonnette')
+  line('Found footage — Wall Street interviews')
+  line('Visuals & edit — Oswin'); y += 14
+  label('Notes on Oswin', LM, y); y += 26
+  line('Headphones on, lights off — sound')
+  line('and image experienced as one.')
+  line('oswinjournal.com')
 }
 
 // Shared noise for the portrait's live TV static (grain only — no scanlines).
