@@ -9,6 +9,77 @@
   html, body { margin: 0; height: 100%; background: #0c0806; overflow: hidden; overscroll-behavior: none; }
   canvas { display: block; touch-action: none; }
 
+  /* ── Slow-down note ───────────────────────────────────────────────────────────
+     Matched to the ring's geometry, not eyeballed:
+       height  — a card is 0.9 of the viewport height (panelH in setPanelSize)
+       width   — 3/4 of that, the same ratio the cards use
+       type    — card titles top out at 74px on a 600x800 card face, so 2/3 of
+                 that is 49.33/800 of the card height = 6.167% -> 5.55vh   */
+  .slow-note {
+    --note-h: 90vh;
+    position: fixed; z-index: 60;
+    left: 0; top: 50%; transform: translateY(-50%);
+    height: var(--note-h); width: calc(var(--note-h) * 3 / 4);
+    box-sizing: border-box;
+    background: #1B4D3E;
+    color: #fff;
+    display: flex; flex-direction: column;
+    justify-content: center; align-items: flex-start;
+    padding: 8% 7%;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 700;
+    font-size: calc(var(--note-h) * 0.0617);
+    line-height: 1.22;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    transition: opacity 300ms ease;
+  }
+  .slow-note[hidden] { display: none; }
+  .slow-note p { margin: 0; }
+  /* #8127D3 — the Arnold Schoenberg purple, averaged off the 1.49M matching
+     pixels in images/giftshop-purple.jpg rather than picked by eye. */
+  .slow-note .play {
+    margin: 0.6em 0 0; padding: 0;
+    background: none; border: none; cursor: pointer;
+    font: inherit; letter-spacing: inherit; text-transform: inherit;
+    color: #8127D3;
+    transition: opacity 200ms ease;
+  }
+  .slow-note .play:hover { opacity: 0.8; }
+  .slow-note .credit {
+    margin: 0.55em 0 0;
+    font-size: 0.42em; font-weight: 300;
+    letter-spacing: 0.08em; opacity: 0.85;
+  }
+  .slow-note .close {
+    position: absolute; top: 3%; right: 4%;
+    width: 1.1em; height: 1.1em; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; cursor: pointer;
+    color: #fff; font-family: inherit; font-weight: 300;
+    font-size: calc(var(--note-h) * 0.038); line-height: 1;
+    opacity: 0.75; transition: opacity 200ms ease;
+  }
+  .slow-note .close:hover { opacity: 1; }
+
+  /* Re-open tab: parked on the left edge where the note sits, sized to the same
+     visual weight as the note's ✕ so the open/close pair match. */
+  .slow-note-open {
+    --note-h: 90vh;
+    position: fixed; z-index: 60;
+    left: 0; top: 50%; transform: translateY(-50%);
+    display: flex; align-items: center; justify-content: center;
+    width: 1.9em; height: 1.9em; padding: 0;
+    background: #1B4D3E; color: #fff;
+    border: none; cursor: pointer;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-weight: 300; line-height: 1;
+    font-size: calc(var(--note-h) * 0.038);
+    opacity: 0.9; transition: opacity 200ms ease;
+  }
+  .slow-note-open:hover { opacity: 1; }
+  .slow-note-open[hidden] { display: none; }
+
   .story-overlay {
     --bg: #D9D02F; --bg-r: 217; --bg-g: 208; --bg-b: 47;
     container-type: size;
@@ -138,6 +209,155 @@
 </style>
 </head>
 <body>
+<script>
+  // Lobby music — the HWY 3 track, on Web Audio rather than <audio> because an
+  // <audio> element cannot play backwards (playbackRate is clamped positive).
+  // We decode once, keep a sample-reversed copy of the buffer, and crossfade
+  // between the two voices whenever the ring changes direction. The playhead is
+  // tracked in forward-time, so the reverse voice starts at (duration - pos).
+  const LOBBY_URL = 'audio/hwy3_lobby.mp3'
+  // Three fade lengths, because the three transitions mean different things.
+  // XFADE stays tiny: it only spans a direction flip, where both voices are the
+  // same tape and a long blend would phase against itself. The other two are
+  // meant to be heard as gestures — nothing here should ever cut.
+  const XFADE = 0.05        // direction flip mid-scrub
+  const FADE_TOGGLE = 0.6   // the PLAY / PAUSE card
+  const FADE_ISSUE = 1.6    // stepping into or out of an issue
+
+  let actx = null, bufFwd = null, bufRev = null, loading = null
+  let voice = null, curDir = 1, playing = false
+  let posSec = 0, posAt = 0
+
+  const lobby = { get paused() { return !playing } }
+
+  async function lobbyLoad() {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
+    if (!loading) loading = (async () => {
+      const ab = await (await fetch(LOBBY_URL)).arrayBuffer()
+      bufFwd = await actx.decodeAudioData(ab)
+      bufRev = actx.createBuffer(bufFwd.numberOfChannels, bufFwd.length, bufFwd.sampleRate)
+      for (let c = 0; c < bufFwd.numberOfChannels; c++) {
+        const a = bufFwd.getChannelData(c), b = bufRev.getChannelData(c)
+        for (let i = 0, n = a.length; i < n; i++) b[i] = a[n - 1 - i]
+      }
+    })()
+    await loading
+  }
+
+  function lobbyPos() {
+    if (!playing || !bufFwd) return posSec
+    const d = bufFwd.duration
+    const p = posSec + (actx.currentTime - posAt) * curDir
+    return ((p % d) + d) % d
+  }
+
+  function lobbyStart(dir, fade) {
+    const d = bufFwd.duration
+    const pos = lobbyPos()
+    const src = actx.createBufferSource()
+    src.buffer = dir > 0 ? bufFwd : bufRev
+    src.loop = true
+    const g = actx.createGain()
+    const t = actx.currentTime
+    g.gain.setValueAtTime(fade ? 0.0001 : 1, t)
+    if (fade) g.gain.linearRampToValueAtTime(1, t + fade)
+    src.connect(g); g.connect(actx.destination)
+    src.start(0, dir > 0 ? pos : d - pos)
+    posSec = pos; posAt = t
+    return { src, g }
+  }
+
+  function lobbyStop(v, fade = XFADE) {
+    if (!v) return
+    const t = actx.currentTime
+    v.g.gain.cancelScheduledValues(t)
+    v.g.gain.setValueAtTime(v.g.gain.value, t)
+    v.g.gain.linearRampToValueAtTime(0.0001, t + fade)
+    v.src.stop(t + fade + 0.02)
+  }
+
+  async function lobbyPlay(fade = FADE_TOGGLE) {
+    playing = true                 // optimistic so the card label flips at once
+    await lobbyLoad()
+    await actx.resume()
+    if (!playing) return           // paused again while decoding
+    // Restart the clock BEFORE lobbyStart reads the playhead. lobbyPos() only
+    // returns the parked posSec while `playing` is false, and we just set it
+    // true — so without this it extrapolates from the posAt of the last start,
+    // silently adding however long we were paused. Pausing for a two-minute
+    // visit to an issue would resume two minutes further into the track.
+    posAt = actx.currentTime
+    voice = lobbyStart(curDir, fade)
+  }
+
+  function lobbyPause(fade = FADE_TOGGLE) {
+    posSec = lobbyPos(); playing = false
+    lobbyStop(voice, fade); voice = null
+  }
+
+  function toggleLobby() {
+    if (playing) lobbyPause(); else lobbyPlay()
+    return playing
+  }
+
+  // Called every frame by the ring: +1 with the idle rotation, -1 when you scrub
+  // against it. Crossfades the tape rather than cutting.
+  function setLobbyDirection(dir) {
+    if (!playing || !bufFwd || dir === curDir) return
+    // Sample the playhead with the OLD direction FIRST. Flipping curDir before
+    // reading it makes lobbyPos() extrapolate the elapsed time the wrong way and
+    // the position leaps (and wraps) instead of continuing from where it was.
+    posSec = lobbyPos(); posAt = actx.currentTime
+    const old = voice
+    curDir = dir
+    voice = lobbyStart(dir, XFADE)
+    lobbyStop(old)
+  }
+
+  // Where an issue card sends you. The ?issue=N deep link is handled in the React
+  // app (src/App.jsx) and is NOT on main yet, so oswinjournal.com ignores it until
+  // that branch ships — until then these links would land on the archive. Running
+  // from localhost we therefore point at the local Vite app (npm run dev, :5173),
+  // which does understand it. Delete the localhost branch once main has deep links.
+  const LIVE_ORIGIN = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
+    ? 'http://localhost:5173'
+    : 'https://oswinjournal.com'
+  const LIVE_ISSUE = (n) => `${LIVE_ORIGIN}/?issue=${n}`
+
+  // An issue is its own sound world. When the issue page starts playing audio it
+  // posts up to us and the lobby steps aside; the lobby comes back when you LEAVE
+  // the issue (see closeCardIframe), not when the issue merely goes quiet —
+  // otherwise muting a track mid-visit would pipe corridor music into the room.
+  //
+  // duckedFrom remembers whether the lobby was actually playing when we ducked,
+  // so a lobby you had deliberately paused stays paused when you come back out.
+  let duckedFrom = null
+  function duckLobby() {
+    if (duckedFrom !== null) return   // already ducked; keep the original state
+    duckedFrom = playing
+    if (playing) lobbyPause(FADE_ISSUE)
+  }
+  function restoreLobby() {
+    const was = duckedFrom
+    duckedFrom = null
+    if (was && !playing) lobbyPlay(FADE_ISSUE)
+  }
+
+  // Set by openCardIframe while a card is open; the overlay owns the BACK label.
+  let revealCardBack = null
+
+  window.addEventListener('message', (e) => {
+    if (e.origin !== LIVE_ORIGIN) return
+    const d = e.data
+    if (!d) return
+    if (d.type === 'oswinIssueAudio' && d.on) duckLobby()
+    // The issue's own "home" control. Home is this ring, so close the overlay
+    // and fade the lobby back in.
+    if (d.type === 'oswinExitIssue') closeCardIframe()
+    // Movement inside the issue — surface BACK for a moment.
+    if (d.type === 'oswinActivity' && revealCardBack) revealCardBack(true)
+  })
+</script>
 <div class="story-overlay" id="storyOverlay">
   <div class="story-text" id="storyText">
     <div class="story-cover-title" id="storyCoverTitle">
@@ -179,9 +399,9 @@ const PORTALS = [
   { title: 'ENQUIRIES', sub: 'get in touch · looking for like minded', bg: '#00C2A8', light: false },  // Enquiries — exact alextaves card (index must match ENQUIRIES_INDEX)
   { title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', body: OSWIN_JOURNAL_BODY, bg: '#D4D2CB', light: false },  // was ALEX TAVES (06.png)
   { title: 'OLI GOLDSMITH', sub: 'issue 4', bg: '#FF4F79', light: true, iframe: 'https://ethernity.space/', badge: 4 },  // issue 4 — Oli (landing card); click opens a fullscreen iframe
-  { slideshow: ['images/giftshop-green.jpg', 'images/giftshop-orange.jpg', 'images/giftshop-purple.jpg', 'images/giftshop-red.jpg'], title: 'ARNOLD SCHOENBERG', sub: '', bottomCaption: 'visuals by oswin', bg: '#777777', titleColor: '#FFFFFF', badge: 3 },  // issue 3 — Arnold (crossfading giftshop colorways)
-  { video: 'videos/chris_bluedancer.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: 'issue2.html' },  // issue 2 — Chris (click opens the issue-2 detail)
-  { video: 'videos/karla_prerace.mp4', title: 'KARLA IS HERE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#1E2BFF', badge: 1 },  // issue 1 — Karla
+  { slideshow: ['images/giftshop-green.jpg', 'images/giftshop-orange.jpg', 'images/giftshop-purple.jpg', 'images/giftshop-red.jpg'], title: 'ARNOLD SCHOENBERG', sub: '', bottomCaption: 'visuals by oswin', bg: '#777777', titleColor: '#FFFFFF', badge: 3, iframe: LIVE_ISSUE(3) },  // issue 3 — Arnold (click enters the live Schoenberg piano experience)
+  { video: 'videos/chris_bluedancer.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: LIVE_ISSUE(2) },  // issue 2 — Chris (click enters the live issue-2 page, same as the other issues)
+  { video: 'videos/karla_prerace.mp4', title: 'KARLA IS HERE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#1E2BFF', badge: 1, iframe: LIVE_ISSUE(1) },  // issue 1 — Karla (click enters the live issue-1 detail page)
 ]
 const LANDING_INDEX = 3   // Oli — the card the ring lands on
 const COUNT = PORTALS.length
@@ -885,19 +1105,30 @@ function drawTvBase(ctx, portal, W, H) {
 // Animated static + scanlines applied over the WHOLE card (picture AND type),
 // drawn last so the text degrades in the same signal — that's what makes it
 // feel like a real broadcast.
-function applyTvStatic(ctx, W, H) {
-  ctx.save()
-  ctx.imageSmoothingEnabled = false
-  ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = 0.11
-  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
-  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.075
-  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
-  ctx.restore()
+// A/B switches while we work out whether the card static fights the screen-space
+// grain the post pass adds. ?grain=0 drops the noise, ?scan=0 drops the
+// scanlines. Both default ON, i.e. unchanged.
+const _q = new URLSearchParams(location.search)
+const CARD_GRAIN = _q.get('grain') !== '0'
+const CARD_SCANLINES = _q.get('scan') !== '0'
 
-  ctx.save()
-  ctx.globalAlpha = 0.16; ctx.fillStyle = '#000'
-  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1)
-  ctx.restore()
+function applyTvStatic(ctx, W, H) {
+  if (CARD_GRAIN) {
+    ctx.save()
+    ctx.imageSmoothingEnabled = false
+    ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = 0.11
+    ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.075
+    ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+    ctx.restore()
+  }
+
+  if (CARD_SCANLINES) {
+    ctx.save()
+    ctx.globalAlpha = 0.16; ctx.fillStyle = '#000'
+    for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1)
+    ctx.restore()
+  }
 }
 regenNoise()   // seed one noise frame so build-time static has something to draw
 
@@ -1744,19 +1975,74 @@ function openCardIframe(url) {
   frame.src = url
   frame.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; border:0;'
   frame.setAttribute('allow', 'autoplay; fullscreen; microphone; camera; gyroscope; accelerometer; xr-spatial-tracking')
+  // Embedded three.js pages (issue2_stack) measure innerWidth/Height once at load —
+  // which happens before the frame reaches full size, so they come up zoomed and
+  // off-centre. Nudge them to re-measure. try/catch: cross-origin frames (Oli's
+  // ethernity.space) throw on contentWindow access.
+  frame.onload = () => { try { frame.contentWindow.dispatchEvent(new Event('resize')) } catch {} }
   overlay.appendChild(frame)
-  const close = document.createElement('button')
-  close.textContent = '✕'
-  close.setAttribute('aria-label', 'Close')
-  close.style.cssText = 'position:fixed; top:16px; right:16px; z-index:2001; width:44px; height:44px; padding:0; border:none; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);'
-  close.onclick = closeCardIframe
-  overlay.appendChild(close)
+  // No ✕ in the top right — it sat on top of the issue pages' own fullscreen
+  // control. A BACK label fades in at the top left on movement or touch and
+  // fades away again, the same idle-reveal the issue pages use for their own
+  // controls.
+  const back = document.createElement('button')
+  back.textContent = '← BACK'
+  back.setAttribute('aria-label', 'Back to the carousel')
+  // mix-blend-mode:difference rather than a fixed colour or a dark pill: the
+  // issue pages behind this range from Arnold's bright yellow to Karla's near
+  // black, and plain white would vanish into the first. Difference inverts
+  // against whatever it sits on, so the label stays legible without putting a
+  // chip of chrome back over the page.
+  // Typeset to match the site's other controls (the live pages' "enter" link):
+  // Helvetica Neue 13px/400 at 0.05em. Spelled out rather than left to inherit,
+  // because a button does not take the body font on its own.
+  back.style.cssText = "position:fixed; top:22px; left:26px; z-index:2001; padding:6px 4px; border:none; background:none; color:#fff; mix-blend-mode:difference; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:13px; font-weight:400; letter-spacing:0.05em; line-height:1; cursor:pointer; opacity:0; transition:opacity 0.55s ease;"
+  back.onclick = closeCardIframe
+  overlay.appendChild(back)
+
+  // We cannot see pointer events over a cross-origin iframe, so our own issue
+  // pages post their activity up to us (oswinActivity) and that drives the
+  // reveal. A page that never reports — Oli's external site — gets a BACK that
+  // simply stays put, because hiding it there would remove the only way out.
+  let hideTimer = null
+  let pageReportsActivity = false
+  revealCardBack = (fromPage) => {
+    if (fromPage) pageReportsActivity = true
+    back.style.opacity = '0.9'
+    back.style.pointerEvents = 'auto'
+    clearTimeout(hideTimer)
+    if (!pageReportsActivity) return
+    hideTimer = setTimeout(() => {
+      back.style.opacity = '0'
+      back.style.pointerEvents = 'none'
+    }, 2600)
+  }
+  overlay.addEventListener('pointermove', () => revealCardBack(true))
   document.body.appendChild(overlay)
+  requestAnimationFrame(() => revealCardBack(false))   // present on arrival
+  // Give the overlay its own history entry so the browser Back button returns to
+  // the ring instead of leaving the carousel altogether.
+  history.pushState({ cardIframe: true }, '')
+  cardIframePushed = true
 }
+let cardIframePushed = false
+
 function closeCardIframe() {
   const o = document.getElementById('cardIframeOverlay')
-  if (o) o.remove()
+  if (!o) return
+  o.remove()
+  revealCardBack = null
+  restoreLobby()
+  // Closing via ✕ or Escape should also unwind the history entry we pushed, so
+  // Back doesn't need two presses to leave the ring.
+  if (cardIframePushed) { cardIframePushed = false; history.back() }
 }
+
+// Back button while a card is open: drop the overlay, stay on the carousel.
+window.addEventListener('popstate', () => {
+  const o = document.getElementById('cardIframeOverlay')
+  if (o) { cardIframePushed = false; o.remove(); revealCardBack = null; restoreLobby() }
+})
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardIframe() })
 
 function handlePanelClick(idx) {
@@ -1793,6 +2079,9 @@ const clickPointer = new THREE.Vector2()
 // On first arrival start with WELCOME front & centre; otherwise a normal ring.
 // Land with the Oli card (LANDING_INDEX) front-and-centre.
 let angle = (LANDING_INDEX / COUNT) * Math.PI * 2 - Math.PI / 2, angVel = 0
+// Which way the ring idles. Any deliberate spin faster than the idle speed
+// re-aims it, and it KEEPS going that way until you send it back.
+let autoDir = 1
 let dragging = false, didDrag = false
 let downX = 0, downY = 0, lastX = 0, lastMoveT = 0, trackedVel = 0
 // Clicking a panel pauses the auto-rotation so it holds still for the confirm
@@ -2010,7 +2299,8 @@ function render(now) {
 
   if (!dragging && !storyOpen && !welcomeActive) {
     if (!paused) {
-      const target = AUTO_SPEED
+      if (Math.abs(angVel) > AUTO_SPEED * 1.5) autoDir = Math.sign(angVel)
+      const target = AUTO_SPEED * autoDir
       angVel = target + (angVel - target) * Math.exp(-FRICTION * dt)
     } else {
       angVel *= Math.exp(-FRICTION * dt)
@@ -2076,7 +2366,9 @@ function render(now) {
 
   if (storyOpen) updateStoryRect()
 
-  renderer.render(scene, camera)
+  updateNoteCard(dt)
+
+  if (POST.on) renderPost(); else renderer.render(scene, camera)
 }
 
 // Background colour (locked in): dark desaturated blue — HSL 223 / 18% / 9%
@@ -2086,6 +2378,521 @@ function render(now) {
   scene.background = col.clone()
   scene.fog.color.copy(col)
 })()
+
+// ── Slow-note card ────────────────────────────────────────────────────────────
+// A seventh card that is NOT part of the ring: same geometry, same materials,
+// same live TV static, but parked at the left of the screen and never rotated
+// by the carousel. White face, black type, purple PLAY.
+//
+// It sits slightly in front of the ring (NOTE_Z) so passing cards can never
+// intersect it, and is scaled by the distance ratio so it still measures the
+// same on screen as a front ring card.
+const NOTE_COPY = 'This site is to be taken slow. Push play on the lobby music and enjoy browsing.'
+const NOTE_PURPLE = '#8127D3'
+const NOTE_Z = RADIUS + 1.2
+const noteScale = (CAM_Z - NOTE_Z) / nearDist
+
+const noteBase = document.createElement('canvas'); noteBase.width = 600; noteBase.height = 800
+const noteBaseCtx = noteBase.getContext('2d')
+const noteFaceCanvas = document.createElement('canvas'); noteFaceCanvas.width = 600; noteFaceCanvas.height = 800
+const noteFaceCtx = noteFaceCanvas.getContext('2d')
+const noteHits = { play: null, close: null }
+
+// Type is 2/3 the size of a card title (titleLayout tops out at 74px on this
+// same 600x800 face), matching the proportion agreed for the old HTML box.
+const NOTE_MENU = [
+  { id: 'write', label: 'WRITE US' },
+  { id: 'interviews', label: 'INTERVIEWS' },
+  { id: 'listens', label: 'LISTENS' },
+  { id: 'bsides', label: 'B-SIDES' },
+  { id: 'alextaves', label: 'ALEXTAVES.COM' },
+]
+
+function drawNoteBase() {
+  const ctx = noteBaseCtx, W = 600, H = 800, lm = 54
+  const size = 42                    // 15% down from 49
+  const maxW = W - lm * 2
+  const FONT = `'Helvetica Neue', Helvetica, Arial, sans-serif`
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+
+  ctx.font = `700 ${size}px ${FONT}`
+  ctx.letterSpacing = '-0.01em'
+  ctx.fillStyle = '#111111'
+  const lines = wrapText(ctx, NOTE_COPY.toUpperCase(), maxW)
+  let y = 116
+  lines.forEach((l) => { ctx.fillText(l, lm, y); y += size * 1.18 })
+
+  y += 22
+  ctx.fillStyle = NOTE_PURPLE
+  const label = lobby.paused ? 'PLAY' : 'PAUSE'
+  ctx.fillText(label, lm, y)
+  noteHits.play = [lm - 14, y - 12, ctx.measureText(label).width + 28, size + 24]
+  y += size * 1.18 + 10
+
+  // Credit: bigger, heavier and darker than the old 300-weight line so it holds
+  // its own. Wraps if it needs a second or third line.
+  const cs = 27
+  ctx.font = `500 ${cs}px ${FONT}`
+  ctx.letterSpacing = '0.04em'
+  ctx.fillStyle = 'rgba(17,17,17,0.92)'
+  wrapText(ctx, 'AUDIO: WRONG BY HWY 3', maxW).forEach((l) => { ctx.fillText(l, lm, y); y += cs * 1.26 })
+
+  // Quick links.
+  y += 24
+  ctx.strokeStyle = 'rgba(17,17,17,0.22)'; ctx.lineWidth = 1
+  ctx.beginPath(); ctx.moveTo(lm, y + 0.5); ctx.lineTo(W - lm, y + 0.5); ctx.stroke()
+  y += 24
+
+  const ms = 30
+  ctx.font = `700 ${ms}px ${FONT}`
+  ctx.letterSpacing = '0.02em'
+  ctx.fillStyle = '#111111'
+  noteHits.menu = []
+  NOTE_MENU.forEach((m) => {
+    ctx.fillText(m.label, lm, y)
+    noteHits.menu.push({ id: m.id, rect: [lm - 14, y - 10, ctx.measureText(m.label).width + 28, ms + 20] })
+    y += ms * 1.42
+  })
+
+  ctx.font = `300 42px ${FONT}`
+  ctx.letterSpacing = '0'
+  ctx.fillStyle = '#111111'
+  ctx.textAlign = 'right'
+  ctx.fillText('✕', W - lm, 52)
+  ctx.textAlign = 'left'
+  noteHits.close = [W - lm - 72, 38, 82, 82]
+}
+drawNoteBase()
+
+const noteTex = new THREE.CanvasTexture(noteFaceCanvas)
+const noteWhite = new THREE.Color('#ffffff')
+const noteFaceMat = new THREE.MeshPhysicalMaterial({
+  map: noteTex, transparent: true, opacity: 1, side: THREE.FrontSide,
+  roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+  color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+})
+const noteEdgeMat = new THREE.MeshStandardMaterial({
+  color: noteWhite, transparent: true, opacity: 1,
+  roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+})
+const noteBackMat = new THREE.MeshStandardMaterial({
+  color: noteWhite, transparent: true, opacity: 0.92,
+  roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+})
+// Spine type. When tucked, the face pointing at the camera is the box's +x side
+// (material index 0), so OSWIN JOURNAL goes there, rotated to run along the
+// spine and centred. Canvas is tall and narrow to match the THICK x panelH face.
+// 2x resolution: the spine renders ~44px wide on screen, so at the old 128px
+// canvas the type resolved to ~11px and anti-aliasing greyed the stems out.
+// Same relative size (66 on 256 == 33 on 128), twice the glyph detail.
+const spineCanvas = document.createElement('canvas'); spineCanvas.width = 256; spineCanvas.height = 2048
+const spineCtx = spineCanvas.getContext('2d')
+spineCtx.fillStyle = '#ffffff'; spineCtx.fillRect(0, 0, 256, 2048)
+spineCtx.save()
+spineCtx.translate(128, 1024); spineCtx.rotate(-Math.PI / 2)
+spineCtx.fillStyle = '#000000'
+spineCtx.font = `700 99px 'Helvetica Neue', Helvetica, Arial, sans-serif`   // 1.5x (66 -> 99 at 2x res)
+spineCtx.letterSpacing = '-0.01em'   // matches titleLayout — the wide 0.20em read far lighter
+spineCtx.textAlign = 'center'; spineCtx.textBaseline = 'middle'
+spineCtx.fillText('OSWIN JOURNAL', 0, 0)
+spineCtx.restore()
+
+// Black dot at the top of the spine, 90% of the spine's width. The gap is in
+// texture pixels: the 2048-tall canvas maps to roughly 812 CSS px of spine, so
+// ~2.52 texture px per CSS px — 63 gives about 25 CSS px at a full-height
+// window. It scales with the viewport, since the texture itself is fixed.
+// A round dot needs an ELLIPSE in texture space: the 256x2048 canvas is mapped
+// onto a face that is THICK wide by (panelH * tuckY) tall, so one texture pixel
+// covers far less world space vertically than horizontally. Solve for equal
+// world extent in both directions and the dot renders as a true circle.
+const _dotDist = CAM_Z - NOTE_Z
+const _dotTuckY = (_dotDist - (panelW * noteScale) / 2) / _dotDist
+const worldPerTexX = (THICK * noteScale) / 256
+const worldPerTexY = (panelH * noteScale * _dotTuckY) / 2048
+const DOT_RX = (256 * 0.9) / 2                          // 90% of the spine width
+const DOT_RY = DOT_RX * (worldPerTexX / worldPerTexY)   // same size in world units
+const DOT_GAP = 63
+spineCtx.beginPath()
+spineCtx.ellipse(128, DOT_GAP + DOT_RY, DOT_RX, DOT_RY, 0, 0, Math.PI * 2)
+spineCtx.fillStyle = '#000000'
+spineCtx.fill()
+
+const spineTex = new THREE.CanvasTexture(spineCanvas)
+const noteSpineMat = new THREE.MeshStandardMaterial({
+  map: spineTex, color: new THREE.Color(0xffffff), transparent: true, opacity: 1,
+  roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+})
+
+const noteCard = new THREE.Mesh(panelGeo, [noteSpineMat, noteEdgeMat, noteEdgeMat, noteEdgeMat, noteFaceMat, noteBackMat])
+noteCard.frustumCulled = false
+noteCard.scale.setScalar(noteScale)
+scene.add(noteCard)
+
+let noteOpen = true, noteT = 1   // noteT: 1 = open and facing us, 0 = tucked edge-on
+
+// Glide the ring so card `i` ends up front-and-centre. Card i sits dead centre
+// when angle == (i/COUNT)*2PI - PI/2 (the same formula LANDING_INDEX uses); we
+// pick whichever equivalent angle is nearest so it takes the short way round.
+let ringTarget = null
+function focusCard(i) {
+  let t = (i / COUNT) * Math.PI * 2 - Math.PI / 2
+  while (t - angle > Math.PI) t -= Math.PI * 2
+  while (angle - t > Math.PI) t += Math.PI * 2
+  ringTarget = t
+  paused = true      // stop the idle auto-spin fighting the glide
+  angVel = 0
+}
+
+function noteXPositions() {
+  const dist = CAM_Z - NOTE_Z
+  const halfWAt = (d) => d * Math.tan(vFOV / 2) * camera.aspect
+  // Turned edge-on the spine swings panelW/2 NEARER the camera, where the
+  // frustum is narrower — so its flush-left x must be solved at that depth, not
+  // at the card's centre depth, or the spine ends up off-screen entirely.
+  const spineDist = dist - (panelW * noteScale) / 2
+  return {
+    open: -halfWAt(dist) + (panelW * noteScale) / 2,     // face flush to the left edge
+    closed: -halfWAt(spineDist) + (THICK * noteScale) / 2,
+    spineDist,
+  }
+}
+
+function updateNoteCard(dt) {
+  // Ring direction drives the tape. AUTO_SPEED is positive, so scrubbing against
+  // the idle rotation gives a negative angVel and flips the audio to reverse.
+  // Small deadzone so it doesn't chatter as the ring coasts through zero.
+  // While dragging, angVel stays 0 (angle is moved directly), so use the tracked
+  // pointer velocity — the tape should turn the instant you scrub, not on release.
+  if (dragging) {
+    if (trackedVel > 40) setLobbyDirection(1)
+    else if (trackedVel < -40) setLobbyDirection(-1)
+  } else if (angVel > 0.004) setLobbyDirection(1)
+  else if (angVel < -0.004) setLobbyDirection(-1)
+
+  // Ring glide toward a focused card; any drag cancels it.
+  if (ringTarget !== null) {
+    if (dragging) ringTarget = null
+    else {
+      angle += (ringTarget - angle) * Math.min(1, dt * 3.2)
+      if (Math.abs(ringTarget - angle) < 0.002) { angle = ringTarget; ringTarget = null }
+    }
+  }
+
+  const target = noteOpen ? 1 : 0
+  noteT += (target - noteT) * Math.min(1, dt * 5.5)
+  const e = noteT * noteT * (3 - 2 * noteT)   // smoothstep the tuck
+
+  const x = noteXPositions()
+  noteCard.position.set(x.closed + (x.open - x.closed) * e, 0, NOTE_Z)
+
+  // A flat -90deg puts the spine parallel to the screen, so it reads straight-on
+  // rather than as an oblique sliver. It also turns the printed face to point
+  // -x (away from the camera, which sits to its right), so the face stays hidden.
+  const dist = CAM_Z - NOTE_Z
+  noteCard.rotation.y = -Math.PI / 2 * (1 - e)
+
+  // Edge-on, the card's WIDTH now runs along the line of sight, so its near
+  // edge sits (panelW/2) closer to the camera and perspective makes the bar
+  // taller than a ring card. Screen height goes as 1/view-z, so scaling Y by
+  // (near view-z / centre view-z) puts the tucked spine back at card height.
+  // Spine sits nearer, so shrink Y by the depth ratio to land back at card height.
+  const tuckY = x.spineDist / dist
+  noteCard.scale.set(noteScale, noteScale * (tuckY + (1 - tuckY) * e), noteScale)
+
+  // The card body is a thin plane at a constant x; seen from a camera that
+  // isn't in that plane it ALWAYS projects as a wedge running back into the
+  // scene. Occluding it would mean angling the card, which is what we don't
+  // want — so fade the body out instead and leave a clean spine.
+  noteFaceMat.opacity = e
+  noteBackMat.opacity = 0.92 * e
+  noteEdgeMat.opacity = e
+  // Opacity 0 still writes depth, which silently occludes the ring behind the
+  // tucked card — an invisible slab cutting holes in the carousel. Drop depth
+  // writing once the body has faded, and restore it while it's on screen.
+  const bodyDrawn = e > 0.02
+  noteFaceMat.depthWrite = bodyDrawn
+  noteBackMat.depthWrite = bodyDrawn
+  noteEdgeMat.depthWrite = bodyDrawn
+
+  // Same live static every other card wears — redrawn from the cached base.
+  noteFaceCtx.setTransform(1, 0, 0, 1, 0, 0)
+  noteFaceCtx.clearRect(0, 0, 600, 800)
+  noteFaceCtx.drawImage(noteBase, 0, 0)
+  applyTvStatic(noteFaceCtx, 600, 800)
+  noteTex.needsUpdate = true
+}
+
+// Capture-phase so it wins before the ring's own drag/click handling.
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  clickPointer.x = (e.clientX / innerWidth) * 2 - 1
+  clickPointer.y = -((e.clientY / innerHeight) * 2 - 1)
+  raycaster.setFromCamera(clickPointer, camera)
+  const hit = raycaster.intersectObject(noteCard, false)[0]
+  if (!hit) return
+  // Tucked, the body is invisible but its geometry still catches rays, so a
+  // click anywhere in the empty gap between spine and ring was landing on the
+  // card. Only the spine face (+x, material 0) counts; anything else falls
+  // through untouched so the ring still gets the event.
+  if (!noteOpen) {
+    if (hit.face.materialIndex !== 0) return
+    e.stopPropagation()
+    noteOpen = true
+    return
+  }
+  e.stopPropagation()
+  if (hit.face.materialIndex !== 4 || !hit.uv) return // only the printed face
+  const px = hit.uv.x * 600, py = (1 - hit.uv.y) * 800
+  const inRect = (r) => r && px >= r[0] && px <= r[0] + r[2] && py >= r[1] && py <= r[1] + r[3]
+  if (inRect(noteHits.close)) { noteOpen = false; return }
+  if (inRect(noteHits.play)) { toggleLobby(); drawNoteBase(); return }
+  for (const m of noteHits.menu || []) {
+    if (!inRect(m.rect)) continue
+    if (m.id === 'write') { focusCard(ENQUIRIES_INDEX); noteOpen = false }
+    else if (m.id === 'listens') { openCardIframe('listens.html') }
+    // B-sides — first one is Dancer (the nine-card Chris ring).
+    else if (m.id === 'bsides') { openCardIframe('dancer.html') }
+    else if (m.id === 'alextaves') window.open('https://alextaves.com', '_blank', 'noopener')
+    // 'interviews' has no destination yet — hit target is live, action pending.
+    return
+  }
+}, true)
+
+// ── Post-processing ───────────────────────────────────────────────────────────
+// Hand-rolled rather than EffectComposer: this scene runs on the classic r136
+// global build, and the addons in vendor/postprocessing are ES modules bound to
+// r184 — mixing them means two three.js instances, which fails at render time.
+// Everything below uses the same THREE the ring already uses.
+//
+// Colour pipeline (r136): tone mapping is applied by the scene's own materials,
+// so the scene RT holds ACES-mapped LINEAR values. Three does NOT inject an
+// encoding conversion into a raw ShaderMaterial, so the composite converts
+// linear -> sRGB itself. Skip that and everything comes out washed out.
+//
+// Toggle live with the P key, or load with ?post=0 to start off.
+const POST = { on: new URLSearchParams(location.search).get('post') !== '0' }
+
+// All tunable from the URL so the look can be dialled without editing:
+//   ?exp=1.4  ?vig=0.1  ?bloom=0.7  ?grain=0.06
+const _num = (k, d) => { const v = parseFloat(_q.get(k)); return Number.isFinite(v) ? v : d }
+
+const EXPOSURE = _num('exp', 1.02)        // flat multiplier, applied first
+// Shadow lift. EXPOSURE alone widens the gap between the bright cards (which
+// bloom and clip) and the dark ones (Karla, Alexander), which is what made them
+// read as too dark. This is a gamma curve: it raises shadows and midtones and
+// leaves white at white, so the dark cards come up without blowing the pink one.
+const LIFT = _num('lift', 1.12)
+const BLOOM_STRENGTH = _num('bloom', 0.34) // how much glow is added back
+const BLOOM_THRESHOLD = 0.70  // luminance above which a pixel blooms
+const BLOOM_KNEE = 0.28       // soft shoulder, so the threshold isn't a hard edge
+const GRAIN = _num('grain2', 0.032)
+// Depth of field. Focus sits on the front of the ring; blur ramps in behind it.
+// DOF_NEAR/FAR are distances BEYOND the front card, in world units, over which
+// the blur goes from none to full. DOF_MAX caps it so the back stays readable.
+const DOF_MAX  = _num('dof', 0.38)
+const DOF_NEAR = _num('dofnear', RADIUS * 1.05)
+const DOF_FAR  = _num('doffar', RADIUS * 2.1)
+// Darkens the background/fog for the post pass only. The clear colour is the
+// background, so scaling it here darkens the field WITHOUT touching the cards —
+// and the no-post path still uses the locked-in #12151b untouched.
+const BG_DARK = _num('bg', 0.5)
+const VIGNETTE = _num('vig', 0.075)
+
+const fsQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), null)
+const fsScene = new THREE.Scene().add(fsQuad)
+const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
+
+const rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType }
+let rtScene, rtA, rtB, rtC, rtD, rtDepth
+
+function sizePostTargets() {
+  const w = Math.max(1, Math.floor(innerWidth * curPR))
+  const h = Math.max(1, Math.floor(viewportH() * curPR))
+  const bw = Math.max(1, Math.floor(w / 4)), bh = Math.max(1, Math.floor(h / 4))
+  if (!rtScene) {
+    // MSAA only applies to the canvas, so rendering the scene into a plain
+    // target throws away the renderer's antialias:true and the card edges go
+    // jagged. A multisample target puts it back. The bloom targets don't need
+    // it — they're blurred to nothing anyway.
+    const MS = renderer.capabilities.isWebGL2 && THREE.WebGLMultisampleRenderTarget
+    rtScene = MS ? new THREE.WebGLMultisampleRenderTarget(w, h, rtOpts)
+                 : new THREE.WebGLRenderTarget(w, h, rtOpts)
+    if (MS) rtScene.samples = Math.min(4, renderer.getContext().getParameter(renderer.getContext().MAX_SAMPLES))
+    rtA = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
+    rtB = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
+    // Scene blur (for DoF) needs its own pair — rtA/rtB are busy with bloom.
+    rtC = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
+    rtD = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
+    // Depth pre-pass. Plain 8-bit RGBA with packed depth: multisample targets
+    // can't carry a depth texture here, so depth is rendered separately.
+    rtDepth = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat })
+  } else {
+    rtScene.setSize(w, h); rtA.setSize(bw, bh); rtB.setSize(bw, bh)
+    rtC.setSize(bw, bh); rtD.setSize(bw, bh); rtDepth.setSize(w, h)
+  }
+  blurMat.uniforms.texel.value.set(1 / bw, 1 / bh)
+}
+
+const VERT = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }'
+
+const brightMat = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, threshold: { value: BLOOM_THRESHOLD }, knee: { value: BLOOM_KNEE } },
+  vertexShader: VERT,
+  fragmentShader: `
+    uniform sampler2D tex; uniform float threshold; uniform float knee; varying vec2 vUv;
+    void main(){
+      vec3 c = texture2D(tex, vUv).rgb;
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      float w = smoothstep(threshold - knee, threshold + knee, l);
+      gl_FragColor = vec4(c * w, 1.0);
+    }`,
+})
+
+// Separable 9-tap gaussian — run once horizontally, once vertically.
+const blurMat = new THREE.ShaderMaterial({
+  uniforms: { tex: { value: null }, dir: { value: new THREE.Vector2(1, 0) }, texel: { value: new THREE.Vector2(1 / 512, 1 / 512) } },
+  vertexShader: VERT,
+  fragmentShader: `
+    uniform sampler2D tex; uniform vec2 dir; uniform vec2 texel; varying vec2 vUv;
+    void main(){
+      vec2 o = dir * texel;
+      vec3 c = texture2D(tex, vUv).rgb * 0.227027;
+      c += texture2D(tex, vUv + o * 1.3846).rgb * 0.316216;
+      c += texture2D(tex, vUv - o * 1.3846).rgb * 0.316216;
+      c += texture2D(tex, vUv + o * 3.2308).rgb * 0.070270;
+      c += texture2D(tex, vUv - o * 3.2308).rgb * 0.070270;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+})
+
+const compositeMat = new THREE.ShaderMaterial({
+  uniforms: {
+    tex: { value: null }, bloomTex: { value: null },
+    blurTex: { value: null }, depthTex: { value: null },
+    dofMax: { value: DOF_MAX }, dofNear: { value: 0 }, dofFar: { value: 0 },
+    camNear: { value: 0 }, camFar: { value: 0 },
+    strength: { value: BLOOM_STRENGTH }, grain: { value: GRAIN },
+    vignette: { value: VIGNETTE }, exposure: { value: EXPOSURE },
+    lift: { value: LIFT }, time: { value: 0 },
+  },
+  vertexShader: VERT,
+  fragmentShader: `
+    uniform sampler2D tex; uniform sampler2D bloomTex;
+    uniform sampler2D blurTex; uniform sampler2D depthTex;
+    uniform float dofMax; uniform float dofNear; uniform float dofFar;
+    uniform float camNear; uniform float camFar;
+    uniform float strength; uniform float grain; uniform float vignette;
+    uniform float exposure; uniform float lift; uniform float time;
+    varying vec2 vUv;
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    // three's packDepthToRGBA, inverted.
+    float unpackDepth(vec4 v){
+      return dot(v, vec4(255.0/256.0/16777216.0, 255.0/256.0/65536.0, 255.0/256.0/256.0, 255.0/256.0));
+    }
+    void main(){
+      // Distance from the camera, in world units, for this pixel.
+      float zdepth = unpackDepth(texture2D(depthTex, vUv));
+      float viewZ = (camNear * camFar) / ((camFar - camNear) * zdepth - camFar);
+      float dist = -viewZ;
+      float coc = smoothstep(dofNear, dofFar, dist) * dofMax;
+
+      vec3 sharp = texture2D(tex, vUv).rgb;
+      vec3 soft = texture2D(blurTex, vUv).rgb;
+      vec3 c = mix(sharp, soft, coc) + texture2D(bloomTex, vUv).rgb * strength;
+      c *= exposure;
+      c = pow(max(c, 0.0), vec3(1.0 / lift));   // lifts shadows, leaves white at white
+      vec2 d = vUv - 0.5;
+      c *= 1.0 - vignette * dot(d, d) * 2.0;
+      // Weight grain by luminance. Flat grain destroys the background: the dark
+      // field carries almost no signal, so the noise is all you see there. This
+      // fades it out below ~0.22 luminance, so grain lives on the cards and the
+      // background stays clean.
+      float lumv = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      float gw = smoothstep(0.02, 0.22, lumv);
+      c += (hash(vUv * 1024.0 + fract(time)) - 0.5) * grain * gw;
+      // linear -> sRGB. r136 makes materials write LINEAR into a render target
+      // (encoding only applies when drawing to the canvas), so this conversion
+      // has to happen here or the whole frame comes out ~20% dark. The clear
+      // colour is linearised in renderPost so the background matches.
+      c = max(c, 0.0);
+      vec3 lo = c * 12.92;
+      vec3 hi = 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055;
+      gl_FragColor = vec4(mix(hi, lo, step(c, vec3(0.0031308))), 1.0);
+    }`,
+})
+
+function drawQuad(mat, target) {
+  fsQuad.material = mat
+  renderer.setRenderTarget(target || null)
+  renderer.render(fsScene, fsCam)
+}
+
+let postPR = -1, _bgLinear = null, _fogLinear = null
+const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
+function renderPost() {
+  if (!rtScene || postPR !== curPR) { sizePostTargets(); postPR = curPR }
+
+  // The clear colour and fog are written raw, not through a material, so they'd
+  // land in the target already-encoded while everything else lands linear. Swap
+  // in linearised copies for the offscreen pass so the whole target is linear,
+  // then put the originals back — the no-post path must stay untouched.
+  if (!_bgLinear) {
+    // Fog is scaled with the background so distant cards still fade into the
+    // same colour — that tie is deliberate in the original scene setup.
+    _bgLinear = scene.background.clone().convertSRGBToLinear().multiplyScalar(BG_DARK)
+    _fogLinear = scene.fog.color.clone().convertSRGBToLinear().multiplyScalar(BG_DARK)
+  }
+  const bgWas = scene.background, fogWas = scene.fog.color.clone()
+  scene.background = _bgLinear
+  scene.fog.color.copy(_fogLinear)
+
+  renderer.setRenderTarget(rtScene)
+  renderer.clear()
+  renderer.render(scene, camera)
+
+  scene.background = bgWas
+  scene.fog.color.copy(fogWas)
+
+  // Depth pre-pass — same scene, depth-packed material.
+  scene.overrideMaterial = depthMat
+  renderer.setRenderTarget(rtDepth)
+  renderer.clear()
+  renderer.render(scene, camera)
+  scene.overrideMaterial = null
+
+  // Blurred copy of the whole scene, for the out-of-focus half of the mix.
+  blurMat.uniforms.tex.value = rtScene.texture; blurMat.uniforms.dir.value.set(1, 0)
+  drawQuad(blurMat, rtC)
+  blurMat.uniforms.tex.value = rtC.texture; blurMat.uniforms.dir.value.set(0, 1)
+  drawQuad(blurMat, rtD)
+  blurMat.uniforms.tex.value = rtD.texture; blurMat.uniforms.dir.value.set(1, 0)
+  drawQuad(blurMat, rtC)
+
+  brightMat.uniforms.tex.value = rtScene.texture
+  drawQuad(brightMat, rtA)
+
+  blurMat.uniforms.tex.value = rtA.texture; blurMat.uniforms.dir.value.set(1, 0)
+  drawQuad(blurMat, rtB)
+  blurMat.uniforms.tex.value = rtB.texture; blurMat.uniforms.dir.value.set(0, 1)
+  drawQuad(blurMat, rtA)
+
+  compositeMat.uniforms.tex.value = rtScene.texture
+  compositeMat.uniforms.bloomTex.value = rtA.texture
+  compositeMat.uniforms.blurTex.value = rtC.texture
+  compositeMat.uniforms.depthTex.value = rtDepth.texture
+  compositeMat.uniforms.camNear.value = camera.near
+  compositeMat.uniforms.camFar.value = camera.far
+  compositeMat.uniforms.dofNear.value = nearDist + DOF_NEAR
+  compositeMat.uniforms.dofFar.value = nearDist + DOF_FAR
+  compositeMat.uniforms.time.value = performance.now() / 1000
+  drawQuad(compositeMat, null)
+}
+
+addEventListener('resize', () => { if (rtScene) sizePostTargets() })
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'p' || e.key === 'P') { POST.on = !POST.on; renderer.setRenderTarget(null) }
+})
 
 startBadgeSlideshow()
 

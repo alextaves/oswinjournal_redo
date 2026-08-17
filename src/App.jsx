@@ -462,6 +462,76 @@ function App() {
     }
   }, []);
 
+  // Deep link: ?issue=N drops you straight into that issue, skipping the
+  // archive homescreen. The carousel opening page is the archive now, so its
+  // cards link in this way — each one lands exactly where that issue's own
+  // "enter" button goes, which is not the same view for every issue: issue 3
+  // opens the piano experience (see handleIssue3Enter), the rest open their
+  // detail page (see handleIssueClick). No transitionToView here — there is no
+  // outgoing view to fade away from on a cold load.
+  useEffect(() => {
+    const n = Number(new URLSearchParams(window.location.search).get('issue'));
+    const issue = ISSUES.find((i) => i.id === n);
+    if (!issue) return;
+    setActiveIssue(n);
+    setSelectedIssue(issue);
+    setVisitedIssues((prev) => new Set([...prev, issue.id]));
+    setView(n === 3 ? 'experience' : 'issue-detail');
+  }, []);
+
+  // When the carousel opening page embeds an issue, tell it we've started making
+  // sound so its lobby music can step aside — an issue is its own sound world.
+  // audioPlaying covers every issue: the <audio> element for issues 1 and 2 and
+  // the Tone.js piano for issue 3 both run through it. We send on the way down
+  // only; the carousel brings its own music back when you leave the issue, which
+  // it detects by closing the overlay, so there is no exit message to send.
+  useEffect(() => {
+    if (window === window.top) return;
+    window.parent.postMessage({ type: 'oswinIssueAudio', on: audioPlaying }, '*');
+  }, [audioPlaying]);
+
+  // Feed pointer activity up to the carousel shell. It cannot observe mousemove
+  // over a cross-origin iframe, so without this its BACK label would never
+  // appear while the reader is inside an issue — the one time it is needed.
+  // Throttled because this fires on every mousemove.
+  useEffect(() => {
+    if (window === window.top) return;
+    let last = 0;
+    const ping = () => {
+      const now = Date.now();
+      if (now - last < 200) return;
+      last = now;
+      window.parent.postMessage({ type: 'oswinActivity' }, '*');
+    };
+    window.addEventListener('pointermove', ping);
+    window.addEventListener('pointerdown', ping);
+    window.addEventListener('touchstart', ping, { passive: true });
+    return () => {
+      window.removeEventListener('pointermove', ping);
+      window.removeEventListener('pointerdown', ping);
+      window.removeEventListener('touchstart', ping);
+    };
+  }, []);
+
+  // Issue 3 opens in silence — a browser will not let Tone start without a
+  // gesture — so the reader has to find the audio toggle before the piece
+  // exists. Instead the first click anywhere in the experience starts it.
+  // Deliberately one shot: once it has fired (or the reader has touched the
+  // page at all) we never re-arm, so turning the audio off afterwards stays off
+  // rather than snapping back on at the next click.
+  const issue3AutoStarted = useRef(false);
+  useEffect(() => {
+    if (view !== 'experience' || selectedIssue?.id !== 3) return;
+    if (issue3AutoStarted.current || audioPlaying) return;
+    const start = () => {
+      issue3AutoStarted.current = true;
+      Tone.start();
+      setAudioPlaying(true);
+    };
+    window.addEventListener('pointerdown', start, { once: true });
+    return () => window.removeEventListener('pointerdown', start);
+  }, [view, selectedIssue, audioPlaying]);
+
   // Import refined fonts
   useEffect(() => {
     const link = document.createElement('link');
@@ -888,6 +958,19 @@ const handleIssueClick = (issue) => {
     clearInterval(rainFadeRef.current)
     if (rainRef.current) { rainRef.current.pause(); rainRef.current = null }
   }
+
+  // Issue 3's "go home" circle. When the carousel opening page is wrapped around
+  // us, home is the carousel — ask the shell to close us and let it bring its
+  // lobby music back, rather than dropping the reader onto the live site's own
+  // archive screen, which is a different opening page they never came from.
+  // Standalone there is no shell to return to, so the archive stays the home.
+  const handleIssue3Home = () => {
+    if (window !== window.top) {
+      window.parent.postMessage({ type: 'oswinExitIssue' }, '*');
+      return;
+    }
+    handleBackToArchive();
+  };
 
   const handleBackToArchive = () => {
     stopWalla();
@@ -4068,7 +4151,7 @@ const handleIssueClick = (issue) => {
           </>
         )}
 
-        {/* Circle — go home */}
+        {/* Circle — go home (the carousel when embedded, see handleIssue3Home) */}
         <div style={{
           position: 'fixed',
           ...(isDesktopView
@@ -4078,7 +4161,7 @@ const handleIssueClick = (issue) => {
           display: 'flex', justifyContent: 'center', zIndex: 20,
         }}>
           <button
-            onClick={(e) => { e.stopPropagation(); handleBackToArchive(); }}
+            onClick={(e) => { e.stopPropagation(); handleIssue3Home(); }}
             className="transition-all duration-500"
             style={{
               width: 48, height: 48, borderRadius: '50%',
