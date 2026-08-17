@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Oswin Journal — B-sides: Karla</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #01030a; overflow: hidden; }
+  canvas { display: block; }
+  #hud {
+    position: fixed; left: 22px; bottom: 20px; z-index: 10;
+    font: 400 12px/1.7 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.08em; color: rgba(255,255,255,0.42);
+    text-transform: uppercase; pointer-events: none;
+  }
+  #hud b { color: rgba(255,255,255,0.82); font-weight: 400; }
+  #backBtn {
+    position: fixed; top: 20px; left: 22px; z-index: 20;
+    padding: 6px 4px; border: none; background: none; cursor: pointer;
+    color: rgba(255,255,255,0.55); font: 500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.22em; transition: color 200ms ease;
+  }
+  #backBtn:hover { color: rgba(255,255,255,0.92); }
+  #nextBside {
+    position: fixed; top: 20px; right: 22px; z-index: 20;
+    padding: 6px 4px; text-decoration: none;
+    color: rgba(255,255,255,0.55); font: 500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.22em; transition: color 200ms ease;
+  }
+  #nextBside:hover { color: rgba(255,255,255,0.92); }
+  #vignette {
+    position: fixed; inset: 0; z-index: 5; pointer-events: none;
+    background:
+      radial-gradient(115% 85% at 50% 45%, rgba(0,0,0,0) 22%, rgba(0,0,0,0.62) 62%, rgba(0,0,0,0.94) 100%);
+  }
+</style>
+</head>
+<body>
+<button id="backBtn" aria-label="Back">←&nbsp;&nbsp;BACK</button>
+<a id="nextBside" href="dancer.html">DANCER&nbsp;&nbsp;→</a>
+<div id="vignette"></div>
+<div id="hud"></div>
+<script src="vendor/three.min.js"></script>
+<script>
+// A film strip bent into a circle. 120 frames of Karla (10.43s at 11.5fps) laid
+// out as one 12x10 sprite atlas, one tile per card around a ring.
+//
+// The physical version needs a shutter — a bare spinning drum just smears,
+// because each frame is lit continuously as it crosses your eye. A zoetrope
+// cuts slits to chop the exposure; a praxinoscope stands mirrors at half the
+// drum's radius so the reflection sits still in the middle. Neither is needed
+// here: we render, so we can simply draw whichever frame is at the front into
+// the centre. The optics were only ever a workaround for not being able to.
+const Q = new URLSearchParams(location.search)
+const COLS = 12, ROWS = 10, TOTAL = COLS * ROWS      // 120 frames in the atlas
+const N   = Math.max(3, Math.min(TOTAL, +(Q.get('n') || TOTAL)))   // cards on the ring
+const FPS   = +(Q.get('fps') || 12)                  // frames per second at the front
+const SPEED = +(Q.get('speed') || 0.5)               // 0.5 = half pace, drum and film together
+
+const D     = +(Q.get('dist') || 1.25)               // eye distance, in radii
+const PIC_H = +(Q.get('pic') || 6)                   // the picture's world height
+const FH = PIC_H * (D - 1) / D, FW = FH * (256 / 144)
+
+// Radius follows from wrapping N frames of width FW into a closed loop — the
+// ring cannot be sized independently of how much film is on it. This is why a
+// 120-frame drum is a wide thin hoop and a 12-frame one is a squat barrel:
+// R/FH grows linearly with N, at about 0.28 per frame.
+const R = (N * FW) / (2 * Math.PI)
+
+const scene = new THREE.Scene()
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 2000)
+const renderer = new THREE.WebGLRenderer({ antialias: true })
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.setSize(innerWidth, innerHeight)
+function makeRoomBackdrop() {
+  const c = document.createElement('canvas'); c.width = c.height = 512
+  const g = c.getContext('2d')
+  g.fillStyle = '#01030a'; g.fillRect(0, 0, 512, 512)
+  const pool = (x, y, r, col) => {
+    const rg = g.createRadialGradient(x, y, 0, x, y, r)
+    rg.addColorStop(0, col); rg.addColorStop(1, 'rgba(1,3,10,0)')
+    g.fillStyle = rg; g.fillRect(0, 0, 512, 512)
+  }
+  pool(330, 150, 300, 'rgba(14,26,66,0.75)')    // the main wash, high and right
+  pool(110, 400, 260, 'rgba(8,15,44,0.65)')     // a colder spill, low and left
+  pool(430, 470, 180, 'rgba(22,14,46,0.4)')     // a bruise of violet in the corner
+  const t = new THREE.CanvasTexture(c)
+  t.minFilter = THREE.LinearFilter
+  return t
+}
+scene.background = makeRoomBackdrop()
+document.body.appendChild(renderer.domElement)
+
+// Camera on a spherical rig so the framing can be found by hand rather than
+// guessed at in source. Wheel dollies, shift-drag orbits, and the HUD prints the
+// numbers — when a crop looks right, those three values are what to bake in.
+let camDist = R * D, camPhi = +(Q.get('elev') || 0.08), camTheta = 0, lookY = 0
+function placeCamera() {
+  camera.position.set(
+    Math.sin(camTheta) * camDist * Math.cos(camPhi),
+    Math.sin(camPhi) * camDist,
+    Math.cos(camTheta) * camDist * Math.cos(camPhi)
+  )
+  camera.lookAt(0, lookY, 0)
+}
+placeCamera()
+
+const tex = new THREE.TextureLoader().load('images/karla_zoetrope_atlas.jpg')
+tex.minFilter = THREE.LinearFilter
+tex.generateMipmaps = false
+
+// One texture, one material, UVs baked per card. Cloning a texture per frame
+// would upload the same 3072x1440 image to the GPU 120 times.
+const STRIP_OPACITY = +(Q.get('opacity') || 0.15)
+const mat = new THREE.MeshBasicMaterial({
+  map: tex, side: THREE.DoubleSide,
+  transparent: true, opacity: STRIP_OPACITY, depthWrite: false,
+})
+// The picture sits IN the room rather than on top of it: dimmed toward the
+// navy so it belongs to the same light, and feathered at the edges so it has no
+// cut border. The feather is an alpha mask — a white rectangle inset and blurred
+// on a canvas — so the edges genuinely dissolve into the background rather than
+// being darkened toward it, which would still leave a hard rectangle.
+const DIM     = +(Q.get('dim') || 0.80)      // 1 = full brightness
+const FEATHER = +(Q.get('feather') || 20)    // blur radius of the mask, px
+function makeEdgeFeather(w, h, inset, blur) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h
+  const g = c.getContext('2d')
+  g.fillStyle = '#000'; g.fillRect(0, 0, w, h)
+  g.filter = `blur(${blur}px)`
+  g.fillStyle = '#fff'
+  g.fillRect(inset, inset, w - inset * 2, h - inset * 2)
+  return new THREE.CanvasTexture(c)
+}
+const centreMat = new THREE.MeshBasicMaterial({
+  map: tex, side: THREE.DoubleSide,
+  // Cool rather than neutral dimming, so it settles into the blue instead of
+  // just going grey in front of it.
+  color: new THREE.Color(DIM * 0.94, DIM * 0.97, DIM),
+  alphaMap: makeEdgeFeather(512, 288, FEATHER * 1.35, FEATHER),
+  transparent: true, depthWrite: false,
+})
+
+// Rewrite a plane's UVs to one tile of the atlas. Tiles are numbered
+// left-to-right, top-to-bottom; three's UV origin is bottom-left and the loader
+// flips Y, so row r counted from the top lands at 1-(r+1)/ROWS upward.
+function setTileUV(geo, index) {
+  const c = index % COLS, r = Math.floor(index / COLS)
+  const u0 = c / COLS, v0 = 1 - (r + 1) / ROWS
+  const uv = geo.attributes.uv
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(i, u0 + uv.getX(i) / COLS, v0 + uv.getY(i) / ROWS)
+  }
+  uv.needsUpdate = true
+}
+
+// The ring. Frames face inward, as they do inside a real drum.
+const ring = new THREE.Group()
+for (let i = 0; i < N; i++) {
+  const geo = new THREE.PlaneGeometry(FW, FH)
+  setTileUV(geo, Math.round(i * (TOTAL / N)))   // spread the clip over N cards
+  const m = new THREE.Mesh(geo, mat)
+  const a = (i / N) * Math.PI * 2
+  m.position.set(Math.sin(a) * R, 0, Math.cos(a) * R)
+  m.rotation.y = a + Math.PI      // +PI so the printed side looks in at the axis
+  ring.add(m)
+}
+ring.position.y = Q.get('ringY') !== null ? +Q.get('ringY') : R * Math.sin(camPhi)
+scene.add(ring)
+
+// The centre. This is the praxinoscope's job, done arithmetically: show whatever
+// frame is currently at the front of the drum, big, facing the camera.
+const CH = PIC_H, CW = CH * (256 / 144)   // the picture, fixed — frames are sized to it
+const centreGeo = new THREE.PlaneGeometry(CW, CH)
+const centre = new THREE.Mesh(centreGeo, centreMat)
+centre.position.set(0, 0, 0)
+lookY = 0; placeCamera()
+centre.renderOrder = 0
+ring.renderOrder = 1
+scene.add(centre)
+let centreFrame = -1
+
+let angle = 0, dragging = false, lastX = 0, manual = 0
+
+// Speed lives as a target the drum eases toward, never a value it jumps to.
+// rate is unsigned, dir carries the sign, and the eased value passes through
+// zero on its own when you reverse — so the drum slows, stops and comes back
+// the other way instead of flipping mid-turn.
+const RATE_MAX = 18            // fast enough that the frames stop resolving
+let rate = 1, dir = 1, eased = 1
+const OMEGA = (Math.PI * 2) * (FPS * SPEED / N)   // rad/s: N frames past the front per turn
+
+let lastY = 0, orbiting = false
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  orbiting = e.shiftKey; dragging = !e.shiftKey
+  lastX = e.clientX; lastY = e.clientY
+})
+addEventListener('pointerup', () => { dragging = orbiting = false })
+addEventListener('pointermove', (e) => {
+  const dx = e.clientX - lastX, dy = e.clientY - lastY
+  lastX = e.clientX; lastY = e.clientY
+  if (dragging) manual += dx * 0.004                       // scrub the drum
+  if (orbiting) {                                          // move the eye
+    camTheta -= dx * 0.005
+    camPhi = Math.max(-1.45, Math.min(1.45, camPhi + dy * 0.005))
+    placeCamera()
+  }
+})
+// Wheel is the crank. Up winds it on, down winds it down — additively, so it
+// can actually reach a standstill; a multiplicative falloff would approach zero
+// forever and never arrive. Shift-wheel still dollies, for finding the crop.
+addEventListener('wheel', (e) => {
+  e.preventDefault()
+  if (e.shiftKey) {
+    camDist = Math.max(CH * 0.55, Math.min(R * 6, camDist * (1 + e.deltaY * 0.0012)))
+    placeCamera()
+    return
+  }
+  rate = Math.max(0, Math.min(RATE_MAX, rate - e.deltaY * 0.004))
+}, { passive: false })
+
+// Left and right turn it the other way. The easing does the rest.
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft')  { dir = -1; e.preventDefault() }
+  if (e.key === 'ArrowRight') { dir =  1; e.preventDefault() }
+})
+
+document.getElementById('backBtn').onclick = () => {
+  // Embedded in the ring's card overlay this drives the PARENT's history, which
+  // trips its popstate handler and closes the overlay. Standalone it just goes back.
+  if (window !== window.top) { try { window.parent.history.back(); return } catch (e) {} }
+  if (history.length > 1) history.back(); else location.href = 'index.html'
+}
+
+const hud = document.getElementById('hud')
+let last = performance.now()
+function tick(now) {
+  const dt = Math.min((now - last) / 1000, 0.05); last = now
+  // Ease toward the signed target rather than snapping to it.
+  eased += ((dir * rate) - eased) * Math.min(1, dt * 2.4)
+  if (!dragging) angle += OMEGA * eased * dt
+  angle += manual; manual = 0
+  ring.rotation.y = angle
+
+  // Which card is nearest the camera — that is the frame the eye is on.
+  const front = ((Math.round(-angle / (Math.PI * 2) * N) % N) + N) % N
+  const tile = Math.round(front * (TOTAL / N))
+  if (tile !== centreFrame) {
+    centreFrame = tile
+    const g = new THREE.PlaneGeometry(CW, CH)
+    setTileUV(g, tile)
+    centre.geometry.dispose(); centre.geometry = g
+  }
+
+  updateHud()
+  renderer.render(scene, camera)
+  requestAnimationFrame(tick)
+}
+requestAnimationFrame(tick)
+
+const DEBUG = Q.get('debug') === '1'
+function updateHud() {
+  if (!DEBUG) {
+    // Shipped: a caption, not a control panel.
+    hud.innerHTML = 'KARLA &nbsp;·&nbsp; b-side &nbsp;·&nbsp; ' +
+      `<b>${N}</b> frames &nbsp;·&nbsp; ` +
+      (rate === 0 ? '<b>stopped</b>' : `<b>${(FPS * SPEED * Math.abs(eased)).toFixed(1)}</b> fps ${eased < 0 ? '(reverse)' : ''}`) +
+      ' &nbsp;·&nbsp; scroll to wind &nbsp;·&nbsp; ← → to turn'
+    return
+  }
+  hud.innerHTML = `<b>${N}</b> frames &nbsp;·&nbsp; <b>${(FPS * SPEED).toFixed(1)}</b> fps &nbsp;·&nbsp; ` +
+    `<b>${((FPS * SPEED / N) * 60).toFixed(1)}</b> rpm &nbsp;·&nbsp; radius <b>${(R / FH).toFixed(1)}</b>× frame height` +
+    `<br>dist <b>${(camDist / R).toFixed(2)}</b>R &nbsp;·&nbsp; elev <b>${camPhi.toFixed(2)}</b> &nbsp;·&nbsp; azim <b>${camTheta.toFixed(2)}</b>` +
+    `<br>frame h <b>${FH.toFixed(2)}</b> vs picture <b>${PIC_H}</b> &nbsp;·&nbsp; opacity <b>${STRIP_OPACITY}</b> &nbsp;·&nbsp; ringY <b>${ring.position.y.toFixed(2)}</b>` +
+    `<br>drag scrubs &nbsp;·&nbsp; shift-drag orbits &nbsp;·&nbsp; wheel zooms &nbsp;·&nbsp; ?speed=1 &nbsp;·&nbsp; ?n=24 &nbsp;·&nbsp; ?fps=8`
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+</script>
+</body>
+</html>
