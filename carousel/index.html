@@ -10,6 +10,73 @@
      it, the homepage would look for /images/... and collide with the React
      app's public/ folder, which has directories of the same names. -->
 <base href="/carousel/">
+
+<!-- This page is the homepage now, so it carries the metadata that used to
+     live on the React app's index.html. Without it, becoming the front door
+     would have quietly cost the site its description, social cards, structured
+     data and — the one that actually breaks something — the Google
+     site-verification token, which has to be present at the verified URL.
+     Absolute URLs throughout: the <base> above would otherwise rewrite them. -->
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="manifest" href="/manifest.json" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+
+<meta name="description" content="Oswin Journal is an audio/visual publication by Alex Taves. Immersive video, music, and words. Issues 01–03 available now." />
+<meta name="keywords" content="alex taves, oswin journal, audio visual art, independent publication, experimental music, video art, contemporary art journal" />
+<meta name="author" content="Alex Taves" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://oswinjournal.com" />
+<meta name="google-site-verification" content="Qq0pStT7DF1kF7opaME86pUBzKF6hEH6alKyfbR_bSg" />
+
+<meta property="og:site_name" content="Oswin Journal" />
+<meta property="og:title" content="Oswin Journal — Alex Taves — audio/visual & words" />
+<meta property="og:description" content="An audio/visual publication by Alex Taves. Immersive video, music, and words. Issues 01–03 available now." />
+<meta property="og:image" content="https://oswinjournal.com/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="https://oswinjournal.com" />
+<meta property="og:type" content="website" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Oswin Journal — Alex Taves — audio/visual & words" />
+<meta name="twitter:description" content="An audio/visual publication by Alex Taves. Immersive video, music, and words. Issues 01–03 available now." />
+<meta name="twitter:image" content="https://oswinjournal.com/og-image.png" />
+
+<script type="application/ld+json">
+[
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Alex Taves",
+    "url": "https://alextaves.com",
+    "email": "oswinjournal@gmail.com",
+    "sameAs": ["https://alextaves.com", "https://oswinjournal.com"]
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Oswin Journal",
+    "url": "https://oswinjournal.com",
+    "description": "An audio/visual publication by Alex Taves. Immersive video, music, and words.",
+    "author": { "@type": "Person", "name": "Alex Taves", "url": "https://alextaves.com" },
+    "publisher": { "@type": "Person", "name": "Alex Taves", "url": "https://alextaves.com" }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Periodical",
+    "name": "Oswin Journal",
+    "url": "https://oswinjournal.com",
+    "description": "An independent audio/visual publication by Alex Taves exploring immersive video, experimental music, and writing. Issues 01–03 available now.",
+    "genre": ["audio/visual art", "experimental music", "video art", "contemporary art"],
+    "inLanguage": "en",
+    "editor": { "@type": "Person", "name": "Alex Taves", "url": "https://alextaves.com" },
+    "publisher": { "@type": "Person", "name": "Alex Taves", "url": "https://alextaves.com" }
+  }
+]
+</script>
 <link href="vendor/fonts/ibm-plex.css" rel="stylesheet">
 <style>
   html, body { margin: 0; height: 100%; background: #0c0806; overflow: hidden; overscroll-behavior: none; }
@@ -227,6 +294,16 @@
 </style>
 </head>
 <body>
+<!-- The ring is a canvas, so without this a crawler or a reader with scripting
+     off sees an empty page where the homepage used to have text. -->
+<noscript>
+  <style>noscript { display: block; padding: 2rem; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #fff; background: #000; }</style>
+  <h1>Oswin Journal — by Alex Taves</h1>
+  <p>An independent audio/visual publication by Alex Taves. Immersive video, experimental music, and writing. Issues 01–03 available now at oswinjournal.com.</p>
+  <p><a href="/journal/">Enter the journal</a></p>
+  <p>Also at: <a href="https://alextaves.com">alextaves.com</a></p>
+  <p>Contact: <a href="mailto:oswinjournal@gmail.com">oswinjournal@gmail.com</a></p>
+</noscript>
 <script>
   // Lobby music — the HWY 3 track, on Web Audio rather than <audio> because an
   // <audio> element cannot play backwards (playbackRate is clamped positive).
