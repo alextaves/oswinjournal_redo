@@ -2,28 +2,26 @@
   command = "npm run build"
   publish = "dist"
 
-# Order matters: Netlify takes the first matching rule, and real files on disk
-# win before any of these, so /assets/... and /videos/... still serve normally.
+# The homepage is NOT handled by a redirect, deliberately. Netlify serves a real
+# file before it consults any rule, so a rewrite from "/" could never win against
+# dist/index.html — it was silently still serving the React app. The build step
+# instead writes the carousel to dist/index.html and moves the React app's html
+# to dist/journal/index.html, so each is simply the file at its own address.
+#
+# Rules below are matched in order, and real files still win before all of them,
+# which is what keeps /assets/..., /videos/... and /carousel/... serving directly.
 
-# The carousel is the homepage. A 200 rewrite rather than a redirect, so the URL
-# stays "/" while the file served is the ring's. Its <base href="/carousel/">
-# is what keeps its own assets resolving from here.
-[[redirects]]
-  from = "/"
-  to = "/carousel/index.html"
-  status = 200
-
-# The React app now lives behind /journal/. Its bundled asset URLs are all
-# root-absolute, so serving its index.html from this path needs nothing else.
-# This is also where phones land, and where the ring's issue cards point.
+# The React app is a single-page app: every route under /journal/ has to reach
+# its index.html so the client router can take over.
 [[redirects]]
   from = "/journal/*"
-  to = "/index.html"
+  to = "/journal/index.html"
   status = 200
 
-# Anything else falls through to the React app, which keeps every existing
-# deep link and bookmark working exactly as it did before the ring arrived.
+# Everything unrecognised also goes to the app, not the ring. That keeps old
+# links and bookmarks — /listens, /reads, anything shared before today — landing
+# where they always did rather than on the new homepage.
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to = "/journal/index.html"
   status = 200

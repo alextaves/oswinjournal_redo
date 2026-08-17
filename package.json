@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && npm run build:carousel",
-    "build:carousel": "rm -rf dist/carousel && cp -R carousel dist/carousel",
+    "build:carousel": "rm -rf dist/carousel dist/journal && cp -R carousel dist/carousel && mkdir -p dist/journal && cp dist/index.html dist/journal/index.html && cp carousel/index.html dist/index.html",
     "lint": "eslint .",
     "preview": "vite preview"
   },
