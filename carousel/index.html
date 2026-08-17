@@ -498,7 +498,7 @@ const OSWIN_JOURNAL_BODY = [
 // (increasing index), the next cards are issue 3 (Arnold), 2 (Chris), 1 (Karla).
 // The other three cards sit on Oli's right.
 const PORTALS = [
-  { image: 'cards/alexander.png', tv: true, title: 'ALEXANDER TAVES', sub: '', bottomCaption: 'oswin curator', bg: '#0a0a0a', titleColor: '#FFFFFF' },  // Alexander Taves (04)
+  { image: 'cards/alexander.png', tv: true, title: 'ALEXANDER TAVES', sub: '', bottomCaption: 'oswin curator', bg: '#0a0a0a', titleColor: '#FFFFFF', iframe: 'https://alextaves.com' },  // Alexander Taves (04)
   { title: 'ENQUIRIES', sub: 'get in touch · looking for like minded', bg: '#00C2A8', light: false },  // Enquiries — exact alextaves card (index must match ENQUIRIES_INDEX)
   { title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', body: OSWIN_JOURNAL_BODY, bg: '#D4D2CB', light: false },  // was ALEX TAVES (06.png)
   { title: 'OLI GOLDSMITH', sub: 'coming soon', bg: '#FF4F79', light: true, iframe: 'https://ethernity.space/', badge: 4 },  // issue 4 — Oli (landing card); click opens a fullscreen iframe
@@ -2234,8 +2234,15 @@ function frontPanelIdx() {
 
 // Fullscreen iframe overlay — cards with an `iframe` URL open it on click, with
 // a ✕ (and Escape) to return to the ring.
-function openCardIframe(url) {
+// opts.ownsSound — the room has its own ambient bed and cannot tell us so.
+// Our own issue pages announce themselves (oswinIssueAudio) and we duck on
+// hearing it; a room on another origin that we do not control, like
+// alextaves.com, never will. For those we hand over on the way in instead, or
+// the two beds play over each other. restoreLobby on close brings ours back
+// either way, so leaving needs no special case.
+function openCardIframe(url, opts = {}) {
   if (document.getElementById('cardIframeOverlay')) return
+  if (opts.ownsSound) duckLobby()
   const overlay = document.createElement('div')
   overlay.id = 'cardIframeOverlay'
   overlay.style.cssText = 'position:fixed; inset:0; z-index:2000; background:#000;'
@@ -2326,7 +2333,7 @@ window.addEventListener('popstate', () => {
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardIframe() })
 
 function handlePanelClick(idx) {
-  if (PORTALS[idx] && PORTALS[idx].iframe) { openCardIframe(PORTALS[idx].iframe); return }
+  if (PORTALS[idx] && PORTALS[idx].iframe) { openCardIframe(PORTALS[idx].iframe, { ownsSound: !!PORTALS[idx].ownsSound }); return }
   if (idx === UNFILTERED_INDEX || idx === ENQUIRIES_INDEX || idx === ALEX_TAVES_INDEX) { openStory(idx); return }
   if (idx === OSWIN_INDEX) { window.open('https://oswinjournal.com', '_blank'); return }
   if (pendingConfirmIdx !== idx) {
@@ -2926,14 +2933,19 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const px = hit.uv.x * 600, py = (1 - hit.uv.y) * 800
   const inRect = (r) => r && px >= r[0] && px <= r[0] + r[2] && py >= r[1] && py <= r[1] + r[3]
   if (inRect(noteHits.close)) { noteOpen = false; return }
-  if (inRect(noteHits.play)) { toggleLobby(); drawNoteBase(); return }
   for (const m of noteHits.menu || []) {
     if (!inRect(m.rect)) continue
     if (m.id === 'write') { focusCard(ENQUIRIES_INDEX); noteOpen = false }
     else if (m.id === 'listens') { openCardIframe('listens.html') }
     // B-sides — first one is Dancer (the nine-card Chris ring).
     else if (m.id === 'bsides') { openCardIframe('dancer.html') }
-    else if (m.id === 'alextaves') window.open('https://alextaves.com', '_blank', 'noopener')
+    // A room in the building rather than a link out of it: opening in the card
+    // overlay keeps this page — and so the ambient bed — alive across the walk.
+    // No handover: Oswin's track is the dominant one and plays through this
+    // room. His site opens with its own audio off by default, so the two do not
+    // fight; if he ever wants his bed to take over here, his page has to say so
+    // (oswinIssueAudio), the way our own issue pages already do.
+    else if (m.id === 'alextaves') openCardIframe('https://alextaves.com')
     // 'interviews' has no destination yet — hit target is live, action pending.
     return
   }
