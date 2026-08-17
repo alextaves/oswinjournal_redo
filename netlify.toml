@@ -2,6 +2,27 @@
   command = "npm run build"
   publish = "dist"
 
+# Order matters: Netlify takes the first matching rule, and real files on disk
+# win before any of these, so /assets/... and /videos/... still serve normally.
+
+# The carousel is the homepage. A 200 rewrite rather than a redirect, so the URL
+# stays "/" while the file served is the ring's. Its <base href="/carousel/">
+# is what keeps its own assets resolving from here.
+[[redirects]]
+  from = "/"
+  to = "/carousel/index.html"
+  status = 200
+
+# The React app now lives behind /journal/. Its bundled asset URLs are all
+# root-absolute, so serving its index.html from this path needs nothing else.
+# This is also where phones land, and where the ring's issue cards point.
+[[redirects]]
+  from = "/journal/*"
+  to = "/index.html"
+  status = 200
+
+# Anything else falls through to the React app, which keeps every existing
+# deep link and bookmark working exactly as it did before the ring arrived.
 [[redirects]]
   from = "/*"
   to = "/index.html"

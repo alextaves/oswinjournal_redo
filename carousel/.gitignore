@@ -1,1 +1,10 @@
-audio/
+# The audio here is large and mostly source material, so it stays out of the
+# repo — except the lobby track. That one is the homepage: "push play on the
+# lobby music" is the first thing the ring asks you to do, and Netlify builds
+# from a fresh clone, so an untracked file simply would not exist in the deploy.
+#
+# Note this excludes the CONTENTS rather than the directory itself. Git cannot
+# re-include a file whose parent directory is excluded, so "audio/" followed by
+# a negation would silently keep ignoring the track.
+audio/*
+!audio/hwy3_lobby.mp3

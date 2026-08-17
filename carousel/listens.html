@@ -3,14 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>OSWIN JOURNAL</title>
-<!-- This page is served at two URLs: "/" (the homepage, via a Netlify rewrite)
-     and "/carousel/" (its real location). Its assets only live in one of those
-     places, so the base pins every relative path here to the real one — without
-     it, the homepage would look for /images/... and collide with the React
-     app's public/ folder, which has directories of the same names. -->
-<base href="/carousel/">
-<link href="vendor/fonts/ibm-plex.css" rel="stylesheet">
+<title>Oswin Journal — Listens</title>
+<link href="/vendor/fonts/ibm-plex.css" rel="stylesheet">
 <style>
   html, body { margin: 0; height: 100%; background: #0c0806; overflow: hidden; overscroll-behavior: none; }
   canvas { display: block; touch-action: none; }
@@ -195,18 +189,6 @@
   }
   .enquiry-form input:focus, .enquiry-form textarea:focus { border-bottom-color: #000; }
   .enquiry-form textarea { resize: vertical; min-height: 8cqh; }
-  /* Fullscreen toggle — the same control the issue pages carry (top right, 20px
-     icon, 4px chip, idle-reveal), with a light stroke and chip because the ring
-     sits on near-black where their dark-on-yellow version would disappear. */
-  #fsBtn {
-    position: fixed; top: 20px; right: 20px; z-index: 30;
-    background: rgba(255, 255, 255, 0.08); border: none; border-radius: 4px;
-    padding: 8px; line-height: 0; cursor: pointer;
-    opacity: 0; pointer-events: none;
-    transition: opacity 0.55s ease;
-  }
-  #fsBtn svg { display: block; }
-
   .enquiry-form button[type="submit"] {
     display: block;
     margin-top: 1.5cqh;
@@ -228,156 +210,16 @@
 </head>
 <body>
 <script>
-  // Lobby music — the HWY 3 track, on Web Audio rather than <audio> because an
-  // <audio> element cannot play backwards (playbackRate is clamped positive).
-  // We decode once, keep a sample-reversed copy of the buffer, and crossfade
-  // between the two voices whenever the ring changes direction. The playhead is
-  // tracked in forward-time, so the reverse voice starts at (duration - pos).
-  const LOBBY_URL = 'audio/hwy3_lobby.mp3'
-  // Three fade lengths, because the three transitions mean different things.
-  // XFADE stays tiny: it only spans a direction flip, where both voices are the
-  // same tape and a long blend would phase against itself. The other two are
-  // meant to be heard as gestures — nothing here should ever cut.
-  const XFADE = 0.05        // direction flip mid-scrub
-  const FADE_TOGGLE = 0.6   // the PLAY / PAUSE card
-  const FADE_ISSUE = 1.6    // stepping into or out of an issue
-
-  let actx = null, bufFwd = null, bufRev = null, loading = null
-  let voice = null, curDir = 1, playing = false
-  let posSec = 0, posAt = 0
-
-  const lobby = { get paused() { return !playing } }
-
-  async function lobbyLoad() {
-    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
-    if (!loading) loading = (async () => {
-      const ab = await (await fetch(LOBBY_URL)).arrayBuffer()
-      bufFwd = await actx.decodeAudioData(ab)
-      bufRev = actx.createBuffer(bufFwd.numberOfChannels, bufFwd.length, bufFwd.sampleRate)
-      for (let c = 0; c < bufFwd.numberOfChannels; c++) {
-        const a = bufFwd.getChannelData(c), b = bufRev.getChannelData(c)
-        for (let i = 0, n = a.length; i < n; i++) b[i] = a[n - 1 - i]
-      }
-    })()
-    await loading
-  }
-
-  function lobbyPos() {
-    if (!playing || !bufFwd) return posSec
-    const d = bufFwd.duration
-    const p = posSec + (actx.currentTime - posAt) * curDir
-    return ((p % d) + d) % d
-  }
-
-  function lobbyStart(dir, fade) {
-    const d = bufFwd.duration
-    const pos = lobbyPos()
-    const src = actx.createBufferSource()
-    src.buffer = dir > 0 ? bufFwd : bufRev
-    src.loop = true
-    const g = actx.createGain()
-    const t = actx.currentTime
-    g.gain.setValueAtTime(fade ? 0.0001 : 1, t)
-    if (fade) g.gain.linearRampToValueAtTime(1, t + fade)
-    src.connect(g); g.connect(actx.destination)
-    src.start(0, dir > 0 ? pos : d - pos)
-    posSec = pos; posAt = t
-    return { src, g }
-  }
-
-  function lobbyStop(v, fade = XFADE) {
-    if (!v) return
-    const t = actx.currentTime
-    v.g.gain.cancelScheduledValues(t)
-    v.g.gain.setValueAtTime(v.g.gain.value, t)
-    v.g.gain.linearRampToValueAtTime(0.0001, t + fade)
-    v.src.stop(t + fade + 0.02)
-  }
-
-  async function lobbyPlay(fade = FADE_TOGGLE) {
-    playing = true                 // optimistic so the card label flips at once
-    await lobbyLoad()
-    await actx.resume()
-    if (!playing) return           // paused again while decoding
-    // Restart the clock BEFORE lobbyStart reads the playhead. lobbyPos() only
-    // returns the parked posSec while `playing` is false, and we just set it
-    // true — so without this it extrapolates from the posAt of the last start,
-    // silently adding however long we were paused. Pausing for a two-minute
-    // visit to an issue would resume two minutes further into the track.
-    posAt = actx.currentTime
-    voice = lobbyStart(curDir, fade)
-  }
-
-  function lobbyPause(fade = FADE_TOGGLE) {
-    posSec = lobbyPos(); playing = false
-    lobbyStop(voice, fade); voice = null
-  }
-
+  // Lobby music — the HWY 3 track. Loops, and keeps playing once the note card
+  // is tucked away so it carries on under the ring. The note card (built in the
+  // main script) draws the PLAY/PAUSE label and calls toggleLobby on click.
+  const lobby = new Audio('audio/hwy3_lobby.mp3')
+  lobby.loop = true
   function toggleLobby() {
-    if (playing) lobbyPause(); else lobbyPlay()
-    return playing
+    if (lobby.paused) lobby.play().catch(() => {})
+    else lobby.pause()
+    return !lobby.paused
   }
-
-  // Called every frame by the ring: +1 with the idle rotation, -1 when you scrub
-  // against it. Crossfades the tape rather than cutting.
-  function setLobbyDirection(dir) {
-    if (!playing || !bufFwd || dir === curDir) return
-    // Sample the playhead with the OLD direction FIRST. Flipping curDir before
-    // reading it makes lobbyPos() extrapolate the elapsed time the wrong way and
-    // the position leaps (and wraps) instead of continuing from where it was.
-    posSec = lobbyPos(); posAt = actx.currentTime
-    const old = voice
-    curDir = dir
-    voice = lobbyStart(dir, XFADE)
-    lobbyStop(old)
-  }
-
-  // Where the React app lives, now that the ring owns the homepage. Same origin
-  // as this page in both environments, so these are paths, not absolute URLs.
-  //
-  // In production Netlify serves the ring at "/" and rewrites /journal/* to the
-  // React app's index.html. In dev, Vite serves the React app at "/" from the
-  // repo root and this page at /carousel/index.html, so the app is simply "/".
-  const JOURNAL_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-    ? '/'
-    : '/journal/'
-  const LIVE_ISSUE = (n) => `${JOURNAL_BASE}?issue=${n}`
-
-  // An issue is its own sound world. When the issue page starts playing audio it
-  // posts up to us and the lobby steps aside; the lobby comes back when you LEAVE
-  // the issue (see closeCardIframe), not when the issue merely goes quiet —
-  // otherwise muting a track mid-visit would pipe corridor music into the room.
-  //
-  // duckedFrom remembers whether the lobby was actually playing when we ducked,
-  // so a lobby you had deliberately paused stays paused when you come back out.
-  let duckedFrom = null
-  function duckLobby() {
-    if (duckedFrom !== null) return   // already ducked; keep the original state
-    duckedFrom = playing
-    if (playing) lobbyPause(FADE_ISSUE)
-  }
-  function restoreLobby() {
-    const was = duckedFrom
-    duckedFrom = null
-    if (was && !playing) lobbyPlay(FADE_ISSUE)
-  }
-
-  // Set by openCardIframe while a card is open; the overlay owns the BACK label.
-  let revealCardBack = null
-
-  window.addEventListener('message', (e) => {
-    // The issue pages are same-origin with us now, so anything from elsewhere
-    // — an embedded external site, an injected frame — is not ours to act on.
-    if (e.origin !== location.origin) return
-    const d = e.data
-    if (!d) return
-    if (d.type === 'oswinIssueAudio' && d.on) duckLobby()
-    // The issue's own "home" control. Home is this ring, so close the overlay
-    // and fade the lobby back in.
-    if (d.type === 'oswinExitIssue') closeCardIframe()
-    // Movement inside the issue — surface BACK for a moment.
-    if (d.type === 'oswinActivity' && revealCardBack) revealCardBack(true)
-  })
 </script>
 <div class="story-overlay" id="storyOverlay">
   <div class="story-text" id="storyText">
@@ -399,12 +241,7 @@
     </form>
   </div>
 </div>
-<button id="fsBtn" aria-label="Toggle fullscreen">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
-  </svg>
-</button>
-<script src="vendor/three.min.js"></script>
+<script src="/vendor/three.min.js"></script>
 <script>
 // STANDALONE OSWIN CAROUSEL PROTOTYPE. Each card is one of the 6 Artboard
 // placeholder images, drawn as the full card face (no title/sub text overlay —
@@ -421,15 +258,19 @@ const OSWIN_JOURNAL_BODY = [
 // (increasing index), the next cards are issue 3 (Arnold), 2 (Chris), 1 (Karla).
 // The other three cards sit on Oli's right.
 const PORTALS = [
-  { image: 'cards/alexander.png', tv: true, title: 'ALEXANDER TAVES', sub: '', bottomCaption: 'oswin curator', bg: '#0a0a0a', titleColor: '#FFFFFF' },  // Alexander Taves (04)
-  { title: 'ENQUIRIES', sub: 'get in touch · looking for like minded', bg: '#00C2A8', light: false },  // Enquiries — exact alextaves card (index must match ENQUIRIES_INDEX)
-  { title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', body: OSWIN_JOURNAL_BODY, bg: '#D4D2CB', light: false },  // was ALEX TAVES (06.png)
-  { title: 'OLI GOLDSMITH', sub: 'coming soon', bg: '#FF4F79', light: true, iframe: 'https://ethernity.space/', badge: 4 },  // issue 4 — Oli (landing card); click opens a fullscreen iframe
-  { slideshow: ['images/giftshop-green.jpg', 'images/giftshop-orange.jpg', 'images/giftshop-purple.jpg', 'images/giftshop-red.jpg'], title: 'ARNOLD SCHOENBERG', sub: '', bottomCaption: 'visuals by oswin', bg: '#777777', titleColor: '#FFFFFF', badge: 3, iframe: LIVE_ISSUE(3) },  // issue 3 — Arnold (click enters the live Schoenberg piano experience)
-  { video: 'videos/chris_bluedancer.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: LIVE_ISSUE(2) },  // issue 2 — Chris (click enters the live issue-2 page, same as the other issues)
-  { video: 'videos/karla_prerace.mp4', title: 'KARLA IS HERE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#1E2BFF', badge: 1, iframe: LIVE_ISSUE(1) },  // issue 1 — Karla (click enters the live issue-1 detail page)
+  // Listens — the playlists from the oswin-redo site (listensData in src/App.jsx),
+  // titles, cover art and colours carried across unchanged. Clicking a card opens
+  // that playlist's Spotify embed in the fullscreen card iframe.
+  // Four live playlists + three empty slots, ready for more.
+  { image: 'images/thinking_upbeat.png',  title: 'THINKING UPBEAT',  sub: 'playlist', bottomCaption: 'listens', bg: '#EAE413', light: true,  embed: 'https://open.spotify.com/embed/playlist/2pkOJQlNqjJiuLrY1gaVFM?utm_source=generator' },
+  { image: 'images/thinking_ambient.png', title: 'THINKING AMBIENT', sub: 'playlist', bottomCaption: 'listens', bg: '#3d493d', titleColor: '#FFFFFF', embed: 'https://open.spotify.com/embed/playlist/00enCKRA8K6srlr4iYhmMA?utm_source=generator' },
+  { image: 'images/sit_down_house.png',   title: 'SIT DOWN HOUSE',   sub: 'playlist', bottomCaption: 'listens', bg: '#8C7B65', titleColor: '#FFFFFF', embed: 'https://open.spotify.com/embed/playlist/4uBXLn4lpPM9l2Jd24rCGf?utm_source=generator' },
+  { image: 'images/oddities.png',         title: 'ODDITIES',         sub: 'playlist', bottomCaption: 'listens', bg: '#191E2F', titleColor: '#FFFFFF', embed: 'https://open.spotify.com/embed/playlist/7nnAhtnx8Xe3vs4wQC633q?utm_source=generator' },
+  { title: '', sub: '', bg: '#D1D1D1', light: false },   // empty slot
+  { title: '', sub: '', bg: '#D1D1D1', light: false },   // empty slot
+  { title: '', sub: '', bg: '#D1D1D1', light: false },   // empty slot
 ]
-const LANDING_INDEX = 3   // Oli — the card the ring lands on
+const LANDING_INDEX = 0   // lands on the first playlist
 const COUNT = PORTALS.length
 // All the alextaves special-card behaviours (animated Moving Images, Archive
 // video, Detroit/Postcards traces, Oswin/Enquiries/Unfiltered/Alex overlays,
@@ -437,7 +278,7 @@ const COUNT = PORTALS.length
 // special-case branch in the file is index-guarded, so none of them fire and
 // we're left with a clean ring of image cards.
 const UNFILTERED_INDEX = -1
-const ENQUIRIES_INDEX = 1   // the exact alextaves enquiries card (form preview + typing sample)
+const ENQUIRIES_INDEX = -1  // no enquiries card on the listens ring
 const OSWIN_INDEX = -1
 const MOVING_IMAGES_INDEX = -1
 const ALEX_TAVES_INDEX = -1
@@ -484,88 +325,13 @@ const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
 scene.background = bgTex
 scene.fog = new THREE.Fog('#0e0b08', 8, 50)
 
-// Three tiers, because the ring is a different proposition on each: phones do
-// not get the ring at all (they are handed to the live site — see the redirect
-// below), tablets run the desktop ring with smaller cards in portrait, desktop
-// is unchanged.
-//
-// ?tier=phone|tablet|desktop forces a tier, so any of them can be checked from
-// a desktop. Same spirit as ?grain / ?scan below. Unset means detect.
-const _tier = new URLSearchParams(location.search).get('tier')
-const _ua = navigator.userAgent
-const shortSide = Math.min(innerWidth, innerHeight)
-const longSide = Math.max(innerWidth, innerHeight)
-
-// DO NOT classify on pointer/hover media queries. Safari on macOS reports
-// `(pointer: coarse)` true and `(hover: none)` true on an ordinary desktop with
-// a trackpad — measured, not theoretical — so a coarse-pointer test silently
-// pulled desktops into the tablet tier and shrank their cards.
-//
-// maxTouchPoints is the signal that actually separates them: desktop Safari
-// reports 0 or 1, a real iPad reports 5. iPadOS 13+ also presents itself as
-// "Macintosh" in the UA, which is why the touch count carries the decision
-// rather than the UA string alone.
-const isTabletDevice =
-  /iPad/.test(_ua) ||
-  (/Macintosh/.test(_ua) && navigator.maxTouchPoints > 1) ||
-  (/Android/.test(_ua) && !/Mobile/.test(_ua))
-const isPhoneDevice = /iPhone|iPod/.test(_ua) || (/Android/.test(_ua) && /Mobile/.test(_ua))
-
-// Size still bounds the tablet tier (iPad Pro 12.9" is 1024×1366, the largest
-// we care about), but a device must identify as a tablet to enter it at all —
-// so no desktop window, at any size, can fall in.
-const isPhone  = _tier ? _tier === 'phone'  : (isPhoneDevice || (shortSide < 600 && longSide < 1200))
-const isTablet = _tier ? _tier === 'tablet' : (!isPhone && isTabletDevice && shortSide <= 1024)
-const isMobile = isPhone   // every branch below that says "mobile" means phone
-
-// Phones get the live site, not the ring — a different feeling, and the one
-// that ships today. Hand off before any of the scene below is built.
-//
-// Compared by PATH, not origin. The ring is the homepage now, so it shares an
-// origin with the app it hands phones to — an origin check would find the two
-// equal, never fire, and leave phones on the ring, the exact failure this guard
-// exists to prevent. Path still stops a loop if the destination ever serves
-// this page back.
-if (isPhone && location.pathname !== JOURNAL_BASE) {
-  // replace(), not assign(): the phone should not be able to press Back into a
-  // carousel it was never meant to see.
-  location.replace(JOURNAL_BASE)
-}
-
-// Tablet card sizing. PORTRAIT ONLY — landscape is left exactly as desktop,
-// because a landscape tablet has the width to show a card and its badge already.
-//
-// Anchored on the two ends of the range: iPad Pro 12.9" portrait (1024 wide)
-// comes down 15%, iPad mini portrait (768 wide) comes down 22% — the narrower
-// the screen, the more has to come off for the card plus its issue-number square
-// to clear the edges. Sizes in between interpolate on the portrait width, so an
-// iPad Air or 11" Pro gets a proportionate figure instead of stepping at a
-// breakpoint. Beyond either end, hold the nearest anchor.
-const TABLET_PORTRAIT_NARROW = { w: 768, scale: 0.78 }
-const TABLET_PORTRAIT_WIDE = { w: 1024, scale: 0.85 }
-//
-// The interpolation alone is not enough to keep the badge on screen, and the
-// reason is worth writing down. The badge is a child of the card sitting at
-// panelW/2 + panelH/8 from its centre, which works out to exactly 0.5*panelH,
-// so it clears the edge when 0.5*panelH <= halfVisibleWidth. Expand both sides
-// and the viewport height cancels out completely, leaving scale <= aspect/0.9.
-// The limit is set by ASPECT RATIO, not width — and the iPads between the two
-// anchors are taller and narrower (~0.69) than either anchor (~0.75), so they
-// need more taken off than a width interpolation would ever give them. Hence
-// the floor: take whichever is smaller, the requested figure or the fit limit.
-const TABLET_FIT_MARGIN = 0.99   // a hair inside the edge, not flush against it
-function tabletCardScale() {
-  if (!isTablet) return 1
-  if (innerWidth >= innerHeight) return 1   // landscape — untouched
-  const { w: nw, scale: ns } = TABLET_PORTRAIT_NARROW
-  const { w: ww, scale: ws } = TABLET_PORTRAIT_WIDE
-  const t = Math.max(0, Math.min(1, (innerWidth - nw) / (ww - nw)))
-  const requested = ns + t * (ws - ns)
-  const fitLimit = ((innerWidth / innerHeight) / 0.9) * TABLET_FIT_MARGIN
-  return Math.min(requested, fitLimit)
-}
-const TABLET_CARD_SCALE = tabletCardScale()
-
+// Touch-capability detection (ontouchstart/maxTouchPoints) is unreliable on
+// Chrome for iOS specifically — it's a WKWebView wrapper, not Safari's native
+// engine plumbing, and has been observed reporting no touch support at all,
+// which silently forces the desktop code path on an actual phone regardless
+// of the page's own site-mode setting. Viewport width alone is a sufficient,
+// more robust signal for "this is a phone/small tablet".
+const isMobile = innerWidth < 1024
 const RADIUS    = 6.0
 const CAM_Z     = 10.0
 const MOB_CAM_Z = 2.5
@@ -639,11 +405,7 @@ if (isMobile) {
   panelW = 2 * mobNearDist * Math.tan(hFOVhalf) * 0.95
   panelH = panelW * (4 / 3)
 } else {
-  // Desktop and tablet share this: the card is 0.9 of the vertical field of
-  // view, so it sizes to the viewport rather than to a pixel count. On desktop
-  // and on landscape tablets TABLET_CARD_SCALE is exactly 1, leaving this
-  // arithmetically identical to what it has always been.
-  panelH = 0.9 * 2 * nearDist * Math.tan(vFOV / 2) * TABLET_CARD_SCALE
+  panelH = 0.9 * 2 * nearDist * Math.tan(vFOV / 2)
   panelW = panelH * (3 / 4)
 }
 // THICK is the card's physical depth in world units. Kept proportional to
@@ -1217,20 +979,13 @@ const _q = new URLSearchParams(location.search)
 const CARD_GRAIN = _q.get('grain') !== '0'
 const CARD_SCANLINES = _q.get('scan') !== '0'
 
-// Static strength. Two passes, and they have to move together: the lighten pass
-// puts in the bright specks, the multiply pass the dark ones, and it only reads
-// as snow while both are there — drop one and you get a tint instead of a
-// signal. Both are 20% down from the original 0.11 / 0.075.
-const GRAIN_LIGHTEN = 0.088
-const GRAIN_MULTIPLY = 0.06
-
 function applyTvStatic(ctx, W, H) {
   if (CARD_GRAIN) {
     ctx.save()
     ctx.imageSmoothingEnabled = false
-    ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = GRAIN_LIGHTEN
+    ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = 0.11
     ctx.drawImage(_noiseCanvas, 0, 0, W, H)
-    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = GRAIN_MULTIPLY
+    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = 0.075
     ctx.drawImage(_noiseCanvas, 0, 0, W, H)
     ctx.restore()
   }
@@ -1871,96 +1626,17 @@ const enquiryForm = document.getElementById('enquiryForm')
 const enquiryFormEl = document.getElementById('enquiryFormEl')
 const enquiryStatus = document.getElementById('enquiryStatus')
 
-// The same Formspree form the live site's CONTACT panel posts to (see the
-// action attribute in src/App.jsx). The id is public by design — it only
-// accepts posts — so it belongs in the page.
-//
-// Posted with fetch rather than as a plain form submit like the live site does:
-// a native POST navigates away to Formspree's own thank-you page, which would
-// throw the reader out of the carousel entirely. This keeps them in the ring and
-// answers in place.
-const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xvgevdda'
-
 enquiryFormEl.addEventListener('click', (e) => e.stopPropagation())
-enquiryFormEl.addEventListener('submit', async (e) => {
+enquiryFormEl.addEventListener('submit', (e) => {
   e.preventDefault()
   const name = enquiryFormEl.name.value.trim()
   const email = enquiryFormEl.email.value.trim()
   const message = enquiryFormEl.message.value.trim()
-  if (!name || !email || !message) { enquiryStatus.textContent = 'please fill in every field.'; return }
-
-  if (!FORMSPREE_ENDPOINT) {
-    enquiryStatus.textContent = 'the form is not connected yet.'
-    return
-  }
-
-  const button = enquiryFormEl.querySelector('button[type="submit"]')
-  button.disabled = true
-  enquiryStatus.textContent = 'sending…'
-  try {
-    const res = await fetch(FORMSPREE_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ name, email, message, _subject: `Enquiry from ${name}` }),
-    })
-    if (res.ok) {
-      enquiryFormEl.reset()
-      enquiryStatus.textContent = 'thank you — your message is on its way.'
-    } else {
-      // Formspree reports its own problems (inactive form, over quota) in a
-      // JSON errors array; anything else we describe by status.
-      const data = await res.json().catch(() => null)
-      const why = data && data.errors ? data.errors.map((x) => x.message).join(', ') : `error ${res.status}`
-      enquiryStatus.textContent = `could not send — ${why}`
-    }
-  } catch {
-    // Network-level failure: offline, blocked, DNS. Never leave them guessing.
-    enquiryStatus.textContent = 'could not send — check your connection and try again.'
-  } finally {
-    button.disabled = false
-  }
+  const subject = `Enquiry from ${name || email}`
+  const body = `${message}\n\n— ${name} (${email})`
+  window.location.href = `mailto:alextaves@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  enquiryStatus.textContent = 'opening your email client…'
 })
-
-// Fullscreen toggle. Same two icons as the issue pages: four corners pointing
-// out to enter, pointing in to exit. Driven off fullscreenchange rather than the
-// click, so pressing Escape — which leaves fullscreen without touching the
-// button — still leaves the icon telling the truth.
-const fsBtn = document.getElementById('fsBtn')
-const fsPath = fsBtn.querySelector('path')
-const FS_ENTER = 'M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3'
-const FS_EXIT = 'M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3'
-const inFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement)
-
-fsBtn.addEventListener('click', (e) => {
-  e.stopPropagation()   // the ring treats a bare click as a card selection
-  if (inFullscreen()) {
-    (document.exitFullscreen || document.webkitExitFullscreen).call(document)
-  } else {
-    const el = document.documentElement
-    ;(el.requestFullscreen || el.webkitRequestFullscreen).call(el)
-  }
-})
-const syncFsIcon = () => fsPath.setAttribute('d', inFullscreen() ? FS_EXIT : FS_ENTER)
-document.addEventListener('fullscreenchange', syncFsIcon)
-document.addEventListener('webkitfullscreenchange', syncFsIcon)
-
-// Reveals on movement and fades back out, the same idle-reveal as the overlay's
-// BACK label and the issue pages' own controls — chrome should not sit on the
-// ring while you are just watching it turn.
-let fsHideTimer = null
-function revealFsBtn() {
-  fsBtn.style.opacity = '0.7'
-  fsBtn.style.pointerEvents = 'auto'
-  clearTimeout(fsHideTimer)
-  fsHideTimer = setTimeout(() => {
-    fsBtn.style.opacity = '0'
-    fsBtn.style.pointerEvents = 'none'
-  }, 2600)
-}
-window.addEventListener('pointermove', revealFsBtn)
-window.addEventListener('pointerdown', revealFsBtn)
-window.addEventListener('touchstart', revealFsBtn, { passive: true })
-revealFsBtn()   // present on arrival, then settles away
 
 function setStoryBg(hex) {
   storyOverlay.style.setProperty('--bg', hex)
@@ -2172,57 +1848,13 @@ function openCardIframe(url) {
   // ethernity.space) throw on contentWindow access.
   frame.onload = () => { try { frame.contentWindow.dispatchEvent(new Event('resize')) } catch {} }
   overlay.appendChild(frame)
-
-  // Our own carousel pages — listens, dancer, issue2_stack, addressed by
-  // relative URL — already draw a BACK that drives OUR history and closes this
-  // overlay, so supplying another one just stacks two labels in the same
-  // corner. Only pages we don't control get one from here.
-  if (!/^[a-z]+:/i.test(url)) {
-    document.body.appendChild(overlay)
-    history.pushState({ cardIframe: true }, '')
-    cardIframePushed = true
-    return
-  }
-
-  // No ✕ in the top right — it sat on top of the issue pages' own fullscreen
-  // control. A BACK label fades in at the top left on movement or touch and
-  // fades away again, the same idle-reveal the issue pages use for their own
-  // controls.
-  const back = document.createElement('button')
-  back.textContent = '← BACK'
-  back.setAttribute('aria-label', 'Back to the carousel')
-  // mix-blend-mode:difference rather than a fixed colour or a dark pill: the
-  // issue pages behind this range from Arnold's bright yellow to Karla's near
-  // black, and plain white would vanish into the first. Difference inverts
-  // against whatever it sits on, so the label stays legible without putting a
-  // chip of chrome back over the page.
-  // Typeset to match the site's other controls (the live pages' "enter" link):
-  // Helvetica Neue 13px/400 at 0.05em. Spelled out rather than left to inherit,
-  // because a button does not take the body font on its own.
-  back.style.cssText = "position:fixed; top:22px; left:26px; z-index:2001; padding:6px 4px; border:none; background:none; color:#fff; mix-blend-mode:difference; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:13px; font-weight:400; letter-spacing:0.05em; line-height:1; cursor:pointer; opacity:0; transition:opacity 0.55s ease;"
-  back.onclick = closeCardIframe
-  overlay.appendChild(back)
-
-  // We cannot see pointer events over a cross-origin iframe, so our own issue
-  // pages post their activity up to us (oswinActivity) and that drives the
-  // reveal. A page that never reports — Oli's external site — gets a BACK that
-  // simply stays put, because hiding it there would remove the only way out.
-  let hideTimer = null
-  let pageReportsActivity = false
-  revealCardBack = (fromPage) => {
-    if (fromPage) pageReportsActivity = true
-    back.style.opacity = '0.9'
-    back.style.pointerEvents = 'auto'
-    clearTimeout(hideTimer)
-    if (!pageReportsActivity) return
-    hideTimer = setTimeout(() => {
-      back.style.opacity = '0'
-      back.style.pointerEvents = 'none'
-    }, 2600)
-  }
-  overlay.addEventListener('pointermove', () => revealCardBack(true))
+  const close = document.createElement('button')
+  close.textContent = '✕'
+  close.setAttribute('aria-label', 'Close')
+  close.style.cssText = 'position:fixed; top:16px; right:16px; z-index:2001; width:44px; height:44px; padding:0; border:none; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; font-size:20px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);'
+  close.onclick = closeCardIframe
+  overlay.appendChild(close)
   document.body.appendChild(overlay)
-  requestAnimationFrame(() => revealCardBack(false))   // present on arrival
   // Give the overlay its own history entry so the browser Back button returns to
   // the ring instead of leaving the carousel altogether.
   history.pushState({ cardIframe: true }, '')
@@ -2234,8 +1866,6 @@ function closeCardIframe() {
   const o = document.getElementById('cardIframeOverlay')
   if (!o) return
   o.remove()
-  revealCardBack = null
-  restoreLobby()
   // Closing via ✕ or Escape should also unwind the history entry we pushed, so
   // Back doesn't need two presses to leave the ring.
   if (cardIframePushed) { cardIframePushed = false; history.back() }
@@ -2244,11 +1874,12 @@ function closeCardIframe() {
 // Back button while a card is open: drop the overlay, stay on the carousel.
 window.addEventListener('popstate', () => {
   const o = document.getElementById('cardIframeOverlay')
-  if (o) { cardIframePushed = false; o.remove(); revealCardBack = null; restoreLobby() }
+  if (o) { cardIframePushed = false; o.remove() }
 })
-window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardIframe() })
+window.addEventListener('keydown', (e) => { if (e.key === 'Escape') { embedActive = false; closeCardIframe() } })
 
 function handlePanelClick(idx) {
+  if (PORTALS[idx] && PORTALS[idx].embed) { embedActive = true; return }
   if (PORTALS[idx] && PORTALS[idx].iframe) { openCardIframe(PORTALS[idx].iframe); return }
   if (idx === UNFILTERED_INDEX || idx === ENQUIRIES_INDEX || idx === ALEX_TAVES_INDEX) { openStory(idx); return }
   if (idx === OSWIN_INDEX) { window.open('https://oswinjournal.com', '_blank'); return }
@@ -2282,9 +1913,6 @@ const clickPointer = new THREE.Vector2()
 // On first arrival start with WELCOME front & centre; otherwise a normal ring.
 // Land with the Oli card (LANDING_INDEX) front-and-centre.
 let angle = (LANDING_INDEX / COUNT) * Math.PI * 2 - Math.PI / 2, angVel = 0
-// Which way the ring idles. Any deliberate spin faster than the idle speed
-// re-aims it, and it KEEPS going that way until you send it back.
-let autoDir = 1
 let dragging = false, didDrag = false
 let downX = 0, downY = 0, lastX = 0, lastMoveT = 0, trackedVel = 0
 // Clicking a panel pauses the auto-rotation so it holds still for the confirm
@@ -2502,8 +2130,7 @@ function render(now) {
 
   if (!dragging && !storyOpen && !welcomeActive) {
     if (!paused) {
-      if (Math.abs(angVel) > AUTO_SPEED * 1.5) autoDir = Math.sign(angVel)
-      const target = AUTO_SPEED * autoDir
+      const target = AUTO_SPEED
       angVel = target + (angVel - target) * Math.exp(-FRICTION * dt)
     } else {
       angVel *= Math.exp(-FRICTION * dt)
@@ -2570,6 +2197,7 @@ function render(now) {
   if (storyOpen) updateStoryRect()
 
   updateNoteCard(dt)
+  updateEmbed()
 
   if (POST.on) renderPost(); else renderer.render(scene, camera)
 }
@@ -2590,6 +2218,8 @@ function render(now) {
 // It sits slightly in front of the ring (NOTE_Z) so passing cards can never
 // intersect it, and is scaled by the distance ratio so it still measures the
 // same on screen as a front ring card.
+// The slow-note quick-link card is a homepage thing; this ring is just playlists.
+const SHOW_NOTE_CARD = false
 const NOTE_COPY = 'This site is to be taken slow. Push play on the lobby music and enjoy browsing.'
 const NOTE_PURPLE = '#8127D3'
 const NOTE_Z = RADIUS + 1.2
@@ -2607,7 +2237,6 @@ const NOTE_MENU = [
   { id: 'write', label: 'WRITE US' },
   { id: 'interviews', label: 'INTERVIEWS' },
   { id: 'listens', label: 'LISTENS' },
-  { id: 'bsides', label: 'B-SIDES' },
   { id: 'alextaves', label: 'ALEXTAVES.COM' },
 ]
 
@@ -2731,7 +2360,7 @@ const noteSpineMat = new THREE.MeshStandardMaterial({
 const noteCard = new THREE.Mesh(panelGeo, [noteSpineMat, noteEdgeMat, noteEdgeMat, noteEdgeMat, noteFaceMat, noteBackMat])
 noteCard.frustumCulled = false
 noteCard.scale.setScalar(noteScale)
-scene.add(noteCard)
+if (SHOW_NOTE_CARD) scene.add(noteCard)
 
 let noteOpen = true, noteT = 1   // noteT: 1 = open and facing us, 0 = tucked edge-on
 
@@ -2763,17 +2392,7 @@ function noteXPositions() {
 }
 
 function updateNoteCard(dt) {
-  // Ring direction drives the tape. AUTO_SPEED is positive, so scrubbing against
-  // the idle rotation gives a negative angVel and flips the audio to reverse.
-  // Small deadzone so it doesn't chatter as the ring coasts through zero.
-  // While dragging, angVel stays 0 (angle is moved directly), so use the tracked
-  // pointer velocity — the tape should turn the instant you scrub, not on release.
-  if (dragging) {
-    if (trackedVel > 40) setLobbyDirection(1)
-    else if (trackedVel < -40) setLobbyDirection(-1)
-  } else if (angVel > 0.004) setLobbyDirection(1)
-  else if (angVel < -0.004) setLobbyDirection(-1)
-
+  if (!SHOW_NOTE_CARD) return
   // Ring glide toward a focused card; any drag cancels it.
   if (ringTarget !== null) {
     if (dragging) ringTarget = null
@@ -2828,7 +2447,10 @@ function updateNoteCard(dt) {
 }
 
 // Capture-phase so it wins before the ring's own drag/click handling.
+renderer.domElement.addEventListener('pointerdown', () => { embedActive = false }, true)
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (!SHOW_NOTE_CARD) return   // card isn't built here; don't let it eat clicks
   clickPointer.x = (e.clientX / innerWidth) * 2 - 1
   clickPointer.y = -((e.clientY / innerHeight) * 2 - 1)
   raycaster.setFromCamera(clickPointer, camera)
@@ -2853,14 +2475,135 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   for (const m of noteHits.menu || []) {
     if (!inRect(m.rect)) continue
     if (m.id === 'write') { focusCard(ENQUIRIES_INDEX); noteOpen = false }
-    else if (m.id === 'listens') { openCardIframe('listens.html') }
-    // B-sides — first one is Dancer (the nine-card Chris ring).
-    else if (m.id === 'bsides') { openCardIframe('dancer.html') }
     else if (m.id === 'alextaves') window.open('https://alextaves.com', '_blank', 'noopener')
     // 'interviews' has no destination yet — hit target is live, action pending.
     return
   }
 }, true)
+
+// ── Back control ──────────────────────────────────────────────────────────────
+// Top-left, styled to match the card-overlay close button. Works both ways:
+// standalone it walks history (falling back to the ring), and when this page is
+// open inside the homepage's card iframe it drives the PARENT's history, which
+// trips the popstate handler there and closes the overlay.
+const backBtn = document.createElement('button')
+backBtn.textContent = '\u2190  BACK'
+backBtn.setAttribute('aria-label', 'Back')
+backBtn.style.cssText = 'position:fixed; top:20px; left:22px; z-index:2001; padding:6px 4px; border:none; background:none; color:rgba(255,255,255,0.62); font:500 14px/1 "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing:0.22em; cursor:pointer; transition:color 200ms ease;'
+backBtn.onmouseenter = () => { backBtn.style.color = 'rgba(255,255,255,0.95)' }
+backBtn.onmouseleave = () => { backBtn.style.color = 'rgba(255,255,255,0.62)' }
+backBtn.onclick = () => {
+  if (window !== window.top) {
+    try { window.parent.history.back(); return } catch (e) { /* cross-origin */ }
+  }
+  if (history.length > 1) history.back()
+  else location.href = 'index.html'
+}
+document.body.appendChild(backBtn)
+
+// ── In-card playlist ──────────────────────────────────────────────────────────
+// An iframe can't be painted onto a WebGL surface, so the Spotify embed lives in
+// a DOM layer above the canvas and is driven by the card's own world matrix —
+// the same maths three's CSS3DRenderer uses, hand-rolled here because this ring
+// runs on the classic r136 build.
+//
+// Consequence worth knowing: the DOM layer always composites OVER the canvas, so
+// a card swinging in front can't occlude it. The embed is therefore only shown
+// for the card that is front-and-centre, and hidden the moment it rotates away.
+const EMBED_PPU = 220        // px per world unit for the DOM layer
+
+const embedLayer = document.createElement('div')
+embedLayer.style.cssText = 'position:fixed; inset:0; z-index:5; overflow:hidden; pointer-events:none;'
+const embedCam = document.createElement('div')
+embedCam.style.cssText = 'position:absolute; top:0; left:0; width:100%; height:100%; transform-style:preserve-3d;'
+embedLayer.appendChild(embedCam)
+const embedBox = document.createElement('div')
+embedBox.style.cssText = 'position:absolute; top:0; left:0; transform-style:preserve-3d; pointer-events:auto;'
+// Inset so a frame of the actual card is left showing all the way round. That
+// border is outside the iframe, so pointer events there still reach the canvas
+// and the ring stays draggable even while the player is live.
+const EMBED_INSET = 0.86
+embedBox.style.width = Math.round(panelW * EMBED_PPU * EMBED_INSET) + 'px'
+embedBox.style.height = Math.round(panelH * EMBED_PPU * EMBED_INSET) + 'px'
+const embedFrame = document.createElement('iframe')
+embedFrame.style.cssText = 'width:100%; height:100%; border:0; display:block; background:#000;'
+embedFrame.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture')
+embedFrame.setAttribute('loading', 'lazy')
+embedBox.appendChild(embedFrame)
+
+// Our own ✕ — the iframe is cross-origin, so this is the only in-player way to
+// hand control back to the ring.
+const embedClose = document.createElement('button')
+embedClose.textContent = '✕'
+embedClose.setAttribute('aria-label', 'Close player')
+embedClose.style.cssText = 'position:absolute; top:8px; right:8px; width:34px; height:34px; padding:0; border:none; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; font:300 16px/1 Helvetica, Arial, sans-serif; cursor:pointer; pointer-events:auto; display:flex; align-items:center; justify-content:center;'
+embedClose.onclick = (e) => { e.stopPropagation(); embedActive = false }
+embedBox.appendChild(embedClose)
+
+embedCam.appendChild(embedBox)
+document.body.appendChild(embedLayer)
+
+const _eps = (v) => (Math.abs(v) < 1e-10 ? 0 : v)
+function cameraCSSMatrix(m) {
+  const e = m.elements
+  return 'matrix3d(' + [
+    _eps(e[0]), _eps(-e[1]), _eps(e[2]), _eps(e[3]),
+    _eps(e[4]), _eps(-e[5]), _eps(e[6]), _eps(e[7]),
+    _eps(e[8]), _eps(-e[9]), _eps(e[10]), _eps(e[11]),
+    _eps(e[12]), _eps(-e[13]), _eps(e[14]), _eps(e[15]),
+  ].join(',') + ')'
+}
+function objectCSSMatrix(m) {
+  const e = m.elements
+  return 'translate(-50%,-50%) matrix3d(' + [
+    _eps(e[0]), _eps(e[1]), _eps(e[2]), _eps(e[3]),
+    _eps(-e[4]), _eps(-e[5]), _eps(-e[6]), _eps(-e[7]),
+    _eps(e[8]), _eps(e[9]), _eps(e[10]), _eps(e[11]),
+    _eps(e[12]), _eps(e[13]), _eps(e[14]), _eps(e[15]),
+  ].join(',') + ')'
+}
+
+// The embed starts click-through so dragging the ring always works. It only
+// becomes interactive after a deliberate click on the card, and goes inert
+// again on any canvas interaction or when the card rotates away.
+let embedActive = false
+const _faceOffset = new THREE.Matrix4()
+const _embedMat = new THREE.Matrix4()
+let embedIdx = -1
+
+function updateEmbed() {
+  const idx = frontPanelIdx()
+  const p = PORTALS[idx]
+  const centred = panels[idx] && panels[idx].position.z > RADIUS * 0.92
+  const cardIdx = (p && p.embed && centred) ? idx : -1
+  if (cardIdx !== embedIdx) { embedIdx = cardIdx; embedActive = false }
+
+  // The poster IS the card. The player only appears once you click into it, so
+  // browsing the ring shows artwork, never a wall of Spotify.
+  const show = embedIdx !== -1 && embedActive
+  embedLayer.style.visibility = show ? 'visible' : 'hidden'
+  embedBox.style.pointerEvents = show ? 'auto' : 'none'
+  if (!show) return
+
+  // Load lazily, and only once per card.
+  if (embedFrame.dataset.card !== String(embedIdx)) {
+    embedFrame.src = PORTALS[embedIdx].embed
+    embedFrame.dataset.card = String(embedIdx)
+  }
+
+  const persp = 0.5 * innerHeight / Math.tan(vFOV / 2)
+  embedLayer.style.perspective = persp + 'px'
+  camera.updateMatrixWorld()
+  embedCam.style.transform =
+    `translateZ(${persp}px)` + cameraCSSMatrix(camera.matrixWorldInverse) +
+    `translate(${innerWidth / 2}px, ${innerHeight / 2}px)`
+
+  panels[embedIdx].updateMatrixWorld()
+  _faceOffset.makeTranslation(0, 0, THICK / 2 + 0.004)
+  _embedMat.copy(panels[embedIdx].matrixWorld).multiply(_faceOffset)
+    .multiply(new THREE.Matrix4().makeScale(1 / EMBED_PPU, 1 / EMBED_PPU, 1 / EMBED_PPU))
+  embedBox.style.transform = objectCSSMatrix(_embedMat)
+}
 
 // ── Post-processing ───────────────────────────────────────────────────────────
 // Hand-rolled rather than EffectComposer: this scene runs on the classic r136
@@ -2890,12 +2633,6 @@ const BLOOM_STRENGTH = _num('bloom', 0.34) // how much glow is added back
 const BLOOM_THRESHOLD = 0.70  // luminance above which a pixel blooms
 const BLOOM_KNEE = 0.28       // soft shoulder, so the threshold isn't a hard edge
 const GRAIN = _num('grain2', 0.032)
-// Depth of field. Focus sits on the front of the ring; blur ramps in behind it.
-// DOF_NEAR/FAR are distances BEYOND the front card, in world units, over which
-// the blur goes from none to full. DOF_MAX caps it so the back stays readable.
-const DOF_MAX  = _num('dof', 0.38)
-const DOF_NEAR = _num('dofnear', RADIUS * 1.05)
-const DOF_FAR  = _num('doffar', RADIUS * 2.1)
 // Darkens the background/fog for the post pass only. The clear colour is the
 // background, so scaling it here darkens the field WITHOUT touching the cards —
 // and the no-post path still uses the locked-in #12151b untouched.
@@ -2907,7 +2644,7 @@ const fsScene = new THREE.Scene().add(fsQuad)
 const fsCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
 
 const rtOpts = { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, format: THREE.RGBAFormat, type: THREE.HalfFloatType }
-let rtScene, rtA, rtB, rtC, rtD, rtDepth
+let rtScene, rtA, rtB
 
 function sizePostTargets() {
   const w = Math.max(1, Math.floor(innerWidth * curPR))
@@ -2924,15 +2661,8 @@ function sizePostTargets() {
     if (MS) rtScene.samples = Math.min(4, renderer.getContext().getParameter(renderer.getContext().MAX_SAMPLES))
     rtA = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
     rtB = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
-    // Scene blur (for DoF) needs its own pair — rtA/rtB are busy with bloom.
-    rtC = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
-    rtD = new THREE.WebGLRenderTarget(bw, bh, rtOpts)
-    // Depth pre-pass. Plain 8-bit RGBA with packed depth: multisample targets
-    // can't carry a depth texture here, so depth is rendered separately.
-    rtDepth = new THREE.WebGLRenderTarget(w, h, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBAFormat })
   } else {
     rtScene.setSize(w, h); rtA.setSize(bw, bh); rtB.setSize(bw, bh)
-    rtC.setSize(bw, bh); rtD.setSize(bw, bh); rtDepth.setSize(w, h)
   }
   blurMat.uniforms.texel.value.set(1 / bw, 1 / bh)
 }
@@ -2972,9 +2702,6 @@ const blurMat = new THREE.ShaderMaterial({
 const compositeMat = new THREE.ShaderMaterial({
   uniforms: {
     tex: { value: null }, bloomTex: { value: null },
-    blurTex: { value: null }, depthTex: { value: null },
-    dofMax: { value: DOF_MAX }, dofNear: { value: 0 }, dofFar: { value: 0 },
-    camNear: { value: 0 }, camFar: { value: 0 },
     strength: { value: BLOOM_STRENGTH }, grain: { value: GRAIN },
     vignette: { value: VIGNETTE }, exposure: { value: EXPOSURE },
     lift: { value: LIFT }, time: { value: 0 },
@@ -2982,27 +2709,12 @@ const compositeMat = new THREE.ShaderMaterial({
   vertexShader: VERT,
   fragmentShader: `
     uniform sampler2D tex; uniform sampler2D bloomTex;
-    uniform sampler2D blurTex; uniform sampler2D depthTex;
-    uniform float dofMax; uniform float dofNear; uniform float dofFar;
-    uniform float camNear; uniform float camFar;
     uniform float strength; uniform float grain; uniform float vignette;
     uniform float exposure; uniform float lift; uniform float time;
     varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
-    // three's packDepthToRGBA, inverted.
-    float unpackDepth(vec4 v){
-      return dot(v, vec4(255.0/256.0/16777216.0, 255.0/256.0/65536.0, 255.0/256.0/256.0, 255.0/256.0));
-    }
     void main(){
-      // Distance from the camera, in world units, for this pixel.
-      float zdepth = unpackDepth(texture2D(depthTex, vUv));
-      float viewZ = (camNear * camFar) / ((camFar - camNear) * zdepth - camFar);
-      float dist = -viewZ;
-      float coc = smoothstep(dofNear, dofFar, dist) * dofMax;
-
-      vec3 sharp = texture2D(tex, vUv).rgb;
-      vec3 soft = texture2D(blurTex, vUv).rgb;
-      vec3 c = mix(sharp, soft, coc) + texture2D(bloomTex, vUv).rgb * strength;
+      vec3 c = texture2D(tex, vUv).rgb + texture2D(bloomTex, vUv).rgb * strength;
       c *= exposure;
       c = pow(max(c, 0.0), vec3(1.0 / lift));   // lifts shadows, leaves white at white
       vec2 d = vUv - 0.5;
@@ -3032,7 +2744,6 @@ function drawQuad(mat, target) {
 }
 
 let postPR = -1, _bgLinear = null, _fogLinear = null
-const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking })
 function renderPost() {
   if (!rtScene || postPR !== curPR) { sizePostTargets(); postPR = curPR }
 
@@ -3057,21 +2768,6 @@ function renderPost() {
   scene.background = bgWas
   scene.fog.color.copy(fogWas)
 
-  // Depth pre-pass — same scene, depth-packed material.
-  scene.overrideMaterial = depthMat
-  renderer.setRenderTarget(rtDepth)
-  renderer.clear()
-  renderer.render(scene, camera)
-  scene.overrideMaterial = null
-
-  // Blurred copy of the whole scene, for the out-of-focus half of the mix.
-  blurMat.uniforms.tex.value = rtScene.texture; blurMat.uniforms.dir.value.set(1, 0)
-  drawQuad(blurMat, rtC)
-  blurMat.uniforms.tex.value = rtC.texture; blurMat.uniforms.dir.value.set(0, 1)
-  drawQuad(blurMat, rtD)
-  blurMat.uniforms.tex.value = rtD.texture; blurMat.uniforms.dir.value.set(1, 0)
-  drawQuad(blurMat, rtC)
-
   brightMat.uniforms.tex.value = rtScene.texture
   drawQuad(brightMat, rtA)
 
@@ -3082,12 +2778,6 @@ function renderPost() {
 
   compositeMat.uniforms.tex.value = rtScene.texture
   compositeMat.uniforms.bloomTex.value = rtA.texture
-  compositeMat.uniforms.blurTex.value = rtC.texture
-  compositeMat.uniforms.depthTex.value = rtDepth.texture
-  compositeMat.uniforms.camNear.value = camera.near
-  compositeMat.uniforms.camFar.value = camera.far
-  compositeMat.uniforms.dofNear.value = nearDist + DOF_NEAR
-  compositeMat.uniforms.dofFar.value = nearDist + DOF_FAR
   compositeMat.uniforms.time.value = performance.now() / 1000
   drawQuad(compositeMat, null)
 }
