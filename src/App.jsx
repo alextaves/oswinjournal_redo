@@ -959,14 +959,27 @@ const handleIssueClick = (issue) => {
     if (rainRef.current) { rainRef.current.pause(); rainRef.current = null }
   }
 
-  // Issue 3's "go home" circle. When the carousel opening page is wrapped around
-  // us, home is the carousel — ask the shell to close us and let it bring its
-  // lobby music back, rather than dropping the reader onto the live site's own
-  // archive screen, which is a different opening page they never came from.
-  // Standalone there is no shell to return to, so the archive stays the home.
-  const handleIssue3Home = () => {
+  // Home is the carousel now — it is the site's homepage, and this app lives
+  // behind /journal/. Every "home" control routes through here so none of them
+  // can quietly keep meaning the old archive screen.
+  //
+  // Embedded in the carousel's card overlay, we ask the shell to close us: it
+  // fades its lobby music back as it goes, which a navigation would not do.
+  // Standalone, home is simply "/".
+  const handleGoHome = () => {
     if (window !== window.top) {
       window.parent.postMessage({ type: 'oswinExitIssue' }, '*');
+      return;
+    }
+    window.location.href = '/';
+  };
+
+  // Leaving an issue by a BACK control rather than a HOME one. Embedded, there
+  // is nothing behind us but the ring, so it is the same exit. Standalone the
+  // archive is still a real screen to step back to, so that behaviour stands.
+  const handleLeaveIssue = () => {
+    if (window !== window.top) {
+      handleGoHome();
       return;
     }
     handleBackToArchive();
@@ -2546,7 +2559,7 @@ const handleIssueClick = (issue) => {
 
         {/* Triangle back button - top on mobile, left side on larger screens */}
         <button
-          onClick={handleBackToArchive}
+          onClick={handleLeaveIssue}
           className="fixed z-50 transition-all duration-300"
           style={{
             top: isDesktop ? '50%' : '40px',
@@ -3338,8 +3351,8 @@ const handleIssueClick = (issue) => {
                 <button
                   onClick={() => {
                     setShowAudioMenu(false);
-                    handleBackToArchive();
-                  }}
+                    handleGoHome();
+                    }}
                   className="block w-full text-left transition-all duration-300"
                   style={{
                     fontSize: 'clamp(0.875rem, 2vw, 1rem)',
@@ -3467,7 +3480,7 @@ const handleIssueClick = (issue) => {
           setSelectedTrack={setSelectedTrack}
           audioRef={audioRef}
           setAudioPlaying={setAudioPlaying}
-          handleBackToArchive={handleBackToArchive}
+          handleGoHome={handleGoHome}
           scrollContainerRef={scrollContainerRef}
           setShowCreditInfo={setShowCreditInfo}
         />
@@ -3541,7 +3554,7 @@ const handleIssueClick = (issue) => {
           setSelectedTrack={setSelectedTrack}
           audioRef={audioRef}
           setAudioPlaying={setAudioPlaying}
-          handleBackToArchive={handleBackToArchive}
+          handleGoHome={handleGoHome}
           scrollContainerRef={scrollContainerRef}
           setShowCreditInfo={setShowCreditInfo}
           isClone={true}
@@ -3706,8 +3719,8 @@ const handleIssueClick = (issue) => {
               <button
                 onClick={() => {
                   setShowAudioMenu(false);
-                  handleBackToArchive();
-                }}
+                  handleGoHome();
+                  }}
                 className="block w-full text-left transition-all duration-300"
                 style={{
                   fontSize: 'clamp(0.875rem, 2vw, 1rem)',
@@ -4151,7 +4164,7 @@ const handleIssueClick = (issue) => {
           </>
         )}
 
-        {/* Circle — go home (the carousel when embedded, see handleIssue3Home) */}
+        {/* Circle — go home (the carousel when embedded, see handleGoHome) */}
         <div style={{
           position: 'fixed',
           ...(isDesktopView
@@ -4161,7 +4174,7 @@ const handleIssueClick = (issue) => {
           display: 'flex', justifyContent: 'center', zIndex: 20,
         }}>
           <button
-            onClick={(e) => { e.stopPropagation(); handleIssue3Home(); }}
+            onClick={(e) => { e.stopPropagation(); handleGoHome(); }}
             className="transition-all duration-500"
             style={{
               width: 48, height: 48, borderRadius: '50%',
@@ -4414,7 +4427,7 @@ const VideoSection = ({
   setSelectedTrack,
   audioRef,
   setAudioPlaying,
-  handleBackToArchive,
+  handleGoHome,
   scrollContainerRef,
   setShowCreditInfo
 }) => {
@@ -4744,8 +4757,8 @@ const VideoSection = ({
               <button
                 onClick={() => {
                   setShowAudioMenu(false);
-                  handleBackToArchive();
-                }}
+                  handleGoHome();
+                  }}
                 className="block w-full text-left transition-all duration-300"
                 style={{
                   fontSize: 'clamp(0.875rem, 2vw, 1rem)',
