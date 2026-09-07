@@ -449,6 +449,14 @@
     const d = e.data
     if (!d) return
     if (d.type === 'oswinIssueAudio' && d.on) duckLobby()
+    // A ROOM inside a card taking the sound over — the Oli space. Deliberately
+    // its own message rather than reusing oswinIssueAudio: an issue keeps the
+    // lobby ducked until you LEAVE it (muting a track mid-visit must not pipe
+    // corridor music back into the room), but a room hands the sound back the
+    // moment you step out of it, while the card overlay stays open. duckLobby /
+    // restoreLobby already park and resume the playhead, so the lobby picks up
+    // exactly where it left off.
+    if (d.type === 'oswinRoomAudio') { d.on ? duckLobby() : restoreLobby() }
     // The issue's own "home" control. Home is this ring, so close the overlay
     // and fade the lobby back in.
     if (d.type === 'oswinExitIssue') closeCardIframe()
@@ -488,6 +496,16 @@
 // the images already carry their own type). `bg` is the average colour of each
 // image, used for the card's sides, back plate, and floor reflection so the
 // glass/reflection tint matches the image sitting on it.
+// Alex's bio, the same passage his own site prints on its Alex Taves card.
+// Kept in step by hand: that copy lives in alextaves-site/public/portals.html.
+const ALEX_TAVES_BIO = [
+  "Alex Taves builds rooms on the internet, part of what he calls the Slow Web, and his gut says the web is only beginning. He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened a gallery in Hamilton, Ontario. It took off, earned a nod from The New York Times, then crashed. The crash mattered: it opened a whole new world. Out of desperation he learned to code, and React, the framework Netflix runs on, became an obsession. It seemed wildly untapped as a medium for art.",
+  "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It's time to evolve into the humans we could be: not desperate for likes, not dictated to by an algorithm.",
+]
+const ALEXANDER_INDEX = 0
+let alexBioOpen = false
+let alexBioHits = null   // { subscribe, site } rects in 600x800 card pixels
+
 const OSWIN_JOURNAL_BODY = [
   `Oswin Journal is a browser built as a gallery. Each issue is a room you enter, not a page you scroll. It began around a simple pairing, a piece of music sat beside a piece of visual art, and it has since loosened into something harder to name and closer to the truth: a curation of things that intrigue me. Sound, image, fiction, whatever the issue asks for. Some rooms lead with music. Some lead with the art and let the sound hold the walls. The pairing was never the point; the room was.`,
   `I've done this in physical space before. I curated Oswald Gallery in Hamilton, Ontario, which the New York Times found within its first six months. Oswin is the same eye moved onto the web, except the web can do something a white room cannot: the space itself can respond, hold sound, change as you move through it. The old line is that the medium is the message. Here that is literal. The room is not where the work is shown. The room is the work.`,
@@ -498,13 +516,15 @@ const OSWIN_JOURNAL_BODY = [
 // (increasing index), the next cards are issue 3 (Arnold), 2 (Chris), 1 (Karla).
 // The other three cards sit on Oli's right.
 const PORTALS = [
-  { image: 'cards/alexander.png', tv: true, title: 'ALEXANDER TAVES', sub: '', bottomCaption: 'oswin curator', bg: '#0a0a0a', titleColor: '#FFFFFF' },  // Alexander Taves (04)
+  { image: 'cards/alexander.png', tv: true, title: 'ALEXANDER TAVES', sub: '', bottomCaption: 'oswin curator', bg: '#0a0a0a', titleColor: '#FFFFFF',
+    body: ALEX_TAVES_BIO, bodyReserve: 168 },  // Alexander Taves (04) — clicking turns the portrait over to the bio
   { title: 'ENQUIRIES', sub: 'get in touch · looking for like minded', bg: '#00C2A8', light: false },  // Enquiries — exact alextaves card (index must match ENQUIRIES_INDEX)
   { title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', body: OSWIN_JOURNAL_BODY, bg: '#D4D2CB', light: false },  // was ALEX TAVES (06.png)
-  { title: 'OLI GOLDSMITH', sub: 'coming soon', bg: '#FF4F79', light: true, iframe: 'https://ethernity.space/', badge: 4 },  // issue 4 — Oli (landing card); click opens a fullscreen iframe
+  { video: 'videos/oli_oswin_opener.mp4', title: 'OLI GOLDSMITH', sub: '', bottomCaption: 'audio by karla is here', bg: '#12151b', titleColor: '#FFFFFF', iframe: 'oli.html', badge: 4 },  // issue 4 — Oli (landing card); click opens the four-card Oli page, which links on to ethernity.space
   { slideshow: ['images/giftshop-green.jpg', 'images/giftshop-orange.jpg', 'images/giftshop-purple.jpg', 'images/giftshop-red.jpg'], title: 'ARNOLD SCHOENBERG', sub: '', bottomCaption: 'visuals by oswin', bg: '#777777', titleColor: '#FFFFFF', badge: 3, iframe: LIVE_ISSUE(3) },  // issue 3 — Arnold (click enters the live Schoenberg piano experience)
-  { video: 'videos/chris_bluedancer.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: LIVE_ISSUE(2) },  // issue 2 — Chris (click enters the live issue-2 page, same as the other issues)
+  { video: 'videos/guy_corner_panel3.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: LIVE_ISSUE(2) },  // issue 2 — Chris; the card runs the corner-panel clip, cover-fit (a card-sized encode of public/videos/issue2/panels/guy_corner_panel3.mp4, which is untouched)
   { video: 'videos/karla_prerace.mp4', title: 'KARLA IS HERE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#1E2BFF', badge: 1, iframe: LIVE_ISSUE(1) },  // issue 1 — Karla (click enters the live issue-1 detail page)
+  { title: 'FICTION', sub: 'sci fi meets absurdism', bg: '#FF5F00', light: false },  // moved off alextaves.com — the room itself has not been carried over yet, so no `iframe` target
 ]
 const LANDING_INDEX = 3   // Oli — the card the ring lands on
 const COUNT = PORTALS.length
@@ -595,18 +615,21 @@ const isPhone  = _tier ? _tier === 'phone'  : (isPhoneDevice || (shortSide < 600
 const isTablet = _tier ? _tier === 'tablet' : (!isPhone && isTabletDevice && shortSide <= 1024)
 const isMobile = isPhone   // every branch below that says "mobile" means phone
 
-// Phones get the live site, not the ring — a different feeling, and the one
-// that ships today. Hand off before any of the scene below is built.
+// Phones get the card grid, not the ring — the lobby laid flat as something you
+// scroll. Hand off before any of the scene below is built, so a phone never pays
+// for three.js it will not use.
 //
 // Compared by PATH, not origin. The ring is the homepage now, so it shares an
 // origin with the app it hands phones to — an origin check would find the two
 // equal, never fire, and leave phones on the ring, the exact failure this guard
 // exists to prevent. Path still stops a loop if the destination ever serves
 // this page back.
-if (isPhone && location.pathname !== JOURNAL_BASE) {
+const PHONE_PAGE = 'mobile.html'
+if (isPhone && !location.pathname.endsWith('/' + PHONE_PAGE)) {
   // replace(), not assign(): the phone should not be able to press Back into a
-  // carousel it was never meant to see.
-  location.replace(JOURNAL_BASE)
+  // carousel it was never meant to see. Relative, so it resolves under the
+  // <base> in production and beside this file in dev.
+  location.replace(PHONE_PAGE)
 }
 
 // Tablet card sizing. PORTRAIT ONLY — landscape is left exactly as desktop,
@@ -906,11 +929,8 @@ function drawOswinCircle(ctx, W, H, portal) {
 
 // ALEX TAVES: the bio itself, printed straight onto the card under the
 // subtitle — same wording as the full story overlay this card opens into.
-const ALEX_TAVES_BIO = [
-  "Alex Taves builds rooms on the internet, part of what he calls the Slow Web, and his gut says the web is only beginning. He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened a gallery in Hamilton, Ontario. It took off, earned a nod from The New York Times, then crashed. The crash mattered: it opened a whole new world. Out of desperation he learned to code, and React, the framework Netflix runs on, became an obsession. It seemed wildly untapped as a medium for art.",
-  "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It's time to evolve into the humans we could be: not desperate for likes, not dictated to by an algorithm.",
-]
-
+// ALEX_TAVES_BIO is declared above, beside the card that uses it. This function
+// is inherited from the alextaves fork and is dead here (ALEX_TAVES_INDEX = -1).
 function drawAlexTavesBio(ctx, W, H, portal) {
   const lm = 54
   const maxW = W - lm * 2
@@ -1204,7 +1224,7 @@ function drawBodyText(ctx, W, H, portal) {
   const maxW = W - lm * 2
   const t = titleLayout(ctx, portal, maxW)
   const startY = t.headerBottom + 12
-  const availH = H - startY - 44
+  const availH = H - startY - (portal.bodyReserve || 44)
   const paras = portal.body
   const ink = portal.light ? 'rgba(255,255,255,0.86)' : 'rgba(0,0,0,0.82)'
 
@@ -1321,12 +1341,40 @@ function applyTvStatic(ctx, W, H) {
 }
 regenNoise()   // seed one noise frame so build-time static has something to draw
 
+// Alex's card turned over. Light ground rather than the portrait's near-black:
+// this is a passage to read, and white type on a photograph is not.
+const ALEX_BIO_BG = '#E7E2D8'
+function drawAlexBioFace(ctx, portal, W, H) {
+  const lm = 54
+  const shown = { ...portal, bg: ALEX_BIO_BG, light: false, titleColor: null, bottomCaption: null }
+  drawPortalCard(ctx, shown, W, H, lm, (cx, w, h) => drawBodyText(cx, w, h, shown))
+
+  // Two controls at the foot, in the card's own label type.
+  ctx.save()
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.font = "700 26px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+  ctx.letterSpacing = '0.22em'
+  ctx.fillStyle = 'rgba(0,0,0,0.86)'
+
+  const drawControl = (label, y) => {
+    ctx.fillText(label, lm, y)
+    const w = ctx.measureText(label).width
+    ctx.fillRect(lm, y + 9, w, 1)
+    return { x: lm - 16, y: y - 30, w: w + 32, h: 52 }
+  }
+  const siteY = H - 62
+  const subY = siteY - 58
+  alexBioHits = { subscribe: drawControl('SUBSCRIBE', subY), site: drawControl('ALEXTAVES.COM', siteY) }
+  ctx.restore()
+}
+
 // The static-free face for any card: image cover, video frame, body text, TV
 // base (B&W photo), or a plain portal card. Every card type routes through here
 // so the same static can be applied on top uniformly.
 function drawCardBase(ctx, portal, W, H, drawTrace) {
   const lm = 54
-  if (portal.tv) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawTvBase(cx, portal, w, h))
+  if (portal.body && portal._showBio) drawAlexBioFace(ctx, portal, W, H)
+  else if (portal.tv) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawTvBase(cx, portal, w, h))
   else if (portal.slideshow) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawSlideshow(cx, portal, w, h))
   else if (portal._img) drawImageCover(ctx, portal._img, W, H)
   else if (portal._video) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawVideoTrace(cx, portal, w, h))
@@ -1393,13 +1441,16 @@ function makePortalTex(portal, drawTrace) {
 // numeral. Parented to the card so it orbits and tilts with it.
 //
 // The face is a canvas texture that runs a synced slideshow: every 3s it slides
-// to the right and swaps to the next colourway — white → inverted → poppy red →
-// yellow → back to white. All badges share one clock so they change together.
+// to the right and swaps to the next state — a hash, the issue number, then the
+// Oswin Journal mark. All badges share one clock so they change together.
+//
+// The yellow is the Journal card's own (#F9FF45), not the badge's former
+// #FFD400 — the third state is that card's mark, so it should be that yellow.
+const BADGE_YELLOW = '#F9FF45'
 const BADGE_STYLES = [
-  { bg: '#FFFFFF', fg: '#111111' },  // white, black type
-  { bg: '#111111', fg: '#FFFFFF' },  // inverted: black, white type
-  { bg: '#FF2E1F', fg: '#FFFFFF' },  // poppy red, white type
-  { bg: '#FFD400', fg: '#111111' },  // yellow, black type
+  { kind: 'hash',   bg: '#111111',    fg: '#FFFFFF' },   // a hash, white on black
+  { kind: 'number', bg: BADGE_YELLOW, fg: '#111111' },   // the issue number
+  { kind: 'circle', bg: '#FFFFFF',    fg: BADGE_YELLOW },// the Journal mark
 ]
 const BADGE_S = 256
 const BADGE_TRANS_MS = 550   // slide duration
@@ -1407,14 +1458,27 @@ const BADGE_HOLD_MS = 3000   // time each style is held before it slides again
 const registeredBadges = []  // { canvas, ctx, tex, num }
 let badgeStyleIdx = 0
 
-// Draw one tile (bg + centred numeral) into ctx at horizontal offset x.
+// Draw one tile into ctx at horizontal offset x: the ground, then whichever
+// mark this state carries.
 function drawBadgeTile(ctx, x, num, style, S) {
   ctx.fillStyle = style.bg
   ctx.fillRect(x, 0, S, S)
   ctx.fillStyle = style.fg
-  ctx.font = `700 ${Math.round(S * 0.6)}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
+
+  if (style.kind === 'circle') {
+    ctx.beginPath()
+    ctx.arc(x + S / 2, S / 2, S * 0.33, 0, Math.PI * 2)
+    ctx.fill()
+    return
+  }
+
+  // The hash sits a touch smaller than a numeral — at the same size its arms
+  // reach further and it crowds the tile.
+  const glyph = style.kind === 'hash' ? '#' : String(num)
+  const size = Math.round(S * (style.kind === 'hash' ? 0.54 : 0.6))
+  ctx.font = `700 ${size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText(String(num), x + S / 2, S / 2 + S * 0.04)
+  ctx.fillText(glyph, x + S / 2, S / 2 + S * 0.04)
 }
 
 // Render every badge at transition progress p (0→1). Outgoing style slides off
@@ -1453,7 +1517,7 @@ function makeBadgeMesh(num) {
   const bs = panelH / 8               // side length: 1/8 the card height
   const canvas = document.createElement('canvas'); canvas.width = BADGE_S; canvas.height = BADGE_S
   const ctx = canvas.getContext('2d')
-  drawBadgeTile(ctx, 0, num, BADGE_STYLES[0], BADGE_S)   // start on the white style
+  drawBadgeTile(ctx, 0, num, BADGE_STYLES[0], BADGE_S)   // start on the hash
   const tex = new THREE.CanvasTexture(canvas); tex.encoding = THREE.sRGBEncoding
   registeredBadges.push({ canvas, ctx, tex, num })
 
@@ -2325,7 +2389,81 @@ window.addEventListener('popstate', () => {
 })
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardIframe() })
 
+// Redraw Alex's card base. Its face is composited from that base every frame
+// (see animatedFaceTexes), so refreshing the base is enough — no texture poke.
+function redrawAlexCard() {
+  const vc = animatedFaceTexes.find((v) => v.idx === ALEXANDER_INDEX)
+  if (!vc) return
+  drawCardBase(vc.baseCtx, vc.portal, 600, 800, vc.drawTrace)
+}
+
+function toggleAlexBio() {
+  alexBioOpen = !alexBioOpen
+  PORTALS[ALEXANDER_INDEX]._showBio = alexBioOpen
+  if (!alexBioOpen) alexBioHits = null
+  redrawAlexCard()
+}
+
+// While the bio shows, the two drawn controls take the click instead of turning
+// the card back. Read through the panel's own UVs, as the note card does.
+function alexBioControlClicked(hits) {
+  if (!alexBioOpen || !alexBioHits) return false
+  const h = hits.find((x) => x.object.userData.panelIdx === ALEXANDER_INDEX)
+  if (!h || !h.uv) return false
+  const px = h.uv.x * 600, py = (1 - h.uv.y) * 800
+  const inR = (r) => r && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h
+  if (inR(alexBioHits.site)) { window.open('https://alextaves.com', '_blank', 'noopener'); return true }
+  if (inR(alexBioHits.subscribe)) { openSubscribeSheet(); return true }
+  return false
+}
+
+// Subscribe goes to the same Formspree form the enquiry card already posts to,
+// tagged by subject so the two are separable in the inbox.
+function openSubscribeSheet() {
+  if (document.getElementById('subscribeSheet')) return
+  const wrap = document.createElement('div')
+  wrap.id = 'subscribeSheet'
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:80;background:rgba(10,10,10,0.72);' +
+    'backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;'
+  wrap.innerHTML =
+    '<div style="width:min(420px,86vw);background:' + ALEX_BIO_BG + ';padding:34px;border-radius:6px;' +
+    'font-family:\'Helvetica Neue\',Helvetica,Arial,sans-serif;color:#111">' +
+    '<h2 style="margin:0;font-size:30px;font-weight:700;letter-spacing:-0.01em">SUBSCRIBE</h2>' +
+    '<p style="margin:10px 0 28px;font-size:10px;font-weight:300;letter-spacing:0.16em;text-transform:uppercase;color:rgba(0,0,0,0.5)">the journal, when there is an issue</p>' +
+    '<form><label style="display:block;font-size:10px;letter-spacing:0.16em;color:rgba(0,0,0,0.55)">EMAIL:' +
+    '<input type="email" name="email" autocomplete="email" required style="display:block;width:100%;margin-top:8px;background:none;border:none;' +
+    'border-bottom:1px solid rgba(0,0,0,0.35);padding:6px 0;font-family:inherit;font-size:16px;color:#111;border-radius:0"></label>' +
+    '<p class="sub-status" style="margin:14px 0 0;font-size:12px;color:rgba(0,0,0,0.62)"></p>' +
+    '<div style="display:flex;justify-content:space-between;margin-top:26px">' +
+    '<button type="submit" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:13px;font-weight:700;letter-spacing:0.22em;color:#111">SUBMIT</button>' +
+    '<button type="button" class="sub-close" style="background:none;border:none;padding:0;cursor:pointer;font-family:inherit;font-size:13px;font-weight:300;letter-spacing:0.22em;color:rgba(0,0,0,0.5)">CLOSE</button>' +
+    '</div></form></div>'
+  const close = () => wrap.remove()
+  wrap.querySelector('.sub-close').addEventListener('click', close)
+  wrap.addEventListener('click', (e) => { if (e.target === wrap) close() })
+  wrap.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const status = wrap.querySelector('.sub-status')
+    const email = e.target.email.value.trim()
+    if (!email) return
+    status.textContent = 'sending…'
+    try {
+      const res = await fetch(FORMSPREE_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ email, _subject: 'Subscribe' }),
+      })
+      status.textContent = res.ok ? "you're on the list." : 'that did not go through. try again in a moment.'
+      if (res.ok) e.target.reset()
+    } catch {
+      status.textContent = 'that did not go through. try again in a moment.'
+    }
+  })
+  document.body.appendChild(wrap)
+}
+
 function handlePanelClick(idx) {
+  if (idx === ALEXANDER_INDEX) { toggleAlexBio(); return }
   if (PORTALS[idx] && PORTALS[idx].iframe) { openCardIframe(PORTALS[idx].iframe); return }
   if (idx === UNFILTERED_INDEX || idx === ENQUIRIES_INDEX || idx === ALEX_TAVES_INDEX) { openStory(idx); return }
   if (idx === OSWIN_INDEX) { window.open('https://oswinjournal.com', '_blank'); return }
@@ -2405,6 +2543,7 @@ renderer.domElement.addEventListener('pointerup', () => {
     const hits = raycaster.intersectObjects(panels, false)
     // Entry state: the only live controls are ON / OFF / Begin on the WELCOME card.
     if (welcomeActive) { handleWelcomeClick(hits); return }
+    if (hits.length > 0 && frontPanelIdx() === ALEXANDER_INDEX && alexBioControlClicked(hits)) { paused = true; return }
     if (hits.length > 0) { paused = true; handlePanelClick(frontPanelIdx()) }
   } else {
     const av = (performance.now() - lastMoveT > 120) ? 0 : trackedVel * SENS
@@ -2461,6 +2600,7 @@ renderer.domElement.addEventListener('touchend', (e) => {
     raycaster.setFromCamera(clickPointer, camera)
     const hits = raycaster.intersectObjects(panels, false)
     if (welcomeActive) { handleWelcomeClick(hits); touchId = null; return }
+    if (hits.length > 0 && frontPanelIdx() === ALEXANDER_INDEX && alexBioControlClicked(hits)) { paused = true; return }
     if (hits.length > 0) { paused = true; handlePanelClick(frontPanelIdx()) }
   } else {
     angVel = Math.max(-MAX_VEL, Math.min(MAX_VEL, touchVel * MOB_TOUCH_SENS))
@@ -2681,10 +2821,10 @@ const noteHits = { play: null, close: null }
 // Type is 2/3 the size of a card title (titleLayout tops out at 74px on this
 // same 600x800 face), matching the proportion agreed for the old HTML box.
 const NOTE_MENU = [
-  { id: 'write', label: 'WRITE US' },
+  { id: 'enquiries', label: 'ENQUIRIES' },
   { id: 'interviews', label: 'INTERVIEWS' },
-  { id: 'listens', label: 'LISTENS' },
-  { id: 'bsides', label: 'B-SIDES' },
+  { id: 'gallery', label: 'OSWIN GALLERY', muted: true },
+  { id: 'records', label: 'OSWIN RECORDS', muted: true },
   { id: 'alextaves', label: 'ALEXTAVES.COM' },
 ]
 
@@ -2728,11 +2868,15 @@ function drawNoteBase() {
   const ms = 30
   ctx.font = `700 ${ms}px ${FONT}`
   ctx.letterSpacing = '0.02em'
-  ctx.fillStyle = '#111111'
   noteHits.menu = []
   NOTE_MENU.forEach((m) => {
+    // The rooms that have not opened are set down in grey and register no hit
+    // rect at all — greyed but still clickable would be the worse of both.
+    ctx.fillStyle = m.muted ? 'rgba(17,17,17,0.30)' : '#111111'
     ctx.fillText(m.label, lm, y)
-    noteHits.menu.push({ id: m.id, rect: [lm - 14, y - 10, ctx.measureText(m.label).width + 28, ms + 20] })
+    if (!m.muted) {
+      noteHits.menu.push({ id: m.id, rect: [lm - 14, y - 10, ctx.measureText(m.label).width + 28, ms + 20] })
+    }
     y += ms * 1.42
   })
 
@@ -2929,12 +3073,10 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   if (inRect(noteHits.play)) { toggleLobby(); drawNoteBase(); return }
   for (const m of noteHits.menu || []) {
     if (!inRect(m.rect)) continue
-    if (m.id === 'write') { focusCard(ENQUIRIES_INDEX); noteOpen = false }
-    else if (m.id === 'listens') { openCardIframe('listens.html') }
-    // B-sides — first one is Dancer (the nine-card Chris ring).
-    else if (m.id === 'bsides') { openCardIframe('bside_karla.html') }
+    if (m.id === 'enquiries') { focusCard(ENQUIRIES_INDEX); noteOpen = false }
     else if (m.id === 'alextaves') window.open('https://alextaves.com', '_blank', 'noopener')
-    // 'interviews' has no destination yet — hit target is live, action pending.
+    // 'interviews' and the two Oswin rooms have no destination yet — their hit
+    // targets are live, actions pending. The rooms open in October.
     return
   }
 }, true)
@@ -2963,7 +3105,7 @@ const EXPOSURE = _num('exp', 1.02)        // flat multiplier, applied first
 // read as too dark. This is a gamma curve: it raises shadows and midtones and
 // leaves white at white, so the dark cards come up without blowing the pink one.
 const LIFT = _num('lift', 1.12)
-const BLOOM_STRENGTH = _num('bloom', 0.34) // how much glow is added back
+const BLOOM_STRENGTH = _num('bloom', 0.17) // how much glow is added back (halved from 0.34: whites were haloing)
 const BLOOM_THRESHOLD = 0.70  // luminance above which a pixel blooms
 const BLOOM_KNEE = 0.28       // soft shoulder, so the threshold isn't a hard edge
 const GRAIN = _num('grain2', 0.032)

@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Oswin Journal</title>
+<style>
+  /* The phone version of the lobby. The ring is a WebGL scene you spin; there is
+     no good phone equivalent, so the same rooms are laid out flat as a grid you
+     scroll — built to still read as objects, each sitting on its own shadow with
+     a lit top edge and a sheen across the glass.
+
+     Faces are DOM, not the ring's canvas textures: a 600x800 card scaled into a
+     ~180px column lands its caption at about 4px. Metrics below are the card
+     design in container-query units, so the proportions still hold. */
+  :root { --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
+
+  .wrap {
+    position: fixed; inset: 0;
+    background: #E7E2D8;
+    overflow-y: auto; overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+    /* viewport-fit=cover with a translucent status bar means this runs edge to
+       edge once installed — inset on all four sides so nothing lands under the
+       clock, the battery, or the notch in landscape. */
+    padding:
+      calc(10px + env(safe-area-inset-top))
+      calc(10px + env(safe-area-inset-right))
+      calc(10px + env(safe-area-inset-bottom))
+      calc(10px + env(safe-area-inset-left));
+    font-family: var(--font);
+  }
+  /* Masthead. Its height is set from the first card's title block in JS, so it
+     stands exactly as tall as KARLA IS HERE does on the card beneath it — a
+     measurement rather than a number that would drift from the cards. Carries
+     the same radius and lift as a card so it sits in the same world. */
+  .masthead {
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    background: #F9FF45; color: #111111;
+    font-weight: 700; letter-spacing: -0.01em; line-height: 1;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.30),
+      inset 0 -1px 0 rgba(0,0,0,0.20),
+      0 2px 3px rgba(0,0,0,0.28),
+      0 10px 20px rgba(0,0,0,0.22);
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .card {
+    container-type: inline-size;
+    position: relative;
+    display: flex; flex-direction: column;
+    aspect-ratio: 3 / 4;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    /* Raised, not floating: a lit top lip and shaded bottom lip give the face a
+       thickness, a short hard shadow sits it on the ground, a long soft one
+       lifts it off. */
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -1px 0 rgba(0,0,0,0.30),
+      0 2px 3px rgba(0,0,0,0.28),
+      0 10px 20px rgba(0,0,0,0.22);
+    transition: transform 200ms ease, box-shadow 200ms ease;
+  }
+  .card::after {
+    content: '';
+    position: absolute; inset: 0; z-index: 4;
+    background: linear-gradient(158deg,
+      rgba(255,255,255,0.17) 0%, rgba(255,255,255,0.05) 24%, rgba(255,255,255,0) 48%);
+    pointer-events: none;
+  }
+  .card:active {
+    transform: translateY(2px) scale(0.988);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.18),
+      inset 0 -1px 0 rgba(0,0,0,0.30),
+      0 1px 2px rgba(0,0,0,0.28),
+      0 4px 9px rgba(0,0,0,0.20);
+  }
+
+  .media { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+  .slide { position: absolute; inset: 0; z-index: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 900ms ease; }
+  .slide.on { opacity: 1; }
+
+  /* Same grain the ring wears over every card, so the two read as one site. */
+  .static {
+    position: absolute; inset: 0; z-index: 3;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>"),
+      repeating-linear-gradient(rgba(0,0,0,0.16) 0 1px, rgba(0,0,0,0) 1px 3px);
+    background-size: 120px 120px, 100% 3px;
+    opacity: 0.22;
+    pointer-events: none;
+    animation: snow 0.32s steps(1) infinite;
+  }
+  @keyframes snow {
+    0%   { background-position: 0 0, 0 0; }
+    25%  { background-position: 37px 61px, 0 0; }
+    50%  { background-position: 83px 19px, 0 0; }
+    75%  { background-position: 15px 94px, 0 0; }
+    100% { background-position: 61px 43px, 0 0; }
+  }
+  .scrim { position: absolute; left: 0; right: 0; top: 0; height: 46%; z-index: 1;
+           background: linear-gradient(rgba(0,0,0,0.62), rgba(0,0,0,0)); }
+  .scrimFoot { position: absolute; left: 0; right: 0; bottom: 0; height: 28%; z-index: 1;
+               background: linear-gradient(rgba(0,0,0,0), rgba(0,0,0,0.55)); }
+
+  .head { position: relative; z-index: 2; padding: 9cqw 9cqw 0; }
+  .title { margin: 0; font-weight: 700; line-height: 1.0; letter-spacing: -0.01em; }
+  .title span { display: block; }
+  .rule { height: 1px; margin: 2.2cqw 0 2cqw; }
+  .sub { margin: 0; font-weight: 300; font-size: max(9.5px, 2.33cqw); letter-spacing: 0.14em; line-height: 1.4; }
+  .foot {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
+    padding: 0 9cqw 7cqw;
+    font-weight: 300; font-size: max(9px, 2.2cqw); letter-spacing: 0.14em;
+  }
+
+  /* The ring's issue tile, flattened: hash, number, then the Journal mark, on
+     one shared clock so every badge turns together. */
+  .badge {
+    position: absolute; top: 0; right: 0; z-index: 3;
+    width: 22cqw; height: 22cqw;
+    overflow: hidden;
+    font-weight: 700; font-size: 12cqw; line-height: 1;
+    box-shadow: -1px 1px 3px rgba(0,0,0,0.35);
+  }
+  /* Two tiles, one showing. On a turn the live one slides off to the right and
+     the next follows it in from the left — the ring's own move, which a straight
+     content swap loses. */
+  .badge .tile {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 550ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .badge i { display: block; width: 62%; height: 62%; border-radius: 50%; background: currentColor; }
+  @media (prefers-reduced-motion: reduce) { .badge .tile { transition: none; } }
+
+  .body {
+    position: relative; z-index: 2; flex: 1; min-height: 0;
+    padding: 4cqw 9cqw 9cqw;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+    font-weight: 300; font-size: max(8px, 2.6cqw); line-height: 1.55;
+    color: rgba(0,0,0,0.62);
+  }
+  .body p { margin: 0 0 0.9em; }
+
+  /* Enquiries: the ring's card types a message out; at this size that can only
+     be a smear, so bars stand in for lines of copy being written. */
+  .enq { position: relative; z-index: 2; flex: 1; min-height: 0; padding: 5cqw 9cqw 9cqw; display: flex; flex-direction: column; }
+  .enqLabel { display: block; font-weight: 300; font-size: max(7px, 2.33cqw); letter-spacing: 0.16em; color: rgba(0,0,0,0.5); }
+  .enqCopy { margin: 3.5cqw 0 0; flex: 1; min-height: 0; overflow: hidden;
+             mask-image: linear-gradient(to bottom, #000 80%, transparent 100%);
+             -webkit-mask-image: linear-gradient(to bottom, #000 80%, transparent 100%); }
+  .copyLine { display: block; height: max(3px, 1.5cqw); margin-bottom: max(3.5px, 1.7cqw);
+              background: rgba(0,0,0,0.17); border-radius: 1px;
+              transform-origin: left center; transform: scaleX(0);
+              transition: transform 1300ms cubic-bezier(0.22,0.8,0.3,1); }
+  .copyBreak { margin-top: max(5px, 2.4cqw); }
+  .enqSubmit { margin-top: auto; }
+
+  .subscribe {
+    display: block; margin: 26px auto calc(6px + env(safe-area-inset-bottom));
+    background: none; border: none; padding: 0 0 3px;
+    font-family: var(--font); font-size: 13px; font-weight: 700; letter-spacing: 0.22em;
+    color: rgba(0,0,0,0.82); border-bottom: 1px solid rgba(0,0,0,0.82);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Sheets ───────────────────────────────────────────────────────────── */
+  .sheet {
+    position: fixed; inset: 0; z-index: 60;
+    background: #E7E2D8; color: #111;
+    overflow-y: auto; touch-action: pan-y;
+    padding: calc(28px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
+             calc(28px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+    font-family: var(--font);
+  }
+  .sheet.teal { background: #00C2A8; }
+  /* A room: a sheet that holds a grid rather than a passage, so it takes the
+     lobby's own gutter and lets its cards do the work. */
+  .sheet.room { padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
+  .sheet.room .actions { justify-content: center; margin-top: 22px; }
+  .sheet h2 { margin: 0; font-size: 34px; font-weight: 700; letter-spacing: -0.01em; }
+  .sheet .sheetSub { margin: 10px 0 30px; font-size: 13px; font-weight: 300; letter-spacing: 0.1em;
+                     text-transform: uppercase; color: rgba(0,0,0,0.62); }
+  .sheet p.copy { margin: 0 0 1.1em; font-weight: 300; font-size: 15px; line-height: 1.62; color: rgba(0,0,0,0.82); }
+  .sheet label { display: block; margin-bottom: 22px; font-size: 12px; letter-spacing: 0.1em; color: rgba(0,0,0,0.62); }
+  .sheet input, .sheet textarea {
+    display: block; width: 100%; margin-top: 8px;
+    background: none; border: none; border-bottom: 1px solid rgba(0,0,0,0.35);
+    padding: 6px 0; font-family: var(--font); font-size: 16px; color: #111; border-radius: 0;
+  }
+  .sheet textarea { min-height: 120px; resize: vertical; }
+  .sheet input:focus, .sheet textarea:focus { outline: none; border-bottom-color: #111; }
+  .actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 10px; flex-wrap: wrap; }
+  .sheet button, .sheet a.act {
+    background: none; border: none; padding: 0 0 3px; cursor: pointer; text-decoration: none;
+    font-family: var(--font); font-size: 13px; font-weight: 700; letter-spacing: 0.22em; color: #111;
+    border-bottom: 1px solid #111;
+  }
+  .sheet button.close { font-weight: 300; color: rgba(0,0,0,0.5); border-bottom: none; }
+  .sheet ol.steps {
+    margin: 0 0 8px; padding-left: 1.3em;
+    font-weight: 300; font-size: 15px; line-height: 1.62; color: rgba(0,0,0,0.82);
+  }
+  .sheet ol.steps li { margin-bottom: 0.7em; padding-left: 0.2em; }
+  .sheet p.close-note { margin-top: 30px; }
+  .sheet .status { margin: 14px 0 0; font-size: 12px; color: rgba(0,0,0,0.62); }
+  /* Interview furniture: the portrait leads, section heads break the piece up,
+     and a question sits in the card-title weight so the answer reads as reply. */
+  .sheet .portrait { display: block; width: 100%; height: auto; border-radius: 6px; margin-bottom: 26px; }
+  .sheet h3.section {
+    margin: 34px 0 16px; font-size: 13px; font-weight: 700;
+    letter-spacing: 0.16em; text-transform: uppercase; color: rgba(0,0,0,0.62);
+  }
+  .sheet p.deck {
+    margin: -18px 0 26px; font-size: 15px; font-weight: 300;
+    line-height: 1.5; color: rgba(0,0,0,0.6);
+  }
+  .sheet p.disclosure {
+    margin: 0 0 30px;
+    padding: 18px 0;
+    border-top: 1px solid rgba(0,0,0,0.30);
+    border-bottom: 1px solid rgba(0,0,0,0.30);
+    font-size: 14px; font-weight: 400; line-height: 1.55;
+    letter-spacing: 0; color: rgba(0,0,0,0.78);
+  }
+  .sheet p.q {
+    margin: 26px 0 10px; font-size: 15px; font-weight: 700;
+    line-height: 1.45; letter-spacing: -0.01em; color: #111;
+  }
+  [hidden] { display: none !important; }
+
+  @media (prefers-reduced-motion: reduce) { .static { animation: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead" id="masthead">OSWIN JOURNAL</div>
+  <div class="grid" id="grid"></div>
+  <button class="subscribe" type="button" id="subscribeBtn">SUBSCRIBE</button>
+</div>
+
+<script>
+// Where the React app lives. Same reasoning as the ring: in dev Vite serves the
+// app at "/" and this page at /carousel/mobile.html; in production Netlify
+// serves the ring at "/" and the app under /journal/.
+const JOURNAL_BASE = location.hostname === 'localhost' || location.hostname === '127.0.0.1' ? '/' : '/journal/'
+const LIVE_ISSUE = (n) => `${JOURNAL_BASE}?issue=${n}`
+const FORMSPREE_ENDPOINT = 'https://formspree.io/f/xvgevdda'
+
+// The site's yellow: the badge's third state, the masthead, and the interviews
+// card all sit on this one value.
+const BADGE_YELLOW = '#F9FF45'
+
+// The read-me card. Blue because it has to pull the eye without fighting the
+// yellow it sits beside — blue and yellow are complements, where red and yellow
+// are two warm colours competing for the same attention. This is the blue
+// already on the site (Karla's title), so nothing new enters the palette.
+const READ_ME_BG = '#1E2BFF'
+
+const OSWIN_JOURNAL_BODY = [
+  "Oswin Journal is a browser built as a gallery. Each issue is a room you enter, not a page you scroll. It began around a simple pairing, a piece of music sat beside a piece of visual art, and it has since loosened into something harder to name and closer to the truth: a curation of things that intrigue me. Sound, image, fiction, whatever the issue asks for.",
+  "I've done this in physical space before. I curated Oswald Gallery in Hamilton, Ontario, which the New York Times found within its first six months. Oswin is the same eye moved onto the web, except the web can do something a white room cannot: the space itself can respond, hold sound, change as you move through it.",
+  "There is no feed here, no infinite anything, no next. An issue is made, and then it is finished, and then you can stand in it. You came in through a door. You can stay as long as you like.",
+]
+
+const ALEX_TAVES_BIO = [
+  "Alex Taves builds rooms on the internet, part of what he calls the Slow Web, and his gut says the web is only beginning. He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened a gallery in Hamilton, Ontario. It took off, earned a nod from The New York Times, then crashed. The crash mattered: it opened a whole new world. Out of desperation he learned to code, and React, the framework Netflix runs on, became an obsession. It seemed wildly untapped as a medium for art.",
+  "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It's time to evolve into the humans we could be: not desperate for likes, not dictated to by an algorithm.",
+]
+
+// Interviews. The Substack post's own furniture — the share button, the sign-off
+// link — is left out; what is kept is the writing.
+const INTERVIEWS = [
+{
+  "id": "chris",
+  "issue": 2,
+  "cardLines": ["CHRISTO-", "PHER", "BISSON-", "NETTE"],
+  "title": "CHRISTOPHER BISSONNETTE",
+  "sub": "Issue 2 · Christopher Bissonnette",
+  "portrait": "images/interviews/chris.jpg",
+  "intro": [
+    "I am excited to share Issue 2 of Oswin Journal. This project really began when I had a gallery in Canada called Oswald Collective. We featured the best of the up and coming talent, but my interest lay more and more in the connection between sound and visual. Not in the music video way, which ironically I've never been that interested in. It's how sound and visual have a way of syncing naturally on their own.",
+    "This became apparent a month before moving to Sydney. We'd sold off all our furniture and all we had left was lawn chairs, our stereo and a TV. I began becoming obsessed with the Apple TV screensavers and pairing them to electronic music, more specifically H. Takahashi. One video that resonated the most was an aerial shot of LAX. Parked planes, some getting ready for take off. The pairing had a huge impact on me. Something connected. And it never stopped.",
+    "So Issue 2 just launched, and this issue is with Chris Bissonnette. For me, getting to work with him was such an honour, and the way we came to meet I found extraordinary.",
+    "We first met many years ago in Detroit on a night that has stuck with me my entire life. I was out with friends at a Poor Boy party. These were five-dollar parties held usually in the abandoned industrial area near downtown, and the way one got to these parties was to firstly know where the parking lot was, then catch a van or small bus to the actual location. This backstory is important: that night was, I believe, one of the biggest raids on a rave Detroit has ever seen. Police in riot gear with batons started clubbing people who were dancing. The scene turned into chaos. A few of my friends decided to find an alternative exit. We kicked down a door and ran for it. But because we'd bused from the parking lot we didn't know where we were going. Luckily, I didn't take acid. Like most of us did. We found the parking lot eventually, but our friend who drove had been arrested at the party. So we were stranded. Moments later, a line of police arrived and surrounded the lot. They were fully armed and ran to where we were hiding, guns drawn. We all lined up against the fence, hands up, legs spread. One cop took a guy to the ground and kicked him. They joked that they've been known to slip on the trigger and no one would know. People were so scared they peed themselves, to which the cops made a spectacle of them. We were released as there was no proof of us being at the party, but we were told to leave the lot or face trespassing charges.",
+    "So what remained of our group started to walk back to Canada, and Detroit during this period was incredibly dangerous. This is where I met Chris. He was like a miracle. Arrived in a car that was circling the party, wondering what the fuck was going on. My friend knew Chris and we got a ride back. I sat in the back so Chris never got a look at who I was. But this story has stuck with me. It was both the most terrifying experience and also the most enlightening. I should say this: we were all white kids partying in a place that once housed jobs for a lot of Detroiters. A lot of them are Black. The cops were all Black. I totally get why they hated us. Even though our intentions weren't to be harmful, I could see how complicated Detroit's history was.",
+    "I would never forget Chris's face. He bailed us out of a jam that could have ended really badly.",
+    "It wasn't until 2024 that I met him again. This time, at an art show I was hosting in Windsor. We chatted and had lots in common. I knew I had met him before, and I went through all the possibilities. Regardless, he reminded me of this energy that one only finds in Windsor. Windsor is for me one of the most interesting cities in Canada. Its connection to Detroit, but still distinctly its own flavour. Chris has that flavour. A creative intellect. I get homesick for that energy.",
+    "Then it dawned on me. It was the guy who saved us. It flashed in my mind and I was certain it was him. I wrote him a quick text and indeed, that was how I knew him.",
+    "He bought a painting from me and gave me his latest album on CD. I connected with it on a really personal level. I picked four tracks for the website. All of his work deserves attention, but Orffyreus Wheel, Undertow and Overture I must have listened to over a hundred times. There's something in those pieces that doesn't let go of you. They loop in your head the way the footage loops on screen. Slow, hypnotic, inevitable.",
+    "That's Issue 2. Headphones on. Lights off. If you have a projector, even better. Your living room becomes the installation."
+  ],
+  "sections": [
+    {
+      "heading": "About Issue 2",
+      "paras": [
+        "A little about the pairing of visuals with Chris's music. His work felt similar to peeling an onion. It kept reinventing itself over and over and I got completely lost inside the world he created.",
+        "When I first got started on this issue, I began with something that had been on the back of my mind for years. To work with video of a figure skater in a full spin, then loop that. It worked as good as I imagined it would, hypnotic and transcending. But the footage below opened up the music in a different way.",
+        "The found footage is taken from interviews of bankers on Wall Street. I wasn't so much interested in the person being interviewed. I was more interested in the people in the background. This is a recurring theme in my work. I went through a long stint with photography and was particularly drawn to urban areas where lots of people were coming and going. I made myself available to it, almost being like a stage, with actors arriving and leaving as if it were a performance.",
+        "This footage I have watched over and over. Each time I notice something else. It made me hear Chris's music differently. And this is what Oswin Journal is. Opening up music and visuals to experience both as one."
+      ]
+    }
+  ],
+  "qaLead": "And now the interview",
+  "qa": [
+    {
+      "q": "Many people who live and breathe jazz claim the golden era was the late '50s. Where on the timeline do you think we are with electronic music? Has it peaked, or is it still building? Where is it all going?",
+      "a": "I feel the term “electronic music” is ultimately to be too broad at this point. In the late 60's and early 70s there was a sense that electronic instruments fit into a clear category. There was fear that they would wrongly replace real instruments or even musicians (The Beatles' use of the Mellotron on ‘Strawberry Fields Forever'). And that trend seemed to continue into the 80s with a well-defined delineation of synth pop and psych rock's usage of synthesizers and drum machines etc. But the practice of electronic instruments and methods in production are utilized in almost all popular music today. The technology is inseparable from the process and therefore not truly electronic music in a purest sense. So, I guess in very strict terms, the golden era of electronic music has passed. In the 90s I had a narrower vision of what I believed electronic music production should look like. I was ultimately (save for a few exceptions) exclusively listening to electronic music, like techno and sample based experimental music. Since then, my production methods have evolved to include more traditional instruments, although I'm not using them in a conventional manner. And as I have grown older, I have lost touch with the multitude of genres that have splintered. Black MIDI? I had no idea. There are now hundreds of subgenres of electronic music. And with production methods crossing so many categories, hybridizing and evolving so quickly, it suggests that we are well past the golden era and deeper into uncharted territory."
+    },
+    {
+      "q": "What's a piece of art from a completely different medium that shaped how you hear things?",
+      "a": "During a brief gallery tour in Toronto during my art school years, I encountered an exhibition that profoundly altered my understanding of contemporary art. The exhibition was held at The Ydessa Hendeles Gallery and featured a collection of works by Bill Viola, Gary Hill, and James Coleman. Ydessa had modified the gallery's interior structure to accommodate the artworks. This is where I experienced Bill Viola's Arc of Ascent. The installation comprised a synchronized multi-channel video projected onto a suspended 22-foot translucent scrim. The action depicted, in extreme slow motion, was that of a diver plunging into dark water and subsequently ascending to the surface. The three-second dive is slowed to a lengthy seven minutes, creating a sense of tension as the suspended figure gradually descends on the screen. The audio is also slowed to synchronize with the image on the screen. The sound consists of a thunderous wave of bass and noise, creating a powerful visceral experience. In that moment, I realized how the image was significantly influenced by the presence of the sound. This was not music or sound effects but an aural texture designed to challenge viewers' perceptions. From that point on, I developed an understanding that sound art could be atonal and experiential without the need for elaborate context or extraneous meaning."
+    },
+    {
+      "q": "You've spent your life on the border, Windsor and Detroit — two cities with different energies, but there is something very unusual about Windsor. How do you see this connection between the two places? How has it shaped how you make music?",
+      "a": "In the early 90s, I spent a considerable amount of time attending warehouse parties and shopping for music at local record shops in Michigan. Detroit has played a significant role in shaping my formative years, providing me with techniques and inspiration. However, the way I currently create music has undergone a significant transformation over the years. Detroit remains an important destination, and it has undergone exponential gentrification and development over the past 25 years. In contrast, Windsor has largely remained unchanged and could potentially learn from Detroit's transformation. Windsor is a border anomaly, and Michiganders regard it like a suburb of Detroit. There are distinct cultural differences, and I think it's important for us to maintain our identity. We really aren't “South Detroit”, despite what the Journey song suggests. Nevertheless, the two cities will continue to have a symbiotic relationship, and I hope that this will only improve, despite the current political tensions between the countries."
+    },
+    {
+      "q": "What does your process look like when you're starting something new? Does it begin with a sound you've heard out in the world, or is it more about experimentation once you're in the studio? There's a loneliness to your music that I'm drawn to, not sad, but solitary. Where does that come from?",
+      "a": "I rarely step into the studio with a clear vision of what I want to create. While I may have a general idea, I mostly begin with experimentation. Some days, I focus on creating patches that I can use later, while other sessions involve composing and mixing. Over the years, I've become more comfortable with my process, allowing errors in the work to become part of the final product. There are times when it is essential for me to be meticulous, and other times when I need to cut the track loose and understand what the music has become. I don't start a track with the intention of producing something melancholic, but it often ends up being that way. I'm not a dark person, but I find that the process of sound production is cathartic. Perhaps there's a psychological explanation for how I end up with sad sounds. I'm not sure I want to find out."
+    },
+    {
+      "q": "Final question: what are you listening to?",
+      "a": "This is my “Best Of” list for 2025. Not everything on my curated lists is a widely lauded success, but there is most often something about a release that I find interesting or unique."
+    }
+  ]
+},
+{
+  "id": "karla",
+  "issue": 1,
+  "cardLines": ["KARLA", "IS HERE"],
+  "title": "KARLA IS HERE",
+  "sub": "Issue 1 · Yoni Newman",
+  "deck": "A conversation with Yoni Newman on listening, looking, and the golden age that never ends.",
+  "date": "Dec 12, 2025",
+  "portrait": "images/interviews/yoni.jpg",
+  "intro": [
+    "Yoni and I met in the late 1990s while I was studying in Toronto. My year-end project was to create a cultural event tied to fashion — what I was studying at the time — and I discovered Yoni's work hanging in a café. I was instantly intrigued and got in touch. He and his friend Oli became lifelong friends from that moment.",
+    "Over the years, we've done a few collaborations, but more importantly, it's our connection to the creative process as a whole that sustains things. If there's something stirring in my mind that I can't quite articulate, Yoni knows how to contextualize what I'm thinking. I've come to realize how important he is to my creative process. The two of us together is much like herding cats — we both wander, sometimes aimlessly, then reconnect with too much to talk about.",
+    "These are some questions I asked him, and this is not unlike what our chats are like. Hope you enjoy."
+  ],
+  "sections": [],
+  "qaLead": "Interview",
+  "qa": [
+    {
+      "q": "What sound have you heard recently that you couldn't stop thinking about?",
+      "a": "Nothing much recent, but it happens every so often — I'll hear something and I'll never forget it. I was in London four years ago, and the electrical on one of these very long escalators was glitching out, causing this crispy crackle of a sound that reverberated through the concrete tunnel. As I came down the escalator, the sound got louder and louder so that it sort of emerged out of the primordial hum of the escalator and cut through it. It still makes the hairs on the back of my neck stand up to think about it."
+    },
+    {
+      "q": "",
+      "a": "I live downtown near a legislature building, so as you can imagine there are frequent protests. A few months back, a chorus of voices came shouting through a loudspeaker. You couldn't hear the words from this far back, but you couldn't mistake that energy in the voices either. I was working on a few tracks at the time and kicking myself for not getting to my field recorder faster. The ambience off the street always adds this complexity that I can't find inside the machines."
+    },
+    {
+      "q": "",
+      "a": "Also, I remember being in Switzerland working on a drum machine with a friend. We were up in the mountains near Davos and there was a stream nearby. I'd been listening to all of these synthesized sounds nonstop, day after day — noise drones and the like — and I remember going for a walk and hearing the water in the stream. I started thinking about it like a type of white noise, but the complexity of it blew me away. The infinite variety, the softness — it was a persistent brain tickle on so many different frequency bands. It gets very psychedelic listening to the world at that level of detail."
+    },
+    {
+      "q": "",
+      "a": "Truthfully, though, I spend too much of my day with headphones on, and so these days I'm missing out on a lot of the world this way."
+    },
+    {
+      "q": "Many people who live and breathe jazz claim the golden era was the late '50s. Where on the timeline do you think we are with electronic music? Has it peaked, or is it still building? Where is it all going?",
+      "a": "That's very hard to say. I mean, the '50s was a level of growth in sophistication and what the vernacular could do, but let's not sell short the massive impact of the swing era, when jazz was at its social peak. They are such different visions of a musical form."
+    },
+    {
+      "q": "",
+      "a": "It's different with electronic. It's hard to argue with the innovations of the '90s — the birth of rave culture, DnB, jungle, French house. I mean, all of it seemed to come out of nowhere. It was completely new, and that's quite rare. Was that the golden age?"
+    },
+    {
+      "q": "",
+      "a": "But electronic music now is bigger than it's ever been at any other point in history. However, like other forms of music these days, there are very few people moving it past what the pioneers built for us. We see a lot of refinements and personal takes on a genre, and I'm a huge fan of that, by the way — I'm much more interested in genuine expression and craftsmanship than novelty. But then there are always singular artists just doing something completely different."
+    },
+    {
+      "q": "",
+      "a": "The deeper I get into it, the more I wonder whether artists making vital work is a constant — it's the systems of distribution and consumption around them that ebb and flow, so that you get these dips and high water marks in the culture. There are quiet geniuses all over the place. When I go out, I regularly hear really good electronic music. The underground is as alive and vital as it's ever been. But the way to get that material to people is so reliant on social media that it really puts artists who don't have the chops for self-promotion at a huge disadvantage."
+    },
+    {
+      "q": "",
+      "a": "Truthfully, the landscape is so fractured now it's really difficult for me to see where we are. But maybe it's better that way."
+    },
+    {
+      "q": "What's a piece of art from a completely different medium that shaped how you hear things?",
+      "a": "I don't know of any one piece in particular, but I always use bits of video or found footage to articulate the vibe of tracks I'm working on. I'll project them on the wall of my studio and bask in the vibe. It's a very immediate way to immerse myself in the feel of a song. It can be anything, but it has to taste right with the sounds — and then you have a whole world you're in while making the track."
+    },
+    {
+      "q": "",
+      "a": "For example, if you remember Julian Schnabel's movie about Basquiat, there's this scene where he looks up at the New York skyline and sees this found footage projection of a guy surfing. It's just that same unexplainable perfect fit. I have a library of little bits of video I collect for this purpose."
+    }
+  ]
+},
+{
+  "id": "schoenberg",
+  "issue": 3,
+  "cardLines": [
+    "ARNOLD",
+    "SCHOEN-",
+    "BERG"
+  ],
+  "title": "ARNOLD SCHOENBERG",
+  "sub": "Issue 3 · Arnold Schoenberg",
+  "portrait": "images/interviews/schoenberg.jpg",
+  "disclosure": "Arnold Schoenberg died in 1951 and said none of this. The interviewer is Alex Taves. The respondent is Claude, an AI model made by Anthropic, answering in character from the composer's published writing, letters and known positions as of 1918. The opinions are his. The sentences are not.",
+  "intro": [],
+  "sections": [],
+  "qaLead": "Interview",
+  "qa": [
+    {
+      "q": "You painted seriously for four years and stopped. Kandinsky heard your quartet, wrote to you, and put your pictures in the Blaue Reiter. Were you a painter who happened to compose, or was the painting always music by other means?",
+      "a": "I was never a painter. I was a man who needed to say something and reached for whatever was nearest, and for a period the nearest thing was oil. Kandinsky was generous, more generous than the work deserved, and I have since put the brushes away because a man who does two things badly is worth less than a man who does one thing correctly."
+    },
+    {
+      "q": "",
+      "a": "But do not mistake modesty for a retraction. The pictures were not a hobby. I painted heads that are mostly stare, and one which is nothing but a stare with the head removed, and I did not paint them from a model. I painted the thing I heard. When Kandinsky wrote to me he had not seen the pictures at all. He had heard the quartet and understood immediately what I was after, which is the whole point: the material differs, the necessity does not. He calls it the inner necessity. I call it not lying. Same object."
+    },
+    {
+      "q": "",
+      "a": "The difference is that a painting hangs there and permits you to look away and look back. Music does not permit this. Music takes your time and does not return it. That is the advantage and the cruelty."
+    },
+    {
+      "q": "In Die glückliche Hand you scored light and colour as though they were instruments, a crescendo of red into yellow written into the staff. Is that theatre, or is it a claim that colour and pitch are the same substance?",
+      "a": "It is a claim, and I am tired of it being treated as decoration. I did not write “the stage becomes red.” I wrote the increase, the rate of it, the point at which it must break. It is composed. If a stagehand executes it as mood lighting, the piece is ruined, and I expect that is exactly what will happen for the next hundred years."
+    },
+    {
+      "q": "",
+      "a": "Are colour and tone the same substance? I do not know and I distrust anyone who says they do. The mystics will tell you C sharp is violet. That is a parlour trick. What I say is smaller and harder: both are quantities that move in time and can be given a shape, and if a shape can be given, it can be composed, and if it can be composed, then to leave it to a lighting man's taste is an abdication."
+    },
+    {
+      "q": "",
+      "a": "Consider what this implies. It implies that everything in the room is scoreable. The light, the duration, the order of arrival, the silence before. Nobody wants this, because it means the composer is responsible for the whole experience and can no longer blame the hall. I accept the responsibility. I do not expect the means to exist in my lifetime."
+    }
+  ]
+}
+]
+const INTERVIEWS_BY_ISSUE = [...INTERVIEWS].sort((a, b) => a.issue - b.issue)
+
+// Add-to-home-screen instructions. Kept to two paths and three steps each —
+// anything longer and nobody follows it.
+const READ_ME = {
+  title: 'PLEASE READ',
+  sub: 'Put Oswin on Your Home Screen',
+  lead: [
+    "Oswin is built to be stood inside, not scrolled past. Saved to your home screen it opens like an app — full screen, no address bar, no browser furniture between you and the room.",
+    "It takes about ten seconds.",
+  ],
+  paths: [
+    { heading: 'On iPhone', steps: [
+      'Tap the share button at the bottom of Safari — the square with an arrow coming out of it.',
+      'Scroll down the list and tap Add to Home Screen.',
+      'Tap Add, top right.',
+    ] },
+    { heading: 'On Android', steps: [
+      'Tap the three dots at the top right of Chrome.',
+      'Tap Add to Home screen, or Install app.',
+      'Tap Install.',
+    ] },
+  ],
+  close: 'Now open it from the icon rather than the browser. Headphones on, lights off.',
+}
+
+function openReadMe() {
+  const sh = document.createElement('div')
+  sh.className = 'sheet'
+  sh.innerHTML =
+    `<h2>${READ_ME.title}</h2><p class="sheetSub">${READ_ME.sub}</p>` +
+    READ_ME.lead.map(p => `<p class="copy">${p}</p>`).join('') +
+    READ_ME.paths.map(path =>
+      `<h3 class="section">${path.heading}</h3><ol class="steps">` +
+      path.steps.map(t => `<li>${t}</li>`).join('') + '</ol>'
+    ).join('') +
+    `<p class="copy close-note">${READ_ME.close}</p>` +
+    '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
+  sh.querySelector('.close').addEventListener('click', () => history.back())
+  mountSheet(sh)
+}
+
+// The four issues in order, then the rooms that are not issues.
+const CARDS = [
+  { id: 'readme', kind: 'plain', title: 'PLEASE READ', lines: ['PLEASE', 'READ'],
+    sub: 'Put Oswin on Your Home Screen', bg: READ_ME_BG, light: true, open: openReadMe },
+
+  { id: 'karla',  kind: 'video', badge: 1, src: 'videos/mobile/karla.mp4',
+    title: 'KARLA IS HERE', lines: ['KARLA', 'IS HERE'], foot: 'visuals by oswin',
+    bg: '#12151b', ink: '#1E2BFF', open: () => location.href = LIVE_ISSUE(1) },
+  { id: 'chris',  kind: 'video', badge: 2, src: 'videos/mobile/chris.mp4',
+    title: 'CHRISTOPHER BISSONNETTE', lines: ['CHRIS-', 'TOPHER', 'BISSON-', 'NETTE'], foot: 'visuals by oswin',
+    bg: '#12151b', open: () => location.href = LIVE_ISSUE(2) },
+  { id: 'arnold', kind: 'slides', badge: 3,
+    slides: ['green', 'orange', 'purple', 'red'].map(c => `images/mobile/giftshop-${c}.jpg`),
+    title: 'ARNOLD SCHOENBERG', lines: ['ARNOLD', 'SCHOEN-', 'BERG'], foot: 'visuals by oswin',
+    bg: '#777777', open: () => location.href = LIVE_ISSUE(3) },
+  { id: 'oli',    kind: 'video', badge: 4, src: 'videos/mobile/oli.mp4',
+    title: 'OLI GOLDSMITH', lines: ['OLI', 'GOLD-', 'SMITH'], foot: 'audio by karla is here',
+    bg: '#12151b', open: () => location.href = 'oli.html' },
+
+  // Same treatment as the Oswin Journal card — flat ground, title, caption — on
+  // the site's own yellow, the one the badges and the masthead already use.
+  // No copy for it yet, so it carries no body and opens nothing.
+  // Title and caption only — the writing lives in the room, not on the way in.
+  { id: 'interviews', kind: 'plain', title: 'INTERVIEWS', lines: ['INTER-', 'VIEWS'],
+    sub: 'Karla Is Here · Christopher Bissonnette · Arnold Schoenberg',
+    bg: BADGE_YELLOW, open: openInterviews },
+
+  { id: 'journal', kind: 'body', title: 'OSWIN JOURNAL', lines: ['OSWIN', 'JOURNAL'],
+    sub: 'A Browser Built as a Gallery', bg: '#D4D2CB', body: OSWIN_JOURNAL_BODY,
+    open: () => openSheet({ title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', paras: OSWIN_JOURNAL_BODY }) },
+  { id: 'fiction', kind: 'plain', title: 'FICTION', lines: ['FICTION'],
+    sub: 'Sci Fi Meets Absurdism', bg: '#FF5F00', light: true, open: openFiction },
+  { id: 'alex',   kind: 'photo', title: 'ALEXANDER TAVES', lines: ['ALEXANDER', 'TAVES'],
+    sub: 'Oswin Curator', bg: '#0a0a0a', src: 'cards/alexander.png',
+    open: () => openSheet({
+      title: 'ALEXANDER TAVES', sub: 'oswin curator', paras: ALEX_TAVES_BIO,
+      actions: [{ label: 'SUBSCRIBE', run: openSubscribe }, { label: 'ALEXTAVES.COM', href: 'https://alextaves.com' }],
+    }) },
+  { id: 'enquiries', kind: 'enq', title: 'ENQUIRIES', lines: ['ENQUIRIES'],
+    sub: 'Get in Touch · Looking for Like Minded', bg: '#00C2A8', open: openEnquiries },
+]
+
+// The fiction ring's cards, brought over from alextaves.com — the room FICTION
+// has been pointing at without having. Four have covers; the rest are announced
+// but unwritten. Built only when the room is opened, so the lobby grid never
+// pays for these files.
+// The stories themselves, carried over from the fiction ring on alextaves.com.
+// Only three are written; the rest of the room is announced but empty.
+const FICTION_STORIES = {
+  "hum": {
+    "title": "HUM",
+    "paras": [
+      "As you walk through a store, the music and screens change to your taste. But the music is in your head. Everyone has their version. The screens are Hum’s, billboards, store displays, transit panels, the lobby screen at your building. Designated surfaces. If you’re WOCCA, they go black. I’ve lowered my glasses a few times out of curiosity. To not wear them seems so sad and lonely.",
+      "Those who hear no music or see no visuals at all are known as WOCCA. Apparently they’re around, I don’t know any.",
+      "The glasses are part of it. Mandatory since UV-C started punching through the atmosphere. Class 4 tinted frames, revised Radiation Protection Standard, you can’t legally leave the house without them. Everyone knows they track. The sneakers you linger on, the sports team whose scores you check, the exact blue you keep returning to. What most people don’t clock is the depth. Every fixation timestamped, every saccade logged. The glasses see what you see, and the audio responds.",
+      "You near the wine aisle at a grocery store and a signal fires from one of the Knowisphere mesh beacons above the shelving. Newer stores use KWM III, most still run the old mesh. The musak shifts to what you’d be doing that night. At least, a prediction. Most nights after work, you buy wine and watch a show. The musak knows the show and will play something that alludes to it. Not the melody per se. A hint. Or if you are heading to see your sport team play, the atmosphere shifts through sight and sound to let you pre-enjoy self. Of course you can adjust the settings. I’m hungry, or I need to prep for an exam. Billboard screens turn into cue cards. It’s subtle but shown to morph attitudes.",
+      "Every glance is noted and saved. Except in your own home, or at night, though there’s a beta program to push the night frames, softer tint, still tracking, marketed as reducing contrast fatigue. It’s catching on. People love the glasses. Chanel. Burberry. Prada does a really beautiful pair in tortoiseshell.",
+      "The wine aisle is the entry point. Every industry is vying for its share, particularly the dodgier ones. It really took off in the adult industry, it counts on men having types. The half-second glances, the ones you wouldn’t remember taking, are weighted highest.",
+      "So your glance at anything shifts the sound, ever so slightly. It’s not music we’re talking about here. This is purely generative, the model spitting out audio per frame based on what your eyes just did. But at the same time it could be music. And it’s impossible to hear the same thing twice.",
+      "WOCCA hear nothing. They see a grey city. Everyone else, the whole thing is illuminated."
+    ]
+  },
+  "knife": {
+    "title": "CASUAL KNIFE FIGHT",
+    "paras": [
+      "It was one of those casual knife fights. Effort was made, yes, but it was relaxed effort. Much like driving - one wrong move and you could die, but nonetheless, it can be relaxing. Knife fights, from time to time, can do this for me too. Don’t get me wrong, I’ve been in knife fights that were terrifying. This particular one wasn’t. It was very casual.",
+      "Was our aim to kill? Maybe not kill, but to at least injure enough that they may never walk again or use the washroom properly. Kill if it came to it, for sure.",
+      "He took a swing with his four-inch blade and it nearly hit my face. I noticed his technique was rather Montreal style; that being scrappy yet circus like. I moved my head gently to the left. You could tell it was a well-made knife - I’d say the handle was cedar, possibly hand-carved. It had a lovely aroma. I burn a lot of cedar incense at home; it relaxes me. His cologne was Tom Ford Oud Wood - excellent choice for a knife fight, subtle yet memorable. He seemed to have good taste. Too bad someone might die right now.",
+      "I grabbed his well-conditioned and styled hair - the kind of precision cut you only get at those appointment-only barbershops - and attempted to knife his temple, but he pushed me back and I fell. The lawn was that perfect length and lush. Whoever is taking care of this lawn understands the right amount of watering and has a clear sense of how much nitrogen to use. Too much makes the lawn go yellow and look burnt. This lawn, was luxurious. It had that deep summer grass clipping smell, mixed with the earthy undertones of recent irrigation. Through the carefully spaced Japanese maples, the sky was a particular shade of azure you only get in late August. I must say there was a lot of air travel that day - lots of jet streams criss-crossing like an amateur’s knife work.",
+      "He came running at me, knife pointed at my face as if to jump on me and stab my face off. His Brunello Cucinelli linen shirt moved beautifully with each thrust - breathing with his movements like good fabric should. I noticed his nice arms, clearly the result of a carefully balanced regime of calisthenics and light weights. Wow, he smells good and has nice arms. He’s the full package... I rolled out of the way, careful not to stain my own shirt - it was my favorite Jil Sander. My phone beeped and I took a second to check who it was. I had a little time - he had fumbled to the ground and seemed to be trying to rub dirt off his knees. They were nice jeans - raw Japanese denim, probably Momotaro given the subtle detailing. I’ll give him a second. I can quickly check my messages.",
+      "The fight continued.",
+      "He stabbed me in the stomach. It did hurt quite a bit, but I made it to the hospital promptly and all is good. My drink plans that evening were cancelled, but we rescheduled. I heard later he also had to cancel his plans - something about getting blood on his shirt and he had no backup."
+    ]
+  },
+  "elon": {
+    "title": "ELON'S IN MY ELEVATOR",
+    "paras": [
+      "It was summer of 2019 in Toronto, there was a tech convention and my new interest in computer programming led me there. There were rumors Elon Musk was going to be there but with all the commotion of too many booths to visit and speakers and people and more booths and too many things to grab your attention I soon forgot about Musk. This was until I dashed to catch an elevator to head to the 60th floor to the infamous restaurant — Canoe — to meet up with a few friends and perhaps grab an overpriced dinner. The elevator door was shutting as I neared and I darted to throw my arm in to stop the doors from shutting. I could see a guy that was standing in the elevator, and I both felt embarrassed and annoyed. One that I was holding him up and two, what a douche for not holding the door, it was obvious I was going to the same place.",
+      "Now, the long ride to the 60th floor. But I hadn’t even noticed who it was until we were well on our way up — Elon Musk. I’m not sure what face I made when I noticed but I’m sure there was a jolt to it. How could I not, it’s fucking Elon Musk. Mr. Everything, likely one of the most powerful people on the planet.",
+      "And as I write this, I realized I was staring. So I looked down quickly to pretend I hadn’t noticed. He was glaring at his phone and seemed like nothing was going to steal his attention so I looked up and stared from my peripheral view. His face seemed more play-dough like in real life, it looked damp and cold. His eyes fixated on his phone, eyes blinking rarely, and when they did blink it seemed to take twice as long as what is deemed normal for blinking. His thumb scrolled up, and up and then would pause, his eyes widened when he landed on a section that seemed critical to him. Then scroll, scroll, and pause.",
+      "That’s when the elevator came to a lurch — and stopped. The door didn’t open, and we were only on floor 41. Elon seemed unfazed by it, and continued to scroll. As a few minutes passed he opened his leather side bag and had a small tub of Mott’s applesauce with the mini wooden paddle like spoon. He peeled the foil back with concentrated precision. He started with the lip and very slowly peeled it back. His eyes widened, and brought the applesauce closer to his face as if to observe the container in finer detail.",
+      "Once he got the foil past the halfway point he accelerated the peel and stopped just shy of tearing it completely off. He took the foil and gently wrapped it over the side and to the bottom. Then he started to eat the applesauce with the same intensity. He knew that wooden spoon paddle well, the way he maximized each scoop, no applesauce spilled, but there also wasn’t room for even the slightest bit more. Once he got to the bottom of the container, he started to scrape the sides, again with great precision. There is no other way to describe it, he has mastered the Mott’s applesauce cup. This definitely wasn’t his first.",
+      "He pulled out another Mott’s applesauce out of his bag and placed it into the empty cup and continued to peel the foil back. He looked up at me, which was the first time he even acknowledged I was there, and said, “if you don’t peel carefully, the foil will rip”. I nodded to signal I understood.",
+      "He ate the Mott’s applesauce the same way as the first. He pulled out another one. The elevator jolted and we were back on our way, to which his reaction was to put the unopened Mott’s applesauce back into his bag. The door opened and that was my run-in with Elon Musk."
+    ]
+  }
+}
+
+const FICTION_CARDS = [
+  { id: 'hum',    kind: 'video', src: 'videos/fiction/hum.mp4',
+    lines: ['HUM'], sub: 'Broken Sign', bg: '#0c0c0c' },
+  { id: 'elon',   kind: 'image', src: 'images/fiction/elon.jpg',
+    lines: ["ELON'S", 'IN MY', 'ELEVATOR'], sub: 'Floor 41', bg: '#1a1a1a' },
+  { id: 'siphon', kind: 'video', src: 'videos/fiction/siphon.mp4',
+    lines: ['SIPHON'], sub: 'Falling Dots', bg: '#05061a' },
+  { id: 'knife',  kind: 'video', src: 'videos/fiction/knife.mp4',
+    lines: ['KNIFE'], sub: 'Casual Knife Fight', bg: '#C9A400' },
+  { id: 'grafting', kind: 'plain', lines: ['GRAFT-', 'ING'], sub: 'Coming Soon', bg: '#046A38', light: true },
+  { id: 'boogie',   kind: 'plain', lines: ['BOOGIE'],        sub: 'Coming Soon', bg: '#582C83', light: true },
+  { id: 'cbc',      kind: 'plain', lines: ['CBC'],           sub: 'Coming Soon', bg: '#E4002B', light: true },
+  { id: 'dorthy',   kind: 'plain', lines: ['DORTHY', 'SOTH-', 'ERBY'], sub: 'Coming Soon', bg: '#F37021', light: true },
+]
+
+// An interview reads like an issue: the portrait, then the writing, then the
+// questions. Same sheet the journal write-up uses, with the Q&A set apart so
+// you can see where the conversation starts.
+function openInterview(iv) {
+  const sh = document.createElement('div')
+  sh.className = 'sheet'
+  sh.innerHTML =
+    `<img class="portrait" src="${iv.portrait}" alt="">` +
+    `<h2>${iv.title}</h2><p class="sheetSub">${iv.sub}</p>` +
+    (iv.deck ? `<p class="deck">${iv.deck}</p>` : '') +
+    // A standing head, not a footnote: it sits above the piece, in the reading
+    // size, so it is read rather than skipped.
+    (iv.disclosure ? `<p class="disclosure">${iv.disclosure}</p>` : '') +
+    iv.intro.map(p => `<p class="copy">${p}</p>`).join('') +
+    (iv.sections || []).map(sec =>
+      `<h3 class="section">${sec.heading}</h3>` + sec.paras.map(p => `<p class="copy">${p}</p>`).join('')
+    ).join('') +
+    `<h3 class="section">${iv.qaLead}</h3>` +
+    iv.qa.map(x => (x.q ? `<p class="q">${x.q}</p>` : '') + `<p class="copy">${x.a}</p>`).join('') +
+    '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
+  sh.querySelector('.close').addEventListener('click', () => history.back())
+  mountSheet(sh)
+}
+
+function openInterviews() {
+  const sh = document.createElement('div')
+  sh.className = 'sheet room'
+  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">INTERVIEWS</div>` +
+                 '<div class="grid"></div>' +
+                 '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
+  const g = sh.querySelector('.grid')
+  INTERVIEWS_BY_ISSUE.forEach((iv) => g.appendChild(buildCard({
+    id: iv.id, kind: 'image', src: iv.portrait,
+    lines: iv.cardLines, sub: iv.sub, bg: '#1a1a1a',
+    open: () => openInterview(iv),
+  })))
+  sh.querySelector('.close').addEventListener('click', () => history.back())
+  mountSheet(sh)
+  const head = sh.querySelector('.masthead')
+  const title = g.querySelector('.card .title')
+  if (title) {
+    head.style.height = title.getBoundingClientRect().height + 'px'
+    head.style.fontSize = getComputedStyle(title).fontSize
+  }
+}
+
+function openFiction() {
+  const s = document.createElement('div')
+  s.className = 'sheet room'
+  s.innerHTML = '<div class="masthead" style="background:#FF5F00;color:#111111">FICTION</div>' +
+                '<div class="grid"></div>' +
+                '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
+  const g = s.querySelector('.grid')
+  // A card with a story behind it opens it; the rest of the room stays a promise.
+  FICTION_CARDS.forEach((c) => {
+    const story = FICTION_STORIES[c.id]
+    g.appendChild(buildCard(story
+      ? { ...c, open: () => openSheet({ title: story.title, sub: c.sub, paras: story.paras }) }
+      : c))
+  })
+  s.querySelector('.close').addEventListener('click', () => history.back())
+  mountSheet(s)
+  // Size the room's masthead off its own first card, same as the lobby's.
+  const head = s.querySelector('.masthead')
+  const title = g.querySelector('.card .title')
+  if (title) {
+    head.style.height = title.getBoundingClientRect().height + 'px'
+    head.style.fontSize = getComputedStyle(title).fontSize
+  }
+}
+
+
+// ── Title fitting ─────────────────────────────────────────────────────────────
+// The ring shrinks a title until it fits (titleLayout). CSS has no
+// shrink-to-fit, so the same measure runs once against the same 600x800 design
+// and converts to container-query units, and the break-up is given by hand so
+// every card in the grid reads at one size.
+const DESIGN_W = 600, DESIGN_MARGIN = 54
+const FONT = "'Helvetica Neue', Helvetica, Arial, sans-serif"
+function fitTitle(lines) {
+  const ctx = document.createElement('canvas').getContext('2d')
+  const maxW = DESIGN_W - DESIGN_MARGIN * 2
+  let size = 74
+  for (; size >= 20; size -= 2) {
+    ctx.font = `700 ${size}px ${FONT}`
+    ctx.letterSpacing = '-0.01em'
+    if (Math.max(...lines.map(l => ctx.measureText(l).width)) <= maxW) break
+  }
+  return (size / DESIGN_W) * 100
+}
+
+// ── Badge ─────────────────────────────────────────────────────────────────────
+const BADGE_STYLES = [
+  { kind: 'hash',   bg: '#111111', fg: '#FFFFFF' },
+  { kind: 'number', bg: BADGE_YELLOW, fg: '#111111' },
+  { kind: 'circle', bg: '#FFFFFF', fg: BADGE_YELLOW },
+]
+const BADGE_HOLD_MS = 3000
+const badgeEls = []
+let badgeIdx = 0
+
+function paintTile(tile, style, num) {
+  tile.style.background = style.bg
+  tile.style.color = style.fg
+  tile.innerHTML = style.kind === 'circle' ? '<i></i>' : (style.kind === 'hash' ? '#' : String(num))
+}
+
+function makeBadge(num) {
+  const el = document.createElement('div')
+  el.className = 'badge'
+  const a = document.createElement('div'); a.className = 'tile'
+  const b = document.createElement('div'); b.className = 'tile'
+  a.style.transform = 'translateX(0)'
+  b.style.transform = 'translateX(-100%)'
+  paintTile(a, BADGE_STYLES[0], num)
+  el.append(a, b)
+  badgeEls.push({ el, num, tiles: [a, b], live: 0 })
+  return el
+}
+
+// Turn every badge together: paint the incoming tile, park it off to the left
+// without a transition, then let both run.
+function turnBadges(toIdx) {
+  const st = BADGE_STYLES[toIdx]
+  badgeEls.forEach((b) => {
+    const cur = b.tiles[b.live]
+    const next = b.tiles[1 - b.live]
+    paintTile(next, st, b.num)
+    next.style.transition = 'none'
+    next.style.transform = 'translateX(-100%)'
+    void next.offsetWidth          // commit the parked position before animating
+    next.style.transition = ''
+    cur.style.transform = 'translateX(100%)'
+    next.style.transform = 'translateX(0)'
+    b.live = 1 - b.live
+  })
+}
+
+// Ragged widths on purpose: equal bars read as a loading skeleton, uneven ones
+// read as prose. The short line is a paragraph ending.
+const COPY_LINES = [100, 96, 99, 92, 100, 88, 54, 97, 100, 84, 91, 63]
+const COPY_BREAK_AFTER = 6
+
+// ── Build ─────────────────────────────────────────────────────────────────────
+const grid = document.getElementById('grid')
+
+function buildCard(card) {
+  const el = document.createElement('div')
+  el.className = 'card'
+  el.style.background = card.bg
+  const overPhoto = card.kind === 'video' || card.kind === 'photo' || card.kind === 'image' || card.kind === 'slides'
+  const ink = card.ink || (overPhoto || card.light ? 'rgba(255,255,255,0.94)' : 'rgba(0,0,0,0.88)')
+  const inkSub = overPhoto || card.light ? 'rgba(255,255,255,0.62)' : 'rgba(0,0,0,0.50)'
+  const inkRule = overPhoto || card.light ? 'rgba(255,255,255,0.32)' : 'rgba(0,0,0,0.22)'
+
+  if (card.kind === 'video') {
+    const v = document.createElement('video')
+    v.className = 'media'
+    v.src = card.src
+    v.loop = true; v.playsInline = true; v.autoplay = true; v.preload = 'auto'
+    v.setAttribute('webkit-playsinline', '')
+    // iOS only allows inline autoplay on a genuinely muted element, and the
+    // property has to be set on the element, not just implied by an attribute.
+    v.muted = true; v.defaultMuted = true
+    const play = () => v.play().catch(() => {})
+    play()
+    // Low Power Mode refuses outright; the first touch is a gesture to retry on.
+    window.addEventListener('touchstart', play, { once: true, passive: true })
+    document.addEventListener('visibilitychange', play)
+    el.appendChild(v)
+  }
+
+  if (card.kind === 'slides') {
+    // Issue 3 has no film of its own — its stills cross-fade instead, which is
+    // the same slideshow the ring's card runs.
+    const layers = card.slides.map((src, i) => {
+      const d = document.createElement('div')
+      d.className = 'slide' + (i === 0 ? ' on' : '')
+      d.style.backgroundImage = `url('${src}')`
+      el.appendChild(d)
+      return d
+    })
+    let si = 0
+    setInterval(() => {
+      layers[si].classList.remove('on')
+      si = (si + 1) % layers.length
+      layers[si].classList.add('on')
+    }, 3200)
+  }
+
+  if (card.kind === 'image') {
+    const d = document.createElement('div')
+    d.className = 'slide on'
+    d.style.backgroundImage = `url('${card.src}')`
+    el.appendChild(d)
+  }
+
+  if (card.kind === 'photo') {
+    const d = document.createElement('div')
+    d.className = 'slide on'
+    d.style.backgroundImage = `url('${card.src}')`
+    d.style.filter = 'grayscale(1) contrast(1.2) brightness(0.95)'
+    el.appendChild(d)
+  }
+
+  if (overPhoto) {
+    el.insertAdjacentHTML('beforeend', '<div class="scrim"></div>')
+    if (card.foot) el.insertAdjacentHTML('beforeend', '<div class="scrimFoot"></div>')
+    el.insertAdjacentHTML('beforeend', '<div class="static"></div>')
+  }
+
+  const head = document.createElement('div')
+  head.className = 'head'
+  head.innerHTML =
+    `<h2 class="title" style="color:${ink};font-size:${fitTitle(card.lines)}cqw">` +
+    card.lines.map(l => `<span>${l}</span>`).join('') + '</h2>' +
+    `<div class="rule" style="background:${inkRule}"></div>` +
+    (card.sub ? `<p class="sub" style="color:${inkSub}">${card.sub}</p>` : '')
+  el.appendChild(head)
+
+  if (card.foot) {
+    el.insertAdjacentHTML('beforeend', `<div class="foot" style="color:${inkSub}">${card.foot}</div>`)
+  }
+
+  if (card.kind === 'body') {
+    const b = document.createElement('div')
+    b.className = 'body'
+    b.innerHTML = card.body.map(p => `<p>${p}</p>`).join('')
+    el.appendChild(b)
+  }
+
+  if (card.kind === 'enq') el.appendChild(buildEnquiryPreview())
+
+  if (card.badge) el.appendChild(makeBadge(card.badge))
+
+  if (card.open) el.addEventListener('click', card.open)
+  return el
+}
+
+CARDS.forEach((card) => grid.appendChild(buildCard(card)))
+
+setInterval(() => {
+  badgeIdx = (badgeIdx + 1) % BADGE_STYLES.length
+  turnBadges(badgeIdx)
+}, BADGE_HOLD_MS)
+
+// Match the masthead to the first card's title block — same height as KARLA IS
+// HERE, and its type set at the same size as a card title. Measured rather than
+// hardcoded so it tracks the cards through a rotation or any column change.
+const masthead = document.getElementById('masthead')
+function sizeMasthead() {
+  const title = grid.querySelector('.card .title')
+  if (!title) return
+  masthead.style.height = title.getBoundingClientRect().height + 'px'
+  masthead.style.fontSize = getComputedStyle(title).fontSize
+}
+sizeMasthead()
+addEventListener('resize', sizeMasthead)
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizeMasthead)
+
+// ── Enquiry preview ───────────────────────────────────────────────────────────
+function buildEnquiryPreview() {
+  const wrap = document.createElement('div')
+  wrap.className = 'enq'
+  const copy = document.createElement('div')
+  copy.className = 'enqCopy'
+  const bars = COPY_LINES.map((w, i) => {
+    const s = document.createElement('span')
+    s.className = 'copyLine' + (i === COPY_BREAK_AFTER ? ' copyBreak' : '')
+    s.style.width = w + '%'
+    copy.appendChild(s)
+    return s
+  })
+  wrap.innerHTML = '<span class="enqLabel">message</span>'
+  wrap.appendChild(copy)
+  wrap.insertAdjacentHTML('beforeend', '<span class="enqLabel enqSubmit">submit</span>')
+
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    let n = 0
+    setInterval(() => {
+      if (n >= bars.length) { n = 0; bars.forEach(b => b.style.transform = 'scaleX(0)'); return }
+      bars[n].style.transform = 'scaleX(1)'
+      n++
+    }, 1500)
+  } else {
+    bars.forEach(b => b.style.transform = 'scaleX(1)')
+  }
+  return wrap
+}
+
+// ── Sheets ────────────────────────────────────────────────────────────────────
+function closeSheet() {
+  document.querySelector('.sheet')?.remove()
+}
+window.addEventListener('popstate', closeSheet)
+
+function mountSheet(node) {
+  closeSheet()
+  document.body.appendChild(node)
+  history.pushState({ sheet: true }, '')
+}
+
+function openSheet({ title, sub, paras, actions = [] }) {
+  const s = document.createElement('div')
+  s.className = 'sheet'
+  s.innerHTML =
+    `<h2>${title}</h2><p class="sheetSub">${sub}</p>` +
+    paras.map(p => `<p class="copy">${p}</p>`).join('') +
+    '<div class="actions"></div>'
+  const row = s.querySelector('.actions')
+  actions.forEach((a) => {
+    if (a.href) {
+      row.insertAdjacentHTML('beforeend', `<a class="act" href="${a.href}" target="_blank" rel="noopener">${a.label}</a>`)
+    } else {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = a.label
+      b.addEventListener('click', a.run); row.appendChild(b)
+    }
+  })
+  const close = document.createElement('button')
+  close.type = 'button'; close.className = 'close'; close.textContent = 'CLOSE'
+  close.addEventListener('click', () => history.back())
+  row.appendChild(close)
+  mountSheet(s)
+}
+
+// Both forms post to the site's existing Formspree, tagged by subject so
+// subscriptions and enquiries stay separable in the inbox.
+async function postForm(payload, status) {
+  status.textContent = 'sending…'
+  try {
+    const res = await fetch(FORMSPREE_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    status.textContent = res.ok ? 'thank you — it is on its way.' : 'that did not go through. try again in a moment.'
+    return res.ok
+  } catch {
+    status.textContent = 'that did not go through. try again in a moment.'
+    return false
+  }
+}
+
+function openSubscribe() {
+  const s = document.createElement('div')
+  s.className = 'sheet'
+  s.innerHTML =
+    '<h2>SUBSCRIBE</h2><p class="sheetSub">the journal, when there is an issue</p>' +
+    '<form><label>EMAIL:<input type="email" name="email" autocomplete="email" required></label>' +
+    '<p class="status"></p><div class="actions">' +
+    '<button type="submit">SUBMIT</button>' +
+    '<button type="button" class="close">CLOSE</button></div></form>'
+  s.querySelector('.close').addEventListener('click', () => history.back())
+  s.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const ok = await postForm({ email: e.target.email.value.trim(), _subject: 'Subscribe' }, s.querySelector('.status'))
+    if (ok) e.target.reset()
+  })
+  mountSheet(s)
+}
+
+function openEnquiries() {
+  const s = document.createElement('div')
+  s.className = 'sheet teal'
+  s.innerHTML =
+    '<h2>ENQUIRIES</h2><p class="sheetSub">get in touch · looking for like minded</p>' +
+    '<form><label>NAME:<input type="text" name="name" autocomplete="name" required></label>' +
+    '<label>EMAIL:<input type="email" name="email" autocomplete="email" required></label>' +
+    '<label>MESSAGE:<textarea name="message" required></textarea></label>' +
+    '<p class="status"></p><div class="actions">' +
+    '<button type="submit">SUBMIT</button>' +
+    '<button type="button" class="close">CLOSE</button></div></form>'
+  s.querySelector('.close').addEventListener('click', () => history.back())
+  s.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const f = e.target
+    const name = f.name.value.trim()
+    const ok = await postForm(
+      { name, email: f.email.value.trim(), message: f.message.value.trim(), _subject: `Enquiry from ${name}` },
+      s.querySelector('.status'))
+    if (ok) f.reset()
+  })
+  mountSheet(s)
+}
+
+document.getElementById('subscribeBtn').addEventListener('click', openSubscribe)
+</script>
+</body>
+</html>
