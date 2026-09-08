@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CBC — gem tests</title>
+<style>
+  :root { --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  html, body { margin: 0; background: #E7E2D8; font-family: var(--font); color: #111; }
+  .page { padding: 24px; }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .lede { margin: 0 0 22px; font-size: 13px; color: rgba(0,0,0,0.6); max-width: 66ch; line-height: 1.5; }
+
+  .controls { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; flex-wrap: wrap;
+              font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(0,0,0,0.6); }
+  .controls label { display: flex; align-items: center; gap: 8px; }
+  .controls input[type=range] { width: 120px; }
+  .controls button { font-family: var(--font); font-size: 11px; letter-spacing: 0.14em;
+                     text-transform: uppercase; background: none; border: 1px solid rgba(0,0,0,0.3);
+                     padding: 6px 12px; cursor: pointer; border-radius: 3px; }
+
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; max-width: 1100px; }
+  .card { container-type: inline-size; position: relative; aspect-ratio: 3/4;
+          border-radius: 6px; overflow: hidden; background: #E4002B;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.18),
+                      0 2px 3px rgba(0,0,0,0.22), 0 10px 20px rgba(0,0,0,0.18); }
+  .card canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .card .head { position: absolute; top: 0; left: 0; right: 0; padding: 9% 9% 0; z-index: 2; }
+  .card .title { margin: 0; font-weight: 700; font-size: 12.3cqw; line-height: 1;
+                 letter-spacing: -0.01em; color: #FFFFFF; }
+  .card .name { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 9% 5%; z-index: 2;
+                font-size: max(9px, 2.4cqw); letter-spacing: 0.14em; text-transform: uppercase;
+                color: rgba(255,255,255,0.7); }
+  body.inv .card { background: #FFFFFF; }
+  body.inv .card .title { color: #111111; }
+  body.inv .card .name { color: rgba(0,0,0,0.5); }
+
+  .ref { margin-top: 26px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+         color: rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>CBC — gem tests</h1>
+  <p class="lede">The gem is thirteen identical circles. One at the centre, eight on a lattice a
+     circle-and-a-gutter out, four more further out on the axes — each clipped to its own cell in a
+     five-by-five grid. Measured off your reference: the outer radius is exactly 2.79 circles, which
+     is also the ratio that lets the whole mark nest inside its own centre circle. That is what makes
+     an endless inward flow possible without the mark ever running out of itself.</p>
+
+  <div class="controls">
+    <label>Speed <input id="speed" type="range" min="0.05" max="0.8" step="0.01" value="0.22"></label>
+    <button id="inv">Flat red on white</button>
+    <button id="pause">Pause</button>
+  </div>
+
+  <div class="row" id="row"></div>
+  <p class="ref">Tonal by default. The button flips to flat red on white to check the shapes.</p>
+</div>
+
+<script>
+const TAU = Math.PI * 2
+// Tonal: the gem sits a shade deeper than the ground it is on, so the mark
+// reads as an inflection of the red rather than a shape laid over it.
+const INK = '#A80022'            // richer, slightly darker
+const GROUND = '#E4002B'         // the CBC card's red
+
+// ── The gem, measured off the reference ──────────────────────────────────────
+// Every shape is a circle of radius 1 clipped to a grid cell. All that changes
+// between them is which lattice point the circle sits on and which cell cuts it.
+const Gg = 0.1450                 // gutter, in circle radii
+const A2 = 1 + Gg                 // 1.1450  inner edge of the middle ring
+const A3 = 2 + Gg                 // 2.1450  outer edge of the middle ring
+const A4 = 2 + 2 * Gg             // 2.2901  inner edge of the outer ring
+const A5 = 2.5 + 2 * Gg           // 2.7901  outer radius of the whole mark
+const D1 = A2                     // middle-ring circles sit on the cell corner
+const D2 = 1.5 + 2 * Gg           // outer-ring circles sit half a radius inside
+const K = A5                      // nest ratio: mark : its own centre circle
+
+// span of a cell along one axis, given which band (-1, 0, +1) it is in
+const band = (s, inner, outer) => s === 0 ? [-1, 1] : s > 0 ? [inner, outer] : [-outer, -inner]
+
+const SHAPES = []
+SHAPES.push({ x: 0, y: 0, cell: [-1, 1, -1, 1] })                       // centre
+for (const [sx, sy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]) {
+  const [x0, x1] = band(sx, A2, A3), [y0, y1] = band(sy, A2, A3)
+  SHAPES.push({ x: sx * D1, y: sy * D1, cell: [x0, x1, y0, y1] })       // middle ring
+}
+for (const [sx, sy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+  const [x0, x1] = band(sx, A4, A5), [y0, y1] = band(sy, A4, A5)
+  SHAPES.push({ x: sx * D2, y: sy * D2, cell: [x0, x1, y0, y1] })       // outer ring
+}
+
+function gemShape(ctx, ox, oy, R, s) {
+  ctx.beginPath()
+  ctx.rect(ox + s.cell[0] * R, oy + s.cell[2] * R,
+           (s.cell[1] - s.cell[0]) * R, (s.cell[3] - s.cell[2]) * R)
+  ctx.clip()
+  ctx.beginPath()
+  ctx.arc(ox + s.x * R, oy + s.y * R, R, 0, TAU)
+}
+
+function drawGem(ctx, ox, oy, R, fill, skipCentre) {
+  ctx.fillStyle = fill
+  for (let i = skipCentre ? 1 : 0; i < SHAPES.length; i++) {
+    ctx.save(); gemShape(ctx, ox, oy, R, SHAPES[i]); ctx.fill(); ctx.restore()
+  }
+}
+
+// ── 1. Zoom ──────────────────────────────────────────────────────────────────
+// The whole mark scales inward for ever. A gem's outer circle is exactly its
+// parent's centre circle, so no copy ever draws its own centre — the next copy
+// down IS that circle. What flows inward is the mark itself, and the copy
+// arriving from outside fades up as it comes, so the cycle has no seam and the
+// silhouette at rest is the logo exactly.
+function drawZoom(ctx, W, H, t, ink, ground) {
+  const ox = W / 2, oy = H / 2
+  const u = ((t % 1) + 1) % 1
+  ctx.fillStyle = ground
+  ctx.fillRect(0, 0, W, H)
+
+  let R = (Math.min(W, H) * 0.44 / A5) * Math.pow(K, 1 - u)
+  let alpha = u                                  // the incoming one, still arriving
+  let last = R
+  while (R > 0.35) {
+    ctx.globalAlpha = alpha
+    drawGem(ctx, ox, oy, R, ink, true)
+    ctx.globalAlpha = 1
+    alpha = 1
+    last = R
+    R /= K
+  }
+  ctx.fillStyle = ink                            // the innermost keeps its centre
+  ctx.beginPath(); ctx.arc(ox, oy, last, 0, TAU); ctx.fill()
+}
+
+// ── 2. Conveyor ──────────────────────────────────────────────────────────────
+// The grid never moves, so the outline stays inside the logo's own cells. Down
+// every radius runs a train of circles spaced one diameter apart, all marching
+// inward at one speed — so a cell shows an arc sweeping through rather than
+// filling up, and because every train is in step, once a lap the whole mark
+// lands on its lattice and IS the logo, exactly, before flowing on.
+// Just over a diameter. Two radii still let a corner cell's diagonal train
+// reach back into the cell, so the mark sat 4% heavy at rest; 2.5 clears every
+// cell yet keeps the travel window wider than the pitch, so none ever empties.
+const CONVEYOR_PITCH = 2.5
+
+function drawConveyor(ctx, W, H, t, ink, ground) {
+  const ox = W / 2, oy = H / 2
+  const R = Math.min(W, H) * 0.44 / A5
+  ctx.fillStyle = ground
+  ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = ink
+
+  const P = CONVEYOR_PITCH
+  const q = ((t % 1) + 1) % 1 * P            // one lap per unit of clock
+
+  for (const s of SHAPES) {
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(ox + s.cell[0] * R, oy + s.cell[2] * R,
+             (s.cell[1] - s.cell[0]) * R, (s.cell[3] - s.cell[2]) * R)
+    ctx.clip()
+    const d = Math.hypot(s.x, s.y)
+    if (d === 0) {                           // the centre is where it all arrives
+      ctx.beginPath(); ctx.arc(ox, oy, R, 0, TAU); ctx.fill()
+    } else {
+      const ux = -s.x / d, uy = -s.y / d     // inward along this radius
+      for (let m = -2; m <= 3; m++) {
+        const off = q + m * P
+        ctx.beginPath()
+        ctx.arc(ox + (s.x + ux * off) * R, oy + (s.y + uy * off) * R, R, 0, TAU)
+        ctx.fill()
+      }
+    }
+    ctx.restore()
+  }
+}
+
+// ── 3. Window ────────────────────────────────────────────────────────────────
+// The mark holds absolutely still and is used as a mask, with the zoom running
+// behind it. Tonally the interior has to be worked in two shades that are BOTH
+// deeper than the ground — feed it the ground colour and the flow punches holes
+// in the silhouette, and the logo stops holding together.
+const INK_DEEP = '#7C0019'
+
+function drawWindow(ctx, W, H, t, ink, ground, buf) {
+  const bx = buf.canvas
+  const dpr = Math.min(devicePixelRatio || 1, 2)
+  if (bx.width !== Math.round(W * dpr)) {
+    bx.width = Math.round(W * dpr); bx.height = Math.round(H * dpr)
+    buf.setTransform(dpr, 0, 0, dpr, 0, 0)
+  }
+  const deep = ink === '#FF0000' ? '#B00000' : INK_DEEP     // holds in both colourways
+  drawZoom(buf, W, H, t, deep, ink)
+
+  ctx.fillStyle = ground
+  ctx.fillRect(0, 0, W, H)
+  const ox = W / 2, oy = H / 2
+  const R = Math.min(W, H) * 0.44 / A5
+  for (const sh of SHAPES) {
+    ctx.save()
+    gemShape(ctx, ox, oy, R, sh)
+    ctx.clip()
+    ctx.drawImage(bx, 0, 0, W, H)
+    ctx.restore()
+  }
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+const VARIANTS = [
+  { name: '1 — zoom',      draw: drawZoom },
+  { name: '2 — conveyor',  draw: drawConveyor },
+  { name: '3 — window',    draw: drawWindow },
+]
+
+const row = document.getElementById('row')
+const speedEl = document.getElementById('speed')
+const pauseEl = document.getElementById('pause')
+const invEl = document.getElementById('inv')
+let running = true, clock = 0, last = performance.now(), inverted = false
+
+const cards = VARIANTS.map(v => {
+  const el = document.createElement('div')
+  el.className = 'card'
+  el.innerHTML = '<div class="head"><h2 class="title">CBC</h2></div>' +
+                 '<div class="name">' + v.name + '</div>'
+  const canvas = document.createElement('canvas')
+  el.insertBefore(canvas, el.firstChild)
+  row.appendChild(el)
+  const buf = document.createElement('canvas').getContext('2d')
+  return { v, canvas, ctx: canvas.getContext('2d'), buf }
+})
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2)
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.canvas.width = Math.round(r.width * dpr)
+    c.canvas.height = Math.round(r.height * dpr)
+    c.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    c.buf.setTransform(dpr, 0, 0, dpr, 0, 0)
+  })
+}
+addEventListener('resize', resize)
+
+function frame(now) {
+  requestAnimationFrame(frame)
+  const dt = Math.min((now - last) / 1000, 0.05); last = now
+  if (running) clock += dt * parseFloat(speedEl.value)
+  const ink = inverted ? '#FF0000' : INK
+  const ground = inverted ? '#FFFFFF' : GROUND
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.ctx.clearRect(0, 0, r.width, r.height)
+    c.v.draw(c.ctx, r.width, r.height, clock, ink, ground, c.buf)
+  })
+}
+
+pauseEl.addEventListener('click', () => {
+  running = !running
+  pauseEl.textContent = running ? 'Pause' : 'Play'
+})
+invEl.addEventListener('click', () => {
+  inverted = !inverted
+  document.body.classList.toggle('inv', inverted)
+})
+
+resize()
+requestAnimationFrame(frame)
+</script>
+</body>
+</html>

@@ -520,11 +520,18 @@ const PORTALS = [
     body: ALEX_TAVES_BIO, bodyReserve: 168 },  // Alexander Taves (04) — clicking turns the portrait over to the bio
   { title: 'ENQUIRIES', sub: 'get in touch · looking for like minded', bg: '#00C2A8', light: false },  // Enquiries — exact alextaves card (index must match ENQUIRIES_INDEX)
   { title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', body: OSWIN_JOURNAL_BODY, bg: '#D4D2CB', light: false },  // was ALEX TAVES (06.png)
-  { video: 'videos/oli_oswin_opener.mp4', title: 'OLI GOLDSMITH', sub: '', bottomCaption: 'audio by karla is here', bg: '#12151b', titleColor: '#FFFFFF', iframe: 'oli.html', badge: 4 },  // issue 4 — Oli (landing card); click opens the four-card Oli page, which links on to ethernity.space
+  { video: 'videos/oli_oswin_opener.mp4', title: 'OLI GOLDSMITH', sub: '', bottomCaption: 'audio by karla is here', bg: '#12151b', titleColor: '#FFFFFF', iframe: 'oli.html', badge: 4,
+    // Broken by hand — there is no space to break at. '#F9FF45' is BADGE_YELLOW,
+    // which is declared further down the file than this list can reach.
+    subLines: ['UNDER', 'CONSTRUC-', 'TION'], subColor: '#F9FF45' },  // issue 4 — Oli (landing card); click opens the four-card Oli page, which links on to ethernity.space
   { slideshow: ['images/giftshop-green.jpg', 'images/giftshop-orange.jpg', 'images/giftshop-purple.jpg', 'images/giftshop-red.jpg'], title: 'ARNOLD SCHOENBERG', sub: '', bottomCaption: 'visuals by oswin', bg: '#777777', titleColor: '#FFFFFF', badge: 3, iframe: LIVE_ISSUE(3) },  // issue 3 — Arnold (click enters the live Schoenberg piano experience)
   { video: 'videos/guy_corner_panel3.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: LIVE_ISSUE(2) },  // issue 2 — Chris; the card runs the corner-panel clip, cover-fit (a card-sized encode of public/videos/issue2/panels/guy_corner_panel3.mp4, which is untouched)
   { video: 'videos/karla_prerace.mp4', title: 'KARLA IS HERE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#1E2BFF', badge: 1, iframe: LIVE_ISSUE(1) },  // issue 1 — Karla (click enters the live issue-1 detail page)
-  { title: 'FICTION', sub: 'sci fi meets absurdism', bg: '#FF5F00', light: false },  // moved off alextaves.com — the room itself has not been carried over yet, so no `iframe` target
+  { title: 'FICTION', sub: 'sci fi meets absurdism', bg: '#FF5F00', light: false, iframe: 'fiction.html' },
+  // The writing that sits beside the issues. Same shape as FICTION: its own
+  // ring of the three pieces, in issue order. '#F9FF45' is BADGE_YELLOW, which
+  // is declared further down the file than this list can reach.
+  { title: 'INTERVIEWS', sub: 'karla is here · christopher bissonnette · arnold schoenberg', bg: '#F9FF45', light: false, iframe: 'interviews.html' },  // moved off alextaves.com — opens its own ring of the eight pieces, with the four live covers and the writing
 ]
 const LANDING_INDEX = 3   // Oli — the card the ring lands on
 const COUNT = PORTALS.length
@@ -1030,20 +1037,26 @@ const _titleSampled = new Map()
 // shrinking only as a last resort. Also reports where the header ends so the
 // content cards can start their body below a taller, wrapped title.
 function titleLayout(ctx, portal, maxW) {
+  // A card may carry a second block set at the NAME's own size (Oli's UNDER
+  // CONSTRUCTION). It is measured alongside the name so the two land at one
+  // size that fits, rather than the name sizing itself and the block overrunning.
+  const extra = portal.subLines || []
   let size = 74, lines
   for (; size >= 24; size -= 2) {
     ctx.font = `700 ${size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
     ctx.letterSpacing = '-0.01em'
     lines = wrapText(ctx, portal.title, maxW)
-    const widest = Math.max(...lines.map(l => ctx.measureText(l).width))
-    if (lines.length <= 3 && widest <= maxW) break
+    const widest = Math.max(...[...lines, ...extra].map(l => ctx.measureText(l).width))
+    // With a second block the pair also has to clear the foot of the card.
+    const stack = 64 + (lines.length + extra.length) * size + 22
+    if (lines.length <= 3 && widest <= maxW && (!extra.length || stack <= 660)) break
   }
   const lineH = size
   const titleTop = 64
   const titleBottom = titleTop + lines.length * lineH
   const ruleY = titleBottom + 10
   const subTop = ruleY + 12
-  const headerBottom = subTop + 24
+  const headerBottom = subTop + (extra.length ? extra.length * lineH : 24)
   return { size, lines, lineH, titleTop, titleBottom, ruleY, subTop, headerBottom }
 }
 
@@ -1166,11 +1179,21 @@ function drawPortalCard(ctx, portal, W, H, lm, drawTrace) {
   ctx.strokeStyle = inkRule; ctx.lineWidth = 0.5
   ctx.beginPath(); ctx.moveTo(lm, t.ruleY); ctx.lineTo(W - lm, t.ruleY); ctx.stroke()
 
-  ctx.font = "300 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
-  ctx.letterSpacing = '0.16em'
-  ctx.textBaseline = 'top'
-  ctx.fillStyle = inkSub
-  ctx.fillText(portal.sub, lm, t.subTop)
+  if (portal.subLines) {
+    // Set at the name's size and colour-led, so it reads as a second line of
+    // the card's own voice rather than a caption.
+    ctx.font = `700 ${t.size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
+    ctx.letterSpacing = '-0.01em'
+    ctx.textBaseline = 'top'
+    ctx.fillStyle = portal.subColor || inkSub
+    portal.subLines.forEach((ln, i) => ctx.fillText(ln, lm, t.subTop + i * t.lineH))
+  } else {
+    ctx.font = "300 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.16em'
+    ctx.textBaseline = 'top'
+    ctx.fillStyle = inkSub
+    ctx.fillText(portal.sub, lm, t.subTop)
+  }
 }
 
 // Draw an image cover-fit (fill the whole 600×800 card, cropping overflow).
@@ -2318,6 +2341,17 @@ function openCardIframe(url) {
   // relative URL — already draw a BACK that drives OUR history and closes this
   // overlay, so supplying another one just stacks two labels in the same
   // corner. Only pages we don't control get one from here.
+  // Fullscreen on the way in. The click that opened this is the gesture the API
+  // requires, so it is the one moment it can be asked for without a control.
+  // iOS Safari has no Fullscreen API for non-video elements and rejects; the
+  // catch lets it fall back to the edge-to-edge layout.
+  enteredFsForCard = false
+  const fsEl = document.documentElement
+  const req = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen
+  if (req && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+    try { Promise.resolve(req.call(fsEl)).then(() => { enteredFsForCard = true }).catch(() => {}) } catch {}
+  }
+
   if (!/^[a-z]+:/i.test(url)) {
     document.body.appendChild(overlay)
     history.pushState({ cardIframe: true }, '')
@@ -2371,10 +2405,23 @@ function openCardIframe(url) {
 }
 let cardIframePushed = false
 
+// Only leave fullscreen if opening a card is what put us there — someone who was
+// already fullscreen should stay that way.
+let enteredFsForCard = false
+function leaveCardFullscreen() {
+  if (!enteredFsForCard) return
+  enteredFsForCard = false
+  const exit = document.exitFullscreen || document.webkitExitFullscreen
+  if (exit && (document.fullscreenElement || document.webkitFullscreenElement)) {
+    try { Promise.resolve(exit.call(document)).catch(() => {}) } catch {}
+  }
+}
+
 function closeCardIframe() {
   const o = document.getElementById('cardIframeOverlay')
   if (!o) return
   o.remove()
+  leaveCardFullscreen()
   revealCardBack = null
   restoreLobby()
   // Closing via ✕ or Escape should also unwind the history entry we pushed, so
@@ -2385,7 +2432,7 @@ function closeCardIframe() {
 // Back button while a card is open: drop the overlay, stay on the carousel.
 window.addEventListener('popstate', () => {
   const o = document.getElementById('cardIframeOverlay')
-  if (o) { cardIframePushed = false; o.remove(); revealCardBack = null; restoreLobby() }
+  if (o) { cardIframePushed = false; o.remove(); leaveCardFullscreen(); revealCardBack = null; restoreLobby() }
 })
 window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeCardIframe() })
 

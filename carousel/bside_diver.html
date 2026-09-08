@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Oswin Journal — Diver</title>
+<style>
+  html, body { margin:0; height:100%; background:#0e0b08; overflow:hidden; }
+  canvas { display:block; touch-action:none; }
+
+  #backBtn {
+    position:fixed; top:20px; left:22px; z-index:30;
+    padding:6px 4px; border:none; background:none; cursor:pointer;
+    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.22em; transition:color 200ms ease, opacity 0.55s ease;
+  }
+  #backBtn:hover { color:rgba(255,255,255,0.92); }
+
+  #fsBtn {
+    position: fixed; top: 20px; right: 20px; z-index: 30;
+    background: rgba(255, 255, 255, 0.08); border: none; border-radius: 4px;
+    padding: 8px; line-height: 0; cursor: pointer;
+    opacity: 0; pointer-events: none; transition: opacity 0.55s ease;
+  }
+  #fsBtn svg { display: block; }
+
+  /* The b-sides chain one to the next, top right. */
+  #nextBside {
+    position: fixed; top: 20px; right: 62px; z-index: 30;
+    padding: 6px 4px; text-decoration: none;
+    color: rgba(255,255,255,0.55); font: 500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.22em; transition: color 200ms ease, opacity 0.55s ease;
+  }
+  #nextBside:hover { color: rgba(255,255,255,0.92); }
+
+  #readout {
+    position:fixed; left:22px; bottom:20px; z-index:30;
+    font:400 11px/1.7 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.10em; color:rgba(255,255,255,0.34);
+    text-transform:uppercase; pointer-events:none; white-space:pre;
+  }
+</style>
+</head>
+<body>
+
+<button id="backBtn" aria-label="Back">←&nbsp;&nbsp;BACK</button>
+<button id="fsBtn" aria-label="Toggle fullscreen">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+  </svg>
+</button>
+<a id="nextBside" href="bside_karla.html">KARLA&nbsp;&nbsp;→</a>
+<div id="readout"></div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+// ── B-SIDE: Diver ─────────────────────────────────────────────────────────────
+// The ring's card — same glass, lighting, environment, edge and TV static — taken
+// off the ring and spun about Y through its own centre.
+//
+// The motion is NOT constant. Angular speed is a function of the angle itself:
+// slowest when a face is square to the viewer, fastest as the card goes edge-on.
+// Integrating that gives a card that hangs at each face, whips through the turn,
+// and settles into the next — without any keyframes or easing curve to author.
+//
+//   dθ/dt = SLOW + (FAST − SLOW) · |sin θ|^P
+//
+// |sin θ| is 0 at both flat positions (θ = 0, π) and 1 at both edges (θ = π/2,
+// 3π/2), so one expression covers all four without special cases. P sharpens the
+// contrast: at P = 1 the change is gentle, at P = 3 the dwell is long and the
+// turn is a snap. Everything is on the URL, the way the ring's post chain is:
+//
+//   ?slow=0.35  ?fast=5  ?p=2  ?tilt=0  ?static=0
+
+const _q = new URLSearchParams(location.search)
+const _num = (k, d) => { const v = parseFloat(_q.get(k)); return Number.isFinite(v) ? v : d }
+
+const SPIN_SLOW = _num('slow', 0.35)   // rad/s with the PICTURE square to the viewer
+// The reverse is a ghost, not a picture, so it does not earn the same dwell.
+// Hurrying it makes the front the thing the card keeps returning to.
+const SPIN_SLOW_BACK = _num('slowback', 1.3)
+const SPIN_FAST = _num('fast', 5.0)    // rad/s edge-on
+const SPIN_P    = _num('p', 2)         // how sharply one becomes the other
+const TILT      = _num('tilt', 0)      // optional lean, degrees
+const SHOW_STATIC = _q.get('static') !== '0'
+
+const IMAGE = 'images/water2.jpg'
+
+// The blue is on the RIGHT-SIDE-UP face only. The back keeps the plain
+// photograph, so the turn reveals a change of colour, not just a mirror.
+const TONE_HI  = _q.get('hi') || '#7EA6F5'   // where the whites land
+const TONE_LO  = _q.get('lo') || '#050F2E'   // where the blacks land
+const TONE_AMT = _num('tone', 1)             // 0 = untoned, 1 = full duotone
+
+// Depth. The back is not a second picture — it is the FRONT image seen through
+// the body of the card, so it is the toned face mirrored, blurred and dimmed.
+// The blur is scaled from the card's real proportions: THICK/panelW of the face
+// is how much material the light crosses, which on a 600px plate is ~34px, and
+// a blur of about a third of that reads as solid rather than as frosted glass.
+const DEPTH_BLUR = _num('depth', 9)    // px of diffusion through the slab
+const DEPTH_DIM  = _num('thru', 0.75)   // how much light survives the crossing
+
+const scene = new THREE.Scene()
+scene.background = new THREE.Color('#0e0b08')
+scene.fog = new THREE.Fog('#0e0b08', 8, 50)
+
+// Card at the origin, camera at the ring's own 4-unit remove, so it reads at the
+// same size on screen as a card at the front of the ring.
+const FOV = 55, NEAR_DIST = 4.0
+const vFOV = (FOV * Math.PI) / 180
+const panelH = 0.9 * 2 * NEAR_DIST * Math.tan(vFOV / 2)
+const panelW = panelH * (3 / 4)
+const THICK  = 0.16
+
+const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.1, 200)
+camera.position.set(0, 0, NEAR_DIST)
+camera.lookAt(0, 0, 0)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.setSize(innerWidth, innerHeight)
+let curPR = Math.min(devicePixelRatio, 1.5)
+renderer.setPixelRatio(curPR)
+renderer.outputEncoding = THREE.sRGBEncoding
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.appendChild(renderer.domElement)
+
+// ── Environment / lights — the ring's rig ──────────────────────────────────────
+const envScene = new THREE.Scene()
+envScene.background = new THREE.Color('#0e0b08')
+;[
+  [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
+  [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
+].forEach(([x, y, z, w, h, b]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(b) }))
+  m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
+})
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
+scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
+const keyLight = new THREE.DirectionalLight('#ffffff', 1.1); keyLight.position.set(4, 6, 5)
+const rimLight = new THREE.DirectionalLight('#ffcf90', 0.5); rimLight.position.set(-5, 2, -4)
+scene.add(keyLight, rimLight)
+
+// ── Rounded alpha edge (the ring's) ────────────────────────────────────────────
+const roundedAlphaMap = (() => {
+  const W = 128, H = Math.round(W * panelH / panelW)
+  const c = document.createElement('canvas'); c.width = W; c.height = H
+  const ctx = c.getContext('2d')
+  const r = 5
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H)
+  ctx.filter = 'blur(2.5px)'
+  ctx.beginPath()
+  ctx.moveTo(r, 0); ctx.lineTo(W - r, 0)
+  ctx.arcTo(W, 0, W, r, r); ctx.lineTo(W, H - r)
+  ctx.arcTo(W, H, W - r, H, r); ctx.lineTo(r, H)
+  ctx.arcTo(0, H, 0, H - r, r); ctx.lineTo(0, r)
+  ctx.arcTo(0, 0, r, 0, r); ctx.closePath()
+  ctx.fillStyle = '#fff'; ctx.fill()
+  return new THREE.CanvasTexture(c)
+})()
+
+// ── TV static (the ring's constants) ───────────────────────────────────────────
+const FW = 600, FH = 800
+const NW = 220, NH = 293
+const _noise = document.createElement('canvas'); _noise.width = NW; _noise.height = NH
+const _nctx = _noise.getContext('2d')
+function regenNoise() {
+  const id = _nctx.createImageData(NW, NH), d = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (Math.random() * 255) | 0
+    d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255
+  }
+  _nctx.putImageData(id, 0, 0)
+}
+const GRAIN_LIGHTEN = 0.088, GRAIN_MULTIPLY = 0.06
+const _scan = document.createElement('canvas'); _scan.width = FW; _scan.height = FH
+;(() => { const c = _scan.getContext('2d'); c.fillStyle = '#000'
+  for (let y = 0; y < FH; y += 3) c.fillRect(0, y, FW, 1) })()
+
+function applyTvStatic(ctx) {
+  ctx.save()
+  ctx.imageSmoothingEnabled = false
+  ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = GRAIN_LIGHTEN
+  ctx.drawImage(_noise, 0, 0, FW, FH)
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = GRAIN_MULTIPLY
+  ctx.drawImage(_noise, 0, 0, FW, FH)
+  ctx.restore()
+  ctx.save(); ctx.globalAlpha = 0.16; ctx.drawImage(_scan, 0, 0); ctx.restore()
+}
+
+// ── Faces ──────────────────────────────────────────────────────────────────────
+const faceCanvas = document.createElement('canvas')
+faceCanvas.width = FW; faceCanvas.height = FH
+const faceCtx = faceCanvas.getContext('2d')
+const faceTex = new THREE.CanvasTexture(faceCanvas); faceTex.encoding = THREE.sRGBEncoding
+
+const backCanvas = document.createElement('canvas')
+backCanvas.width = FW; backCanvas.height = FH
+const backCtx = backCanvas.getContext('2d')
+const backTex = new THREE.CanvasTexture(backCanvas); backTex.encoding = THREE.sRGBEncoding
+
+const cleanCanvas = document.createElement('canvas')   // image only, no static
+cleanCanvas.width = FW; cleanCanvas.height = FH
+const cleanCtx = cleanCanvas.getContext('2d')
+
+const tonedCanvas = document.createElement('canvas')   // the blue front face
+tonedCanvas.width = FW; tonedCanvas.height = FH
+const tonedCtx = tonedCanvas.getContext('2d')
+
+// Two-point duotone. The house helper (drawDuotoneTrace) multiplies a single
+// tint, which tints the highlights but drives the shadows to black — on a photo
+// this dense that loses the legs and the water entirely. Multiplying the
+// HIGHLIGHT colour and then screening the SHADOW colour remaps the tonal range
+// between two blues instead of collapsing one end of it: every value the
+// original had still maps to a distinct value, so the detail survives the tone.
+function buildToned() {
+  tonedCtx.setTransform(1, 0, 0, 1, 0, 0)
+  tonedCtx.globalCompositeOperation = 'source-over'
+  tonedCtx.globalAlpha = 1
+  tonedCtx.clearRect(0, 0, FW, FH)
+
+  // Start from the untoned plate, slightly steepened so the duotone has a full
+  // range to map — the source is a soft mid-grey scan.
+  tonedCtx.filter = 'grayscale(1) contrast(1.08)'
+  tonedCtx.drawImage(cleanCanvas, 0, 0)
+  tonedCtx.filter = 'none'
+
+  tonedCtx.globalCompositeOperation = 'multiply'
+  tonedCtx.fillStyle = TONE_HI
+  tonedCtx.fillRect(0, 0, FW, FH)
+
+  tonedCtx.globalCompositeOperation = 'screen'
+  tonedCtx.fillStyle = TONE_LO
+  tonedCtx.fillRect(0, 0, FW, FH)
+
+  tonedCtx.globalCompositeOperation = 'source-over'
+}
+
+const img = new Image()
+img.onload = () => {
+  const s = Math.max(FW / img.naturalWidth, FH / img.naturalHeight)   // cover
+  const dw = img.naturalWidth * s, dh = img.naturalHeight * s
+  cleanCtx.fillStyle = '#12151b'; cleanCtx.fillRect(0, 0, FW, FH)
+  cleanCtx.drawImage(img, (FW - dw) / 2, (FH - dh) / 2, dw, dh)
+  buildToned()
+  paint()
+}
+img.src = IMAGE
+
+function paint() {
+  // Front: the plain plate with the duotone laid over it at TONE_AMT, so the
+  // blue can be dialled back to a wash without losing the photograph under it.
+  faceCtx.clearRect(0, 0, FW, FH)
+  faceCtx.drawImage(cleanCanvas, 0, 0)
+  faceCtx.save()
+  faceCtx.globalAlpha = TONE_AMT
+  faceCtx.drawImage(tonedCanvas, 0, 0)
+  faceCtx.restore()
+  if (SHOW_STATIC) applyTvStatic(faceCtx)
+  faceTex.needsUpdate = true
+
+  // Back plate: the front image mirrored, then blurred and dimmed, so the reverse
+  // reads as light that has crossed the thickness of the card rather than as a
+  // picture printed on the far side. Mirrored because you are looking at the
+  // same image from behind it.
+  backCtx.setTransform(1, 0, 0, 1, 0, 0)
+  backCtx.globalCompositeOperation = 'source-over'
+  backCtx.globalAlpha = 1
+  backCtx.clearRect(0, 0, FW, FH)
+  backCtx.fillStyle = TONE_LO
+  backCtx.fillRect(0, 0, FW, FH)
+
+  backCtx.save()
+  backCtx.translate(FW, 0); backCtx.scale(-1, 1)
+  backCtx.filter = `blur(${DEPTH_BLUR}px) brightness(${DEPTH_DIM})`
+  // Drawn oversized: a canvas blur samples transparent black beyond the edges,
+  // which would otherwise leave a pale halo all round the plate.
+  const bleed = DEPTH_BLUR * 3
+  backCtx.drawImage(faceCanvas, -bleed, -bleed, FW + bleed * 2, FH + bleed * 2)
+  backCtx.filter = 'none'
+  backCtx.restore()
+
+  // Falloff to the rim: less light reaches the edges of a solid slab than the
+  // middle, and this is what stops the back reading as a flat dimmed copy.
+  const edge = backCtx.createRadialGradient(FW / 2, FH / 2, FH * 0.12, FW / 2, FH / 2, FH * 0.62)
+  edge.addColorStop(0, 'rgba(0,0,0,0)')
+  edge.addColorStop(1, 'rgba(0,0,0,0.55)')
+  backCtx.fillStyle = edge
+  backCtx.fillRect(0, 0, FW, FH)
+
+  if (SHOW_STATIC) applyTvStatic(backCtx)
+  backTex.needsUpdate = true
+}
+
+// ── The card ───────────────────────────────────────────────────────────────────
+const panelCol = new THREE.Color('#12151b')
+const faceMat = new THREE.MeshPhysicalMaterial({
+  map: faceTex, transparent: true, opacity: 0.98, side: THREE.FrontSide,
+  roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+  color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+})
+const backMat = new THREE.MeshPhysicalMaterial({
+  map: backTex, transparent: true, opacity: 0.98,
+  roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+})
+// The four rim faces of the box. These are what you actually watch during the
+// whip — the card is at its thinnest on screen exactly when it is moving fastest.
+const sideMat = new THREE.MeshStandardMaterial({
+  // The cut edge of the same blue body. Reading as the material — not as a dark
+  // strip between two pictures — is half of what sells the thickness, because
+  // the rim is the only part of the card you see square-on during the whip.
+  color: new THREE.Color(TONE_LO).multiplyScalar(2.2),
+  roughness: 0.35, metalness: 0.0, envMapIntensity: 0.9,
+})
+
+const card = new THREE.Mesh(
+  new THREE.BoxGeometry(panelW, panelH, THICK),
+  [sideMat, sideMat, sideMat, sideMat, faceMat, backMat]
+)
+card.frustumCulled = false
+scene.add(card)
+
+// Reflection pooled under it, as on the ring.
+const REFL_FRAC = 0.55
+const reflH = panelH * REFL_FRAC
+const reflTex = (() => {
+  const W = 256, H = 160
+  const c = document.createElement('canvas'); c.width = W; c.height = H
+  const ctx = c.getContext('2d')
+  const grd = ctx.createRadialGradient(W / 2, 0, 0, W / 2, 0, W * 0.72)
+  grd.addColorStop(0, 'rgba(18,21,27,0.55)'); grd.addColorStop(0.35, 'rgba(18,21,27,0.22)')
+  grd.addColorStop(0.7, 'rgba(18,21,27,0.06)'); grd.addColorStop(1, 'rgba(18,21,27,0)')
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H)
+  const fade = ctx.createLinearGradient(0, 0, 0, H)
+  fade.addColorStop(0, 'rgba(14,11,8,0.55)'); fade.addColorStop(0.12, 'rgba(14,11,8,0)')
+  fade.addColorStop(0.7, 'rgba(14,11,8,0)'); fade.addColorStop(1, 'rgba(14,11,8,0.82)')
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, W, H)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+})()
+const reflMesh = new THREE.Mesh(
+  new THREE.PlaneGeometry(panelW, reflH),
+  new THREE.MeshBasicMaterial({ map: reflTex, transparent: true, opacity: 0.38 })
+)
+reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
+reflMesh.frustumCulled = false
+card.add(reflMesh)
+
+card.rotation.z = TILT * Math.PI / 180
+
+// ── Spin ───────────────────────────────────────────────────────────────────────
+// Which face is toward the viewer decides how long the card lingers. Switching
+// on sign(cos θ) sounds like it would jolt, but the switch happens at θ = ±π/2 —
+// exactly where |sin θ| = 1 and the expression collapses to SPIN_FAST whatever
+// the slow term is. So the two halves meet at the same speed and the asymmetry
+// costs nothing in smoothness.
+function speedAt(theta) {
+  const slow = Math.cos(theta) >= 0 ? SPIN_SLOW : SPIN_SLOW_BACK
+  return slow + (SPIN_FAST - slow) * Math.pow(Math.abs(Math.sin(theta)), SPIN_P)
+}
+
+// One revolution, integrated up front so the readout can state the real period
+// rather than an estimate. Simpson's rule over the closed loop.
+const [PERIOD, FRONT_T, BACK_T] = (() => {
+  const n = 40000, d = (Math.PI * 2) / n
+  let tot = 0, front = 0, back = 0
+  for (let i = 0; i < n; i++) {
+    const th = i * d, dt = d / speedAt(th)
+    tot += dt
+    if (Math.cos(th) >= 0) front += dt; else back += dt
+  }
+  return [tot, front, back]
+})()
+
+const readout = document.getElementById('readout')
+readout.textContent =
+  `slow ${SPIN_SLOW}  back ${SPIN_SLOW_BACK}  fast ${SPIN_FAST}  p ${SPIN_P}\n` +
+  `${PERIOD.toFixed(2)}s per turn  ·  front ${FRONT_T.toFixed(2)}s  ·  reverse ${BACK_T.toFixed(2)}s`
+
+let theta = 0
+let last = performance.now()
+
+function render(now) {
+  requestAnimationFrame(render)
+  let dt = (now - last) / 1000; last = now
+  if (dt > 0.05) dt = 0.05
+
+  theta += speedAt(theta) * dt
+  if (theta > Math.PI * 2) theta -= Math.PI * 2
+  card.rotation.y = theta
+
+  if (SHOW_STATIC && cleanCanvas.width) { regenNoise(); paint() }
+
+  renderer.render(scene, camera)
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+
+// ── Chrome (the ring's) ────────────────────────────────────────────────────────
+const fsBtn = document.getElementById('fsBtn')
+const fsPath = fsBtn.querySelector('path')
+const FS_ENTER = 'M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3'
+const FS_EXIT = 'M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3'
+const inFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement)
+fsBtn.addEventListener('click', (e) => {
+  e.stopPropagation()
+  if (inFullscreen()) (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+  else { const el = document.documentElement; (el.requestFullscreen || el.webkitRequestFullscreen).call(el) }
+})
+const syncFsIcon = () => fsPath.setAttribute('d', inFullscreen() ? FS_EXIT : FS_ENTER)
+document.addEventListener('fullscreenchange', syncFsIcon)
+document.addEventListener('webkitfullscreenchange', syncFsIcon)
+
+const backEl = document.getElementById('backBtn')
+const nextEl = document.getElementById('nextBside')
+let hideTimer = null
+function revealChrome() {
+  fsBtn.style.opacity = '0.7'; fsBtn.style.pointerEvents = 'auto'
+  backEl.style.opacity = '1';  backEl.style.pointerEvents = 'auto'
+  nextEl.style.opacity = '1';  nextEl.style.pointerEvents = 'auto'
+  clearTimeout(hideTimer)
+  hideTimer = setTimeout(() => {
+    fsBtn.style.opacity = '0'; fsBtn.style.pointerEvents = 'none'
+    backEl.style.opacity = '0'; backEl.style.pointerEvents = 'none'
+    nextEl.style.opacity = '0'; nextEl.style.pointerEvents = 'none'
+  }, 2600)
+}
+addEventListener('pointermove', revealChrome)
+addEventListener('pointerdown', revealChrome)
+addEventListener('touchstart', revealChrome, { passive: true })
+revealChrome()
+
+backEl.onclick = () => {
+  if (window !== window.top) { location.replace('index.html'); return }
+  if (history.length > 1) history.back(); else location.href = 'index.html'
+}
+
+requestAnimationFrame(render)
+</script>
+</body>
+</html>

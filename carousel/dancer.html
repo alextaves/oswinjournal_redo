@@ -2626,6 +2626,18 @@ backBtn.onclick = () => {
 }
 document.body.appendChild(backBtn)
 
+// ── Next b-side ───────────────────────────────────────────────────────────────
+// The b-sides chain one to the next. Built here rather than in markup to match
+// how this page draws the rest of its chrome. Sits left of the fullscreen chip.
+const nextBside = document.createElement('a')
+nextBside.id = 'nextBside'
+nextBside.href = 'bside_diver.html'
+nextBside.innerHTML = 'DIVER&nbsp;&nbsp;\u2192'
+nextBside.style.cssText = 'position:fixed; top:20px; right:62px; z-index:2001; padding:6px 4px; text-decoration:none; color:rgba(255,255,255,0.62); font:500 14px/1 "Helvetica Neue", Helvetica, Arial, sans-serif; letter-spacing:0.22em; transition:color 200ms ease;'
+nextBside.onmouseenter = () => { nextBside.style.color = 'rgba(255,255,255,0.95)' }
+nextBside.onmouseleave = () => { nextBside.style.color = 'rgba(255,255,255,0.62)' }
+document.body.appendChild(nextBside)
+
 // Fullscreen. The homepage opens this page in an iframe whose allow-list already
 // includes fullscreen, so it works embedded as well as standalone.
 const fsBtn = document.createElement('button')

@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Oswin Journal — Interviews</title>
+<style>
+  html, body { margin:0; min-height:100%; background:#0e0b08; color:#fff;
+               font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  main { padding:96px 26px 54px; }
+
+  /* Three, side by side. A ring built for eight reads sparse at three, and the
+     pieces are a set to be compared rather than a sequence to be spun through. */
+  .rack { display:grid; grid-template-columns:repeat(3, 1fr); gap:26px;
+          width:100%; max-width:1180px; margin:0 auto; }
+  @media (max-width:900px) { .rack { grid-template-columns:1fr; max-width:380px; } }
+
+  .card { position:relative; background:none; border:0; padding:0; cursor:pointer;
+          transition:transform 340ms cubic-bezier(.22,.61,.36,1); }
+  .card:hover { transform:translateY(-10px); }
+  .card canvas.face { display:block; width:100%; height:auto; aspect-ratio:3/4;
+                      border-radius:2px; box-shadow:0 18px 46px rgba(0,0,0,0.62); }
+  /* The glow the ring's cards cast on its floor, brought to the rack. On the
+     ring it is a bloom of the card's own bg colour; these are all near-black,
+     so a colour bloom would show nothing — here it is the card itself, mirrored
+     and faded out, which the portraits actually carry. */
+  .card canvas.refl { display:block; width:100%; height:auto; margin-top:2px;
+                      opacity:0.38; pointer-events:none; }
+  .card:focus-visible { outline:1px solid rgba(255,255,255,0.5); outline-offset:6px; }
+
+  #backBtn {
+    position:fixed; top:20px; left:22px; z-index:20;
+    padding:6px 4px; border:none; background:none; cursor:pointer;
+    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.22em; transition:color 200ms ease;
+  }
+  #backBtn:hover { color:rgba(255,255,255,0.92); }
+
+  .mast { position:fixed; top:20px; left:50%; transform:translateX(-50%); z-index:20;
+          background:#F9FF45; color:#111111; font-weight:700; letter-spacing:-0.01em;
+          font-size:15px; line-height:1; padding:9px 16px; border-radius:2px; }
+
+  /* ── Reading view ─────────────────────────────────────────────────────────
+     The stories are long, so they get a proper column rather than being drawn
+     onto a card face the way the ring's short bodies are. */
+  #reader { position:fixed; inset:0; z-index:1000; background:#0a0a0a;
+            overflow-y:auto; -webkit-overflow-scrolling:touch; display:none; }
+  #reader.open { display:block; }
+  #reader .col { max-width:38em; margin:0 auto; padding:104px 26px 120px; }
+  #reader h2 { margin:0; font-size:54px; line-height:1; font-weight:700; letter-spacing:-0.01em; }
+  #reader .sub { margin:14px 0 0; font-size:13px; font-weight:300; letter-spacing:0.16em;
+                 text-transform:uppercase; color:rgba(255,255,255,0.5); }
+  #reader hr { border:0; border-top:1px solid rgba(255,255,255,0.18); margin:26px 0 34px; }
+  #reader .portrait { display:block; width:100%; height:auto; margin:0 0 30px; border-radius:2px; }
+  #reader .deck { font-size:21px; line-height:1.5; font-weight:300; color:rgba(255,255,255,0.94); margin:0 0 1.4em; }
+  #reader .disclosure { font-size:18px; line-height:1.62; font-weight:300; color:rgba(255,255,255,0.62);
+                        border-left:2px solid rgba(249,255,69,0.7); padding-left:16px; margin:0 0 1.6em; }
+  #reader h3 { margin:2.2em 0 0.9em; font-size:13px; font-weight:500; letter-spacing:0.18em;
+               text-transform:uppercase; color:#F9FF45; }
+  #reader .q { font-size:18px; line-height:1.62; font-weight:500; color:#FFFFFF; margin:0 0 0.7em; }
+  #reader p { margin:0 0 1.5em; font-size:18px; line-height:1.62; font-weight:300;
+              color:rgba(255,255,255,0.86); }
+  #reader .close { position:fixed; top:20px; left:22px; z-index:1001;
+                   padding:6px 4px; border:none; background:none; cursor:pointer;
+                   color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                   letter-spacing:0.22em; transition:color 200ms ease; }
+  #reader .close:hover { color:rgba(255,255,255,0.92); }
+</style>
+</head>
+<body>
+
+<button id="backBtn" aria-label="Back">←&nbsp;&nbsp;BACK</button>
+<div class="mast">INTERVIEWS</div>
+
+<main>
+  <div class="rack" id="rack"></div>
+</main>
+
+<div id="reader" aria-hidden="true">
+  <button class="close" type="button">←&nbsp;&nbsp;CLOSE</button>
+  <div class="col" id="readerCol"></div>
+</div>
+
+<script src="interviews.js"></script>
+<script>
+// ── Interviews — the room behind the ring's INTERVIEWS card ──────────────────
+// The desktop counterpart of the phone grid's interviews room: the same three
+// pieces in issue order, on the ring's own 600x800 card face at its 54px margin.
+//
+// Laid out as a rack rather than a ring. Three panels on a carousel sized for
+// eight reads sparse, and these are a set to be compared rather than a sequence
+// to be spun through — the fiction room next door keeps the ring, where eight
+// pieces earn it.
+//
+// An interview is longer and more structured than a story — a portrait, a
+// standing head, an intro, sections, then the questions — so the reading view
+// carries that shape rather than a flat run of paragraphs. The writing comes
+// from interviews.js, shared with mobile.html.
+
+const W = 600, H = 800, LM = 54
+
+const CARDS = INTERVIEWS_BY_ISSUE.map(iv => ({
+  id: iv.id,
+  title: iv.title,
+  sub: iv.sub,
+  image: iv.portrait,
+  bg: '#1a1a1a',
+  iv,
+}))
+const COUNT = CARDS.length
+
+// ── TV static (index.html: GRAIN_LIGHTEN / GRAIN_MULTIPLY) ────────────────────
+const _noiseCanvas = document.createElement('canvas')
+_noiseCanvas.width = 220; _noiseCanvas.height = 293
+const _noiseCtx = _noiseCanvas.getContext('2d')
+function regenNoise() {
+  const id = _noiseCtx.createImageData(_noiseCanvas.width, _noiseCanvas.height)
+  const d = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (Math.random() * 255) | 0
+    d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255
+  }
+  _noiseCtx.putImageData(id, 0, 0)
+}
+const GRAIN_LIGHTEN = 0.088, GRAIN_MULTIPLY = 0.06
+function applyTvStatic(ctx) {
+  ctx.save()
+  ctx.imageSmoothingEnabled = false
+  ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = GRAIN_LIGHTEN
+  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = GRAIN_MULTIPLY
+  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.restore()
+  ctx.save()
+  ctx.globalAlpha = 0.16; ctx.fillStyle = '#000'
+  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1)
+  ctx.restore()
+}
+
+// ── Type (verbatim from index.html) ───────────────────────────────────────────
+function wrapText(ctx, text, maxW) {
+  const words = text.split(' ')
+  const lines = []
+  let line = ''
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w }
+    else line = test
+  }
+  if (line) lines.push(line)
+  return lines
+}
+function titleLayout(ctx, card, maxW) {
+  let size = 74, lines
+  for (; size >= 24; size -= 2) {
+    ctx.font = `700 ${size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
+    ctx.letterSpacing = '-0.01em'
+    lines = wrapText(ctx, card.title, maxW)
+    const widest = Math.max(...lines.map(l => ctx.measureText(l).width))
+    if (lines.length <= 3 && widest <= maxW) break
+  }
+  const lineH = size
+  const titleTop = 64
+  const titleBottom = titleTop + lines.length * lineH
+  const ruleY = titleBottom + 10
+  return { size, lines, lineH, titleTop, ruleY, subTop: ruleY + 12 }
+}
+
+// ── Card face ─────────────────────────────────────────────────────────────────
+function drawMediaCover(ctx, src, mw, mh) {
+  if (!mw || !mh) return
+  const s = Math.max(W / mw, H / mh)          // cover: fill the card, crop overflow
+  ctx.drawImage(src, (W - mw * s) / 2, (H - mh * s) / 2, mw * s, mh * s)
+}
+
+function drawCard(card) {
+  const ctx = card._ctx
+  ctx.clearRect(0, 0, W, H)
+  ctx.fillStyle = card.bg
+  ctx.fillRect(0, 0, W, H)
+
+  let footage = false
+  if (card._video && card._video.readyState >= 2) {
+    drawMediaCover(ctx, card._video, card._video.videoWidth, card._video.videoHeight); footage = true
+  }
+  if (card._img && card._img.naturalWidth) {
+    drawMediaCover(ctx, card._img, card._img.naturalWidth, card._img.naturalHeight); footage = true
+  }
+
+  // A scrim only where there is footage under the type. The drawn covers are
+  // tonal — a shade of their own ground — so a scrim would just muddy them.
+  if (footage) {
+    const g = ctx.createLinearGradient(0, 0, 0, H * 0.52)
+    g.addColorStop(0, 'rgba(0,0,0,0.72)'); g.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.52)
+  }
+
+  const t2 = titleLayout(ctx, card, W - LM * 2)
+  ctx.font = `700 ${t2.size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
+  ctx.letterSpacing = '-0.01em'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'
+  t2.lines.forEach((ln, i) => ctx.fillText(ln, LM, t2.titleTop + i * t2.lineH))
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.33)'; ctx.lineWidth = 0.5
+  ctx.beginPath(); ctx.moveTo(LM, t2.ruleY); ctx.lineTo(W - LM, t2.ruleY); ctx.stroke()
+
+  if (card.sub) {
+    ctx.font = "300 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.16em'
+    ctx.fillStyle = 'rgba(255,255,255,0.60)'
+    ctx.fillText(card.sub, LM, t2.subTop)
+  }
+
+  applyTvStatic(ctx)
+}
+
+const REFL_FRAC = 0.55            // the ring's own proportion
+
+// The card, upside down beneath itself, fading to nothing. Drawn from the
+// finished face so it carries the type and the static too, not just the photo.
+function drawReflection(card) {
+  const ctx = card._rctx
+  const rh = Math.round(H * REFL_FRAC)
+  ctx.clearRect(0, 0, W, rh)
+  ctx.save()
+  ctx.scale(1, -1)
+  ctx.drawImage(card._face, 0, -H, W, H)   // flipped: the card's foot at the top
+  ctx.restore()
+  const fade = ctx.createLinearGradient(0, 0, 0, rh)
+  fade.addColorStop(0, 'rgba(0,0,0,1)')
+  fade.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-in'
+  ctx.fillStyle = fade
+  ctx.fillRect(0, 0, W, rh)
+  ctx.restore()
+}
+
+// ── Build ────────────────────────────────────────────────────────────────────
+const rack = document.getElementById('rack')
+const DPR = Math.min(devicePixelRatio || 1, 2)
+
+CARDS.forEach((card) => {
+  const el = document.createElement('button')
+  el.className = 'card'
+  el.type = 'button'
+  el.setAttribute('aria-label', card.title)
+  el.addEventListener('click', () => openInterview(card))
+
+  const c = document.createElement('canvas')
+  c.className = 'face'
+  c.width = W * DPR; c.height = H * DPR
+  const ctx = c.getContext('2d')
+  ctx.scale(DPR, DPR)
+  el.appendChild(c)
+
+  const rc = document.createElement('canvas')
+  rc.className = 'refl'
+  rc.width = W * DPR; rc.height = Math.round(H * REFL_FRAC) * DPR
+  const rctx = rc.getContext('2d')
+  rctx.scale(DPR, DPR)
+  el.appendChild(rc)
+
+  rack.appendChild(el)
+  card._ctx = ctx
+  card._face = c
+  card._rctx = rctx
+
+  const im = new Image()
+  im.src = card.image
+  im.onload = () => { drawCard(card); drawReflection(card) }
+  card._img = im
+})
+
+// Portraits are stills, so these are painted once rather than driven by a loop.
+// The static is regenerated per paint, which is what gives each card its own
+// grain rather than three identical fields.
+;(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  CARDS.forEach(card => { regenNoise(); drawCard(card); drawReflection(card) })
+})
+
+// ── Reading view ──────────────────────────────────────────────────────────────
+const reader = document.getElementById('reader')
+const readerCol = document.getElementById('readerCol')
+let storyPushed = false
+
+function openInterview(card) {
+  const iv = card.iv
+  const esc = []
+  esc.push(`<img class="portrait" src="${iv.portrait}" alt="">`)
+  esc.push(`<h2>${iv.title}</h2>`)
+  if (iv.sub) esc.push(`<p class="sub">${iv.sub}</p>`)
+  esc.push('<hr>')
+  if (iv.deck) esc.push(`<p class="deck">${iv.deck}</p>`)
+  // A standing head, not a footnote: it sits above the piece, in the reading
+  // size, so it is read rather than skipped.
+  if (iv.disclosure) esc.push(`<p class="disclosure">${iv.disclosure}</p>`)
+  ;(iv.intro || []).forEach(p => esc.push(`<p>${p}</p>`))
+  ;(iv.sections || []).forEach(sec => {
+    esc.push(`<h3>${sec.heading}</h3>`)
+    sec.paras.forEach(p => esc.push(`<p>${p}</p>`))
+  })
+  if (iv.qaLead) esc.push(`<h3>${iv.qaLead}</h3>`)
+  // An unanswered question is a question still out; it is not shown as a gap.
+  ;(iv.qa || []).forEach(x => {
+    if (x.q) esc.push(`<p class="q">${x.q}</p>`)
+    if (x.a) esc.push(`<p>${x.a}</p>`)
+  })
+  readerCol.innerHTML = esc.join('')
+  reader.classList.add('open')
+  reader.setAttribute('aria-hidden', 'false')
+  reader.scrollTop = 0
+  history.pushState({ interview: card.id }, '')
+  storyPushed = true
+}
+
+function hideReader() {
+  reader.classList.remove('open')
+  reader.setAttribute('aria-hidden', 'true')
+  last = performance.now()                    // no jump from the paused clock
+}
+function closeStory() {
+  if (!reader.classList.contains('open')) return
+  hideReader()
+  if (storyPushed) { storyPushed = false; history.back() }
+}
+reader.querySelector('.close').addEventListener('click', closeStory)
+addEventListener('popstate', () => {
+  if (reader.classList.contains('open')) { storyPushed = false; hideReader() }
+})
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeStory() })
+
+document.getElementById('backBtn').onclick = () => {
+  // Embedded in the ring's card overlay this drives the PARENT's history, which
+  // trips its popstate handler and closes the overlay. Standalone it just goes back.
+  if (window !== window.top) { try { window.parent.history.back(); return } catch (e) {} }
+  if (history.length > 1) history.back(); else location.href = 'index.html'
+}
+</script>
+</body>
+</html>

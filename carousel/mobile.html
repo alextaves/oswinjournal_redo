@@ -90,6 +90,7 @@
   }
 
   .media { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
+  .dancer, .cardArt { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; display: block; }
   .slide { position: absolute; inset: 0; z-index: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 900ms ease; }
   .slide.on { opacity: 1; }
 
@@ -119,6 +120,7 @@
   .head { position: relative; z-index: 2; padding: 9cqw 9cqw 0; }
   .title { margin: 0; font-weight: 700; line-height: 1.0; letter-spacing: -0.01em; }
   .title span { display: block; }
+  .subTitle { margin: 1cqw 0 0; }
   .rule { height: 1px; margin: 2.2cqw 0 2cqw; }
   .sub { margin: 0; font-weight: 300; font-size: max(9.5px, 2.33cqw); letter-spacing: 0.14em; line-height: 1.4; }
   .foot {
@@ -255,6 +257,9 @@
   <button class="subscribe" type="button" id="subscribeBtn">SUBSCRIBE</button>
 </div>
 
+<script src="covers.js"></script>
+<script src="fiction_stories.js"></script>
+<script src="interviews.js"></script>
 <script>
 // Where the React app lives. Same reasoning as the ring: in dev Vite serves the
 // app at "/" and this page at /carousel/mobile.html; in production Netlify
@@ -286,168 +291,6 @@ const ALEX_TAVES_BIO = [
 
 // Interviews. The Substack post's own furniture — the share button, the sign-off
 // link — is left out; what is kept is the writing.
-const INTERVIEWS = [
-{
-  "id": "chris",
-  "issue": 2,
-  "cardLines": ["CHRISTO-", "PHER", "BISSON-", "NETTE"],
-  "title": "CHRISTOPHER BISSONNETTE",
-  "sub": "Issue 2 · Christopher Bissonnette",
-  "portrait": "images/interviews/chris.jpg",
-  "intro": [
-    "I am excited to share Issue 2 of Oswin Journal. This project really began when I had a gallery in Canada called Oswald Collective. We featured the best of the up and coming talent, but my interest lay more and more in the connection between sound and visual. Not in the music video way, which ironically I've never been that interested in. It's how sound and visual have a way of syncing naturally on their own.",
-    "This became apparent a month before moving to Sydney. We'd sold off all our furniture and all we had left was lawn chairs, our stereo and a TV. I began becoming obsessed with the Apple TV screensavers and pairing them to electronic music, more specifically H. Takahashi. One video that resonated the most was an aerial shot of LAX. Parked planes, some getting ready for take off. The pairing had a huge impact on me. Something connected. And it never stopped.",
-    "So Issue 2 just launched, and this issue is with Chris Bissonnette. For me, getting to work with him was such an honour, and the way we came to meet I found extraordinary.",
-    "We first met many years ago in Detroit on a night that has stuck with me my entire life. I was out with friends at a Poor Boy party. These were five-dollar parties held usually in the abandoned industrial area near downtown, and the way one got to these parties was to firstly know where the parking lot was, then catch a van or small bus to the actual location. This backstory is important: that night was, I believe, one of the biggest raids on a rave Detroit has ever seen. Police in riot gear with batons started clubbing people who were dancing. The scene turned into chaos. A few of my friends decided to find an alternative exit. We kicked down a door and ran for it. But because we'd bused from the parking lot we didn't know where we were going. Luckily, I didn't take acid. Like most of us did. We found the parking lot eventually, but our friend who drove had been arrested at the party. So we were stranded. Moments later, a line of police arrived and surrounded the lot. They were fully armed and ran to where we were hiding, guns drawn. We all lined up against the fence, hands up, legs spread. One cop took a guy to the ground and kicked him. They joked that they've been known to slip on the trigger and no one would know. People were so scared they peed themselves, to which the cops made a spectacle of them. We were released as there was no proof of us being at the party, but we were told to leave the lot or face trespassing charges.",
-    "So what remained of our group started to walk back to Canada, and Detroit during this period was incredibly dangerous. This is where I met Chris. He was like a miracle. Arrived in a car that was circling the party, wondering what the fuck was going on. My friend knew Chris and we got a ride back. I sat in the back so Chris never got a look at who I was. But this story has stuck with me. It was both the most terrifying experience and also the most enlightening. I should say this: we were all white kids partying in a place that once housed jobs for a lot of Detroiters. A lot of them are Black. The cops were all Black. I totally get why they hated us. Even though our intentions weren't to be harmful, I could see how complicated Detroit's history was.",
-    "I would never forget Chris's face. He bailed us out of a jam that could have ended really badly.",
-    "It wasn't until 2024 that I met him again. This time, at an art show I was hosting in Windsor. We chatted and had lots in common. I knew I had met him before, and I went through all the possibilities. Regardless, he reminded me of this energy that one only finds in Windsor. Windsor is for me one of the most interesting cities in Canada. Its connection to Detroit, but still distinctly its own flavour. Chris has that flavour. A creative intellect. I get homesick for that energy.",
-    "Then it dawned on me. It was the guy who saved us. It flashed in my mind and I was certain it was him. I wrote him a quick text and indeed, that was how I knew him.",
-    "He bought a painting from me and gave me his latest album on CD. I connected with it on a really personal level. I picked four tracks for the website. All of his work deserves attention, but Orffyreus Wheel, Undertow and Overture I must have listened to over a hundred times. There's something in those pieces that doesn't let go of you. They loop in your head the way the footage loops on screen. Slow, hypnotic, inevitable.",
-    "That's Issue 2. Headphones on. Lights off. If you have a projector, even better. Your living room becomes the installation."
-  ],
-  "sections": [
-    {
-      "heading": "About Issue 2",
-      "paras": [
-        "A little about the pairing of visuals with Chris's music. His work felt similar to peeling an onion. It kept reinventing itself over and over and I got completely lost inside the world he created.",
-        "When I first got started on this issue, I began with something that had been on the back of my mind for years. To work with video of a figure skater in a full spin, then loop that. It worked as good as I imagined it would, hypnotic and transcending. But the footage below opened up the music in a different way.",
-        "The found footage is taken from interviews of bankers on Wall Street. I wasn't so much interested in the person being interviewed. I was more interested in the people in the background. This is a recurring theme in my work. I went through a long stint with photography and was particularly drawn to urban areas where lots of people were coming and going. I made myself available to it, almost being like a stage, with actors arriving and leaving as if it were a performance.",
-        "This footage I have watched over and over. Each time I notice something else. It made me hear Chris's music differently. And this is what Oswin Journal is. Opening up music and visuals to experience both as one."
-      ]
-    }
-  ],
-  "qaLead": "And now the interview",
-  "qa": [
-    {
-      "q": "Many people who live and breathe jazz claim the golden era was the late '50s. Where on the timeline do you think we are with electronic music? Has it peaked, or is it still building? Where is it all going?",
-      "a": "I feel the term “electronic music” is ultimately to be too broad at this point. In the late 60's and early 70s there was a sense that electronic instruments fit into a clear category. There was fear that they would wrongly replace real instruments or even musicians (The Beatles' use of the Mellotron on ‘Strawberry Fields Forever'). And that trend seemed to continue into the 80s with a well-defined delineation of synth pop and psych rock's usage of synthesizers and drum machines etc. But the practice of electronic instruments and methods in production are utilized in almost all popular music today. The technology is inseparable from the process and therefore not truly electronic music in a purest sense. So, I guess in very strict terms, the golden era of electronic music has passed. In the 90s I had a narrower vision of what I believed electronic music production should look like. I was ultimately (save for a few exceptions) exclusively listening to electronic music, like techno and sample based experimental music. Since then, my production methods have evolved to include more traditional instruments, although I'm not using them in a conventional manner. And as I have grown older, I have lost touch with the multitude of genres that have splintered. Black MIDI? I had no idea. There are now hundreds of subgenres of electronic music. And with production methods crossing so many categories, hybridizing and evolving so quickly, it suggests that we are well past the golden era and deeper into uncharted territory."
-    },
-    {
-      "q": "What's a piece of art from a completely different medium that shaped how you hear things?",
-      "a": "During a brief gallery tour in Toronto during my art school years, I encountered an exhibition that profoundly altered my understanding of contemporary art. The exhibition was held at The Ydessa Hendeles Gallery and featured a collection of works by Bill Viola, Gary Hill, and James Coleman. Ydessa had modified the gallery's interior structure to accommodate the artworks. This is where I experienced Bill Viola's Arc of Ascent. The installation comprised a synchronized multi-channel video projected onto a suspended 22-foot translucent scrim. The action depicted, in extreme slow motion, was that of a diver plunging into dark water and subsequently ascending to the surface. The three-second dive is slowed to a lengthy seven minutes, creating a sense of tension as the suspended figure gradually descends on the screen. The audio is also slowed to synchronize with the image on the screen. The sound consists of a thunderous wave of bass and noise, creating a powerful visceral experience. In that moment, I realized how the image was significantly influenced by the presence of the sound. This was not music or sound effects but an aural texture designed to challenge viewers' perceptions. From that point on, I developed an understanding that sound art could be atonal and experiential without the need for elaborate context or extraneous meaning."
-    },
-    {
-      "q": "You've spent your life on the border, Windsor and Detroit — two cities with different energies, but there is something very unusual about Windsor. How do you see this connection between the two places? How has it shaped how you make music?",
-      "a": "In the early 90s, I spent a considerable amount of time attending warehouse parties and shopping for music at local record shops in Michigan. Detroit has played a significant role in shaping my formative years, providing me with techniques and inspiration. However, the way I currently create music has undergone a significant transformation over the years. Detroit remains an important destination, and it has undergone exponential gentrification and development over the past 25 years. In contrast, Windsor has largely remained unchanged and could potentially learn from Detroit's transformation. Windsor is a border anomaly, and Michiganders regard it like a suburb of Detroit. There are distinct cultural differences, and I think it's important for us to maintain our identity. We really aren't “South Detroit”, despite what the Journey song suggests. Nevertheless, the two cities will continue to have a symbiotic relationship, and I hope that this will only improve, despite the current political tensions between the countries."
-    },
-    {
-      "q": "What does your process look like when you're starting something new? Does it begin with a sound you've heard out in the world, or is it more about experimentation once you're in the studio? There's a loneliness to your music that I'm drawn to, not sad, but solitary. Where does that come from?",
-      "a": "I rarely step into the studio with a clear vision of what I want to create. While I may have a general idea, I mostly begin with experimentation. Some days, I focus on creating patches that I can use later, while other sessions involve composing and mixing. Over the years, I've become more comfortable with my process, allowing errors in the work to become part of the final product. There are times when it is essential for me to be meticulous, and other times when I need to cut the track loose and understand what the music has become. I don't start a track with the intention of producing something melancholic, but it often ends up being that way. I'm not a dark person, but I find that the process of sound production is cathartic. Perhaps there's a psychological explanation for how I end up with sad sounds. I'm not sure I want to find out."
-    },
-    {
-      "q": "Final question: what are you listening to?",
-      "a": "This is my “Best Of” list for 2025. Not everything on my curated lists is a widely lauded success, but there is most often something about a release that I find interesting or unique."
-    }
-  ]
-},
-{
-  "id": "karla",
-  "issue": 1,
-  "cardLines": ["KARLA", "IS HERE"],
-  "title": "KARLA IS HERE",
-  "sub": "Issue 1 · Yoni Newman",
-  "deck": "A conversation with Yoni Newman on listening, looking, and the golden age that never ends.",
-  "date": "Dec 12, 2025",
-  "portrait": "images/interviews/yoni.jpg",
-  "intro": [
-    "Yoni and I met in the late 1990s while I was studying in Toronto. My year-end project was to create a cultural event tied to fashion — what I was studying at the time — and I discovered Yoni's work hanging in a café. I was instantly intrigued and got in touch. He and his friend Oli became lifelong friends from that moment.",
-    "Over the years, we've done a few collaborations, but more importantly, it's our connection to the creative process as a whole that sustains things. If there's something stirring in my mind that I can't quite articulate, Yoni knows how to contextualize what I'm thinking. I've come to realize how important he is to my creative process. The two of us together is much like herding cats — we both wander, sometimes aimlessly, then reconnect with too much to talk about.",
-    "These are some questions I asked him, and this is not unlike what our chats are like. Hope you enjoy."
-  ],
-  "sections": [],
-  "qaLead": "Interview",
-  "qa": [
-    {
-      "q": "What sound have you heard recently that you couldn't stop thinking about?",
-      "a": "Nothing much recent, but it happens every so often — I'll hear something and I'll never forget it. I was in London four years ago, and the electrical on one of these very long escalators was glitching out, causing this crispy crackle of a sound that reverberated through the concrete tunnel. As I came down the escalator, the sound got louder and louder so that it sort of emerged out of the primordial hum of the escalator and cut through it. It still makes the hairs on the back of my neck stand up to think about it."
-    },
-    {
-      "q": "",
-      "a": "I live downtown near a legislature building, so as you can imagine there are frequent protests. A few months back, a chorus of voices came shouting through a loudspeaker. You couldn't hear the words from this far back, but you couldn't mistake that energy in the voices either. I was working on a few tracks at the time and kicking myself for not getting to my field recorder faster. The ambience off the street always adds this complexity that I can't find inside the machines."
-    },
-    {
-      "q": "",
-      "a": "Also, I remember being in Switzerland working on a drum machine with a friend. We were up in the mountains near Davos and there was a stream nearby. I'd been listening to all of these synthesized sounds nonstop, day after day — noise drones and the like — and I remember going for a walk and hearing the water in the stream. I started thinking about it like a type of white noise, but the complexity of it blew me away. The infinite variety, the softness — it was a persistent brain tickle on so many different frequency bands. It gets very psychedelic listening to the world at that level of detail."
-    },
-    {
-      "q": "",
-      "a": "Truthfully, though, I spend too much of my day with headphones on, and so these days I'm missing out on a lot of the world this way."
-    },
-    {
-      "q": "Many people who live and breathe jazz claim the golden era was the late '50s. Where on the timeline do you think we are with electronic music? Has it peaked, or is it still building? Where is it all going?",
-      "a": "That's very hard to say. I mean, the '50s was a level of growth in sophistication and what the vernacular could do, but let's not sell short the massive impact of the swing era, when jazz was at its social peak. They are such different visions of a musical form."
-    },
-    {
-      "q": "",
-      "a": "It's different with electronic. It's hard to argue with the innovations of the '90s — the birth of rave culture, DnB, jungle, French house. I mean, all of it seemed to come out of nowhere. It was completely new, and that's quite rare. Was that the golden age?"
-    },
-    {
-      "q": "",
-      "a": "But electronic music now is bigger than it's ever been at any other point in history. However, like other forms of music these days, there are very few people moving it past what the pioneers built for us. We see a lot of refinements and personal takes on a genre, and I'm a huge fan of that, by the way — I'm much more interested in genuine expression and craftsmanship than novelty. But then there are always singular artists just doing something completely different."
-    },
-    {
-      "q": "",
-      "a": "The deeper I get into it, the more I wonder whether artists making vital work is a constant — it's the systems of distribution and consumption around them that ebb and flow, so that you get these dips and high water marks in the culture. There are quiet geniuses all over the place. When I go out, I regularly hear really good electronic music. The underground is as alive and vital as it's ever been. But the way to get that material to people is so reliant on social media that it really puts artists who don't have the chops for self-promotion at a huge disadvantage."
-    },
-    {
-      "q": "",
-      "a": "Truthfully, the landscape is so fractured now it's really difficult for me to see where we are. But maybe it's better that way."
-    },
-    {
-      "q": "What's a piece of art from a completely different medium that shaped how you hear things?",
-      "a": "I don't know of any one piece in particular, but I always use bits of video or found footage to articulate the vibe of tracks I'm working on. I'll project them on the wall of my studio and bask in the vibe. It's a very immediate way to immerse myself in the feel of a song. It can be anything, but it has to taste right with the sounds — and then you have a whole world you're in while making the track."
-    },
-    {
-      "q": "",
-      "a": "For example, if you remember Julian Schnabel's movie about Basquiat, there's this scene where he looks up at the New York skyline and sees this found footage projection of a guy surfing. It's just that same unexplainable perfect fit. I have a library of little bits of video I collect for this purpose."
-    }
-  ]
-},
-{
-  "id": "schoenberg",
-  "issue": 3,
-  "cardLines": [
-    "ARNOLD",
-    "SCHOEN-",
-    "BERG"
-  ],
-  "title": "ARNOLD SCHOENBERG",
-  "sub": "Issue 3 · Arnold Schoenberg",
-  "portrait": "images/interviews/schoenberg.jpg",
-  "disclosure": "Arnold Schoenberg died in 1951 and said none of this. The interviewer is Alex Taves. The respondent is Claude, an AI model made by Anthropic, answering in character from the composer's published writing, letters and known positions as of 1918. The opinions are his. The sentences are not.",
-  "intro": [],
-  "sections": [],
-  "qaLead": "Interview",
-  "qa": [
-    {
-      "q": "You painted seriously for four years and stopped. Kandinsky heard your quartet, wrote to you, and put your pictures in the Blaue Reiter. Were you a painter who happened to compose, or was the painting always music by other means?",
-      "a": "I was never a painter. I was a man who needed to say something and reached for whatever was nearest, and for a period the nearest thing was oil. Kandinsky was generous, more generous than the work deserved, and I have since put the brushes away because a man who does two things badly is worth less than a man who does one thing correctly."
-    },
-    {
-      "q": "",
-      "a": "But do not mistake modesty for a retraction. The pictures were not a hobby. I painted heads that are mostly stare, and one which is nothing but a stare with the head removed, and I did not paint them from a model. I painted the thing I heard. When Kandinsky wrote to me he had not seen the pictures at all. He had heard the quartet and understood immediately what I was after, which is the whole point: the material differs, the necessity does not. He calls it the inner necessity. I call it not lying. Same object."
-    },
-    {
-      "q": "",
-      "a": "The difference is that a painting hangs there and permits you to look away and look back. Music does not permit this. Music takes your time and does not return it. That is the advantage and the cruelty."
-    },
-    {
-      "q": "In Die glückliche Hand you scored light and colour as though they were instruments, a crescendo of red into yellow written into the staff. Is that theatre, or is it a claim that colour and pitch are the same substance?",
-      "a": "It is a claim, and I am tired of it being treated as decoration. I did not write “the stage becomes red.” I wrote the increase, the rate of it, the point at which it must break. It is composed. If a stagehand executes it as mood lighting, the piece is ruined, and I expect that is exactly what will happen for the next hundred years."
-    },
-    {
-      "q": "",
-      "a": "Are colour and tone the same substance? I do not know and I distrust anyone who says they do. The mystics will tell you C sharp is violet. That is a parlour trick. What I say is smaller and harder: both are quantities that move in time and can be given a shape, and if a shape can be given, it can be composed, and if it can be composed, then to leave it to a lighting man's taste is an abdication."
-    },
-    {
-      "q": "",
-      "a": "Consider what this implies. It implies that everything in the room is scoreable. The light, the duration, the order of arrival, the silence before. Nobody wants this, because it means the composer is responsible for the whole experience and can no longer blame the hall. I accept the responsibility. I do not expect the means to exist in my lifetime."
-    }
-  ]
-}
-]
-const INTERVIEWS_BY_ISSUE = [...INTERVIEWS].sort((a, b) => a.issue - b.issue)
 
 // Add-to-home-screen instructions. Kept to two paths and three steps each —
 // anything longer and nobody follows it.
@@ -496,7 +339,7 @@ const CARDS = [
 
   { id: 'karla',  kind: 'video', badge: 1, src: 'videos/mobile/karla.mp4',
     title: 'KARLA IS HERE', lines: ['KARLA', 'IS HERE'], foot: 'visuals by oswin',
-    bg: '#12151b', ink: '#1E2BFF', open: () => location.href = LIVE_ISSUE(1) },
+    bg: '#12151b', open: () => location.href = LIVE_ISSUE(1) },
   { id: 'chris',  kind: 'video', badge: 2, src: 'videos/mobile/chris.mp4',
     title: 'CHRISTOPHER BISSONNETTE', lines: ['CHRIS-', 'TOPHER', 'BISSON-', 'NETTE'], foot: 'visuals by oswin',
     bg: '#12151b', open: () => location.href = LIVE_ISSUE(2) },
@@ -506,6 +349,9 @@ const CARDS = [
     bg: '#777777', open: () => location.href = LIVE_ISSUE(3) },
   { id: 'oli',    kind: 'video', badge: 4, src: 'videos/mobile/oli.mp4',
     title: 'OLI GOLDSMITH', lines: ['OLI', 'GOLD-', 'SMITH'], foot: 'audio by karla is here',
+    // Set at the name's own size, so it is measured alongside the name and both
+    // land at one size that fits. Broken by hand — there is no space to break at.
+    subLines: ['UNDER', 'CONSTRUC-', 'TION'], subColor: BADGE_YELLOW,
     bg: '#12151b', open: () => location.href = 'oli.html' },
 
   // Same treatment as the Oswin Journal card — flat ground, title, caption — on
@@ -537,45 +383,6 @@ const CARDS = [
 // pays for these files.
 // The stories themselves, carried over from the fiction ring on alextaves.com.
 // Only three are written; the rest of the room is announced but empty.
-const FICTION_STORIES = {
-  "hum": {
-    "title": "HUM",
-    "paras": [
-      "As you walk through a store, the music and screens change to your taste. But the music is in your head. Everyone has their version. The screens are Hum’s, billboards, store displays, transit panels, the lobby screen at your building. Designated surfaces. If you’re WOCCA, they go black. I’ve lowered my glasses a few times out of curiosity. To not wear them seems so sad and lonely.",
-      "Those who hear no music or see no visuals at all are known as WOCCA. Apparently they’re around, I don’t know any.",
-      "The glasses are part of it. Mandatory since UV-C started punching through the atmosphere. Class 4 tinted frames, revised Radiation Protection Standard, you can’t legally leave the house without them. Everyone knows they track. The sneakers you linger on, the sports team whose scores you check, the exact blue you keep returning to. What most people don’t clock is the depth. Every fixation timestamped, every saccade logged. The glasses see what you see, and the audio responds.",
-      "You near the wine aisle at a grocery store and a signal fires from one of the Knowisphere mesh beacons above the shelving. Newer stores use KWM III, most still run the old mesh. The musak shifts to what you’d be doing that night. At least, a prediction. Most nights after work, you buy wine and watch a show. The musak knows the show and will play something that alludes to it. Not the melody per se. A hint. Or if you are heading to see your sport team play, the atmosphere shifts through sight and sound to let you pre-enjoy self. Of course you can adjust the settings. I’m hungry, or I need to prep for an exam. Billboard screens turn into cue cards. It’s subtle but shown to morph attitudes.",
-      "Every glance is noted and saved. Except in your own home, or at night, though there’s a beta program to push the night frames, softer tint, still tracking, marketed as reducing contrast fatigue. It’s catching on. People love the glasses. Chanel. Burberry. Prada does a really beautiful pair in tortoiseshell.",
-      "The wine aisle is the entry point. Every industry is vying for its share, particularly the dodgier ones. It really took off in the adult industry, it counts on men having types. The half-second glances, the ones you wouldn’t remember taking, are weighted highest.",
-      "So your glance at anything shifts the sound, ever so slightly. It’s not music we’re talking about here. This is purely generative, the model spitting out audio per frame based on what your eyes just did. But at the same time it could be music. And it’s impossible to hear the same thing twice.",
-      "WOCCA hear nothing. They see a grey city. Everyone else, the whole thing is illuminated."
-    ]
-  },
-  "knife": {
-    "title": "CASUAL KNIFE FIGHT",
-    "paras": [
-      "It was one of those casual knife fights. Effort was made, yes, but it was relaxed effort. Much like driving - one wrong move and you could die, but nonetheless, it can be relaxing. Knife fights, from time to time, can do this for me too. Don’t get me wrong, I’ve been in knife fights that were terrifying. This particular one wasn’t. It was very casual.",
-      "Was our aim to kill? Maybe not kill, but to at least injure enough that they may never walk again or use the washroom properly. Kill if it came to it, for sure.",
-      "He took a swing with his four-inch blade and it nearly hit my face. I noticed his technique was rather Montreal style; that being scrappy yet circus like. I moved my head gently to the left. You could tell it was a well-made knife - I’d say the handle was cedar, possibly hand-carved. It had a lovely aroma. I burn a lot of cedar incense at home; it relaxes me. His cologne was Tom Ford Oud Wood - excellent choice for a knife fight, subtle yet memorable. He seemed to have good taste. Too bad someone might die right now.",
-      "I grabbed his well-conditioned and styled hair - the kind of precision cut you only get at those appointment-only barbershops - and attempted to knife his temple, but he pushed me back and I fell. The lawn was that perfect length and lush. Whoever is taking care of this lawn understands the right amount of watering and has a clear sense of how much nitrogen to use. Too much makes the lawn go yellow and look burnt. This lawn, was luxurious. It had that deep summer grass clipping smell, mixed with the earthy undertones of recent irrigation. Through the carefully spaced Japanese maples, the sky was a particular shade of azure you only get in late August. I must say there was a lot of air travel that day - lots of jet streams criss-crossing like an amateur’s knife work.",
-      "He came running at me, knife pointed at my face as if to jump on me and stab my face off. His Brunello Cucinelli linen shirt moved beautifully with each thrust - breathing with his movements like good fabric should. I noticed his nice arms, clearly the result of a carefully balanced regime of calisthenics and light weights. Wow, he smells good and has nice arms. He’s the full package... I rolled out of the way, careful not to stain my own shirt - it was my favorite Jil Sander. My phone beeped and I took a second to check who it was. I had a little time - he had fumbled to the ground and seemed to be trying to rub dirt off his knees. They were nice jeans - raw Japanese denim, probably Momotaro given the subtle detailing. I’ll give him a second. I can quickly check my messages.",
-      "The fight continued.",
-      "He stabbed me in the stomach. It did hurt quite a bit, but I made it to the hospital promptly and all is good. My drink plans that evening were cancelled, but we rescheduled. I heard later he also had to cancel his plans - something about getting blood on his shirt and he had no backup."
-    ]
-  },
-  "elon": {
-    "title": "ELON'S IN MY ELEVATOR",
-    "paras": [
-      "It was summer of 2019 in Toronto, there was a tech convention and my new interest in computer programming led me there. There were rumors Elon Musk was going to be there but with all the commotion of too many booths to visit and speakers and people and more booths and too many things to grab your attention I soon forgot about Musk. This was until I dashed to catch an elevator to head to the 60th floor to the infamous restaurant — Canoe — to meet up with a few friends and perhaps grab an overpriced dinner. The elevator door was shutting as I neared and I darted to throw my arm in to stop the doors from shutting. I could see a guy that was standing in the elevator, and I both felt embarrassed and annoyed. One that I was holding him up and two, what a douche for not holding the door, it was obvious I was going to the same place.",
-      "Now, the long ride to the 60th floor. But I hadn’t even noticed who it was until we were well on our way up — Elon Musk. I’m not sure what face I made when I noticed but I’m sure there was a jolt to it. How could I not, it’s fucking Elon Musk. Mr. Everything, likely one of the most powerful people on the planet.",
-      "And as I write this, I realized I was staring. So I looked down quickly to pretend I hadn’t noticed. He was glaring at his phone and seemed like nothing was going to steal his attention so I looked up and stared from my peripheral view. His face seemed more play-dough like in real life, it looked damp and cold. His eyes fixated on his phone, eyes blinking rarely, and when they did blink it seemed to take twice as long as what is deemed normal for blinking. His thumb scrolled up, and up and then would pause, his eyes widened when he landed on a section that seemed critical to him. Then scroll, scroll, and pause.",
-      "That’s when the elevator came to a lurch — and stopped. The door didn’t open, and we were only on floor 41. Elon seemed unfazed by it, and continued to scroll. As a few minutes passed he opened his leather side bag and had a small tub of Mott’s applesauce with the mini wooden paddle like spoon. He peeled the foil back with concentrated precision. He started with the lip and very slowly peeled it back. His eyes widened, and brought the applesauce closer to his face as if to observe the container in finer detail.",
-      "Once he got the foil past the halfway point he accelerated the peel and stopped just shy of tearing it completely off. He took the foil and gently wrapped it over the side and to the bottom. Then he started to eat the applesauce with the same intensity. He knew that wooden spoon paddle well, the way he maximized each scoop, no applesauce spilled, but there also wasn’t room for even the slightest bit more. Once he got to the bottom of the container, he started to scrape the sides, again with great precision. There is no other way to describe it, he has mastered the Mott’s applesauce cup. This definitely wasn’t his first.",
-      "He pulled out another Mott’s applesauce out of his bag and placed it into the empty cup and continued to peel the foil back. He looked up at me, which was the first time he even acknowledged I was there, and said, “if you don’t peel carefully, the foil will rip”. I nodded to signal I understood.",
-      "He ate the Mott’s applesauce the same way as the first. He pulled out another one. The elevator jolted and we were back on our way, to which his reaction was to put the unopened Mott’s applesauce back into his bag. The door opened and that was my run-in with Elon Musk."
-    ]
-  }
-}
 
 const FICTION_CARDS = [
   { id: 'hum',    kind: 'video', src: 'videos/fiction/hum.mp4',
@@ -585,11 +392,11 @@ const FICTION_CARDS = [
   { id: 'siphon', kind: 'video', src: 'videos/fiction/siphon.mp4',
     lines: ['SIPHON'], sub: 'Falling Dots', bg: '#05061a' },
   { id: 'knife',  kind: 'video', src: 'videos/fiction/knife.mp4',
-    lines: ['KNIFE'], sub: 'Casual Knife Fight', bg: '#C9A400' },
-  { id: 'grafting', kind: 'plain', lines: ['GRAFT-', 'ING'], sub: 'Coming Soon', bg: '#046A38', light: true },
-  { id: 'boogie',   kind: 'plain', lines: ['BOOGIE'],        sub: 'Coming Soon', bg: '#582C83', light: true },
-  { id: 'cbc',      kind: 'plain', lines: ['CBC'],           sub: 'Coming Soon', bg: '#E4002B', light: true },
-  { id: 'dorthy',   kind: 'plain', lines: ['DORTHY', 'SOTH-', 'ERBY'], sub: 'Coming Soon', bg: '#F37021', light: true },
+    lines: ['CASUAL', 'KNIFE', 'FIGHT'], bg: '#C9A400' },
+  { id: 'grafting', kind: 'plain', lines: ['GRAFT-', 'ING'], sub: 'Synthetic to Organic', bg: '#046A38', light: true, rope: true },
+  { id: 'boogie',   kind: 'plain', lines: ['BOOGIE'],        bg: '#582C83', light: true, dancer: true },
+  { id: 'cbc',      kind: 'plain', lines: ['CBC'],           sub: 'The One-Way Glass Incident', bg: '#E4002B', light: true, gem: true },
+  { id: 'dorthy',   kind: 'plain', lines: ['DORTHY', 'SOTH-', 'ERBY'], sub: 'Waiting for Applause', bg: '#F37021', light: true, star: true },
 ]
 
 // An interview reads like an issue: the portrait, then the writing, then the
@@ -610,13 +417,13 @@ function openInterview(iv) {
       `<h3 class="section">${sec.heading}</h3>` + sec.paras.map(p => `<p class="copy">${p}</p>`).join('')
     ).join('') +
     `<h3 class="section">${iv.qaLead}</h3>` +
-    iv.qa.map(x => (x.q ? `<p class="q">${x.q}</p>` : '') + `<p class="copy">${x.a}</p>`).join('') +
+    iv.qa.map(x => (x.q ? `<p class="q">${x.q}</p>` : '') + (x.a ? `<p class="copy">${x.a}</p>` : '')).join('') +
     '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
   sh.querySelector('.close').addEventListener('click', () => history.back())
-  mountSheet(sh)
+  mountSheet(sh, () => openInterviews(false))
 }
 
-function openInterviews() {
+function openInterviews(push = true) {
   const sh = document.createElement('div')
   sh.className = 'sheet room'
   sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">INTERVIEWS</div>` +
@@ -629,16 +436,11 @@ function openInterviews() {
     open: () => openInterview(iv),
   })))
   sh.querySelector('.close').addEventListener('click', () => history.back())
-  mountSheet(sh)
-  const head = sh.querySelector('.masthead')
-  const title = g.querySelector('.card .title')
-  if (title) {
-    head.style.height = title.getBoundingClientRect().height + 'px'
-    head.style.fontSize = getComputedStyle(title).fontSize
-  }
+  mountSheet(sh, null, push)
+  applyMastheadMetrics(sh.querySelector('.masthead'))
 }
 
-function openFiction() {
+function openFiction(push = true) {
   const s = document.createElement('div')
   s.className = 'sheet room'
   s.innerHTML = '<div class="masthead" style="background:#FF5F00;color:#111111">FICTION</div>' +
@@ -649,18 +451,13 @@ function openFiction() {
   FICTION_CARDS.forEach((c) => {
     const story = FICTION_STORIES[c.id]
     g.appendChild(buildCard(story
-      ? { ...c, open: () => openSheet({ title: story.title, sub: c.sub, paras: story.paras }) }
+      ? { ...c, open: () => openSheet({ title: story.title, sub: c.sub, paras: story.paras,
+                                        onBack: () => openFiction(false) }) }
       : c))
   })
   s.querySelector('.close').addEventListener('click', () => history.back())
-  mountSheet(s)
-  // Size the room's masthead off its own first card, same as the lobby's.
-  const head = s.querySelector('.masthead')
-  const title = g.querySelector('.card .title')
-  if (title) {
-    head.style.height = title.getBoundingClientRect().height + 'px'
-    head.style.fontSize = getComputedStyle(title).fontSize
-  }
+  mountSheet(s, null, push)
+  applyMastheadMetrics(s.querySelector('.masthead'))
 }
 
 
@@ -806,10 +603,13 @@ function buildCard(card) {
   const head = document.createElement('div')
   head.className = 'head'
   head.innerHTML =
-    `<h2 class="title" style="color:${ink};font-size:${fitTitle(card.lines)}cqw">` +
+    `<h2 class="title" style="color:${ink};font-size:${fitTitle([...card.lines, ...(card.subLines || [])])}cqw">` +
     card.lines.map(l => `<span>${l}</span>`).join('') + '</h2>' +
     `<div class="rule" style="background:${inkRule}"></div>` +
-    (card.sub ? `<p class="sub" style="color:${inkSub}">${card.sub}</p>` : '')
+    (card.subLines
+      ? `<h3 class="title subTitle" style="color:${card.subColor || inkSub};font-size:${fitTitle([...card.lines, ...card.subLines])}cqw">`
+        + card.subLines.map(l => `<span>${l}</span>`).join('') + '</h3>'
+      : card.sub ? `<p class="sub" style="color:${card.subColor || inkSub}">${card.sub}</p>` : '')
   el.appendChild(head)
 
   if (card.foot) {
@@ -825,6 +625,11 @@ function buildCard(card) {
 
   if (card.kind === 'enq') el.appendChild(buildEnquiryPreview())
 
+  if (card.dancer) mountDancer(el)
+  if (card.rope) mountRope(el)
+  if (card.gem) mountGem(el)
+  if (card.star) mountStar(el)
+
   if (card.badge) el.appendChild(makeBadge(card.badge))
 
   if (card.open) el.addEventListener('click', card.open)
@@ -838,19 +643,24 @@ setInterval(() => {
   turnBadges(badgeIdx)
 }, BADGE_HOLD_MS)
 
-// Match the masthead to the first card's title block — same height as KARLA IS
-// HERE, and its type set at the same size as a card title. Measured rather than
-// hardcoded so it tracks the cards through a rotation or any column change.
+// Every masthead — the lobby's and each room's — takes its height and type size
+// from the LOBBY's first card title. Measuring each room against its own first
+// card made fiction a thinner band than the rest, because HUM is one line where
+// PLEASE READ and KARLA IS HERE are two. Still measured rather than hardcoded,
+// so it tracks the cards through a rotation or a change of columns.
 const masthead = document.getElementById('masthead')
-function sizeMasthead() {
+function applyMastheadMetrics(el) {
   const title = grid.querySelector('.card .title')
-  if (!title) return
-  masthead.style.height = title.getBoundingClientRect().height + 'px'
-  masthead.style.fontSize = getComputedStyle(title).fontSize
+  if (!title || !el) return
+  el.style.height = title.getBoundingClientRect().height + 'px'
+  el.style.fontSize = getComputedStyle(title).fontSize
 }
-sizeMasthead()
-addEventListener('resize', sizeMasthead)
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizeMasthead)
+function sizeMastheads() {
+  document.querySelectorAll('.masthead').forEach(applyMastheadMetrics)
+}
+sizeMastheads()
+addEventListener('resize', sizeMastheads)
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizeMastheads)
 
 // ── Enquiry preview ───────────────────────────────────────────────────────────
 function buildEnquiryPreview() {
@@ -883,22 +693,35 @@ function buildEnquiryPreview() {
 }
 
 // ── Sheets ────────────────────────────────────────────────────────────────────
-function closeSheet() {
+function removeSheet() {
   document.querySelector('.sheet')?.remove()
 }
-window.addEventListener('popstate', closeSheet)
+function closeSheet() { removeSheet() }
 
-function mountSheet(node) {
-  closeSheet()
+// A sheet opened from a room remembers how to put that room back, so closing a
+// story returns you to fiction rather than all the way out to the grid. The
+// room is remounted without pushing history — we are stepping back onto the
+// entry that opened it, not adding another.
+function mountSheet(node, onBack, push = true) {
+  removeSheet()
+  node._onBack = onBack || null
   document.body.appendChild(node)
-  history.pushState({ sheet: true }, '')
+  if (push) history.pushState({ sheet: true }, '')
 }
 
-function openSheet({ title, sub, paras, actions = [] }) {
+window.addEventListener('popstate', () => {
+  const sheet = document.querySelector('.sheet')
+  if (!sheet) return
+  const back = sheet._onBack
+  sheet.remove()
+  if (back) back()
+})
+
+function openSheet({ title, sub, paras, actions = [], onBack }) {
   const s = document.createElement('div')
   s.className = 'sheet'
   s.innerHTML =
-    `<h2>${title}</h2><p class="sheetSub">${sub}</p>` +
+    `<h2>${title}</h2>` + (sub ? `<p class="sheetSub">${sub}</p>` : '') +
     paras.map(p => `<p class="copy">${p}</p>`).join('') +
     '<div class="actions"></div>'
   const row = s.querySelector('.actions')
@@ -914,7 +737,7 @@ function openSheet({ title, sub, paras, actions = [] }) {
   close.type = 'button'; close.className = 'close'; close.textContent = 'CLOSE'
   close.addEventListener('click', () => history.back())
   row.appendChild(close)
-  mountSheet(s)
+  mountSheet(s, onBack)
 }
 
 // Both forms post to the site's existing Formspree, tagged by subject so

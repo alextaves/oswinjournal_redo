@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boogie — dancer tests</title>
+<style>
+  :root { --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; --purple: #582C83; }
+  html, body { margin: 0; background: #E7E2D8; font-family: var(--font); color: #111; }
+  .page { padding: 24px; }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .lede { margin: 0 0 22px; font-size: 13px; color: rgba(0,0,0,0.6); max-width: 60ch; line-height: 1.5; }
+
+  .controls { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; flex-wrap: wrap;
+              font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(0,0,0,0.6); }
+  .controls label { display: flex; align-items: center; gap: 8px; }
+  .controls input[type=range] { width: 150px; }
+  .controls button { font-family: var(--font); font-size: 11px; letter-spacing: 0.14em;
+                     text-transform: uppercase; background: none; border: 1px solid rgba(0,0,0,0.3);
+                     padding: 6px 12px; cursor: pointer; border-radius: 3px; }
+
+  /* Cards at the grid's own proportions, so these are judged as covers. */
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+  .card { position: relative; aspect-ratio: 3/4; border-radius: 6px; overflow: hidden;
+          background: var(--purple);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
+                      0 2px 3px rgba(0,0,0,0.28), 0 10px 20px rgba(0,0,0,0.22); }
+  .card canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .card .head { position: absolute; top: 0; left: 0; right: 0; padding: 9% 9% 0; z-index: 2; }
+  .card .title { margin: 0; font-weight: 700; font-size: 12.3cqw; line-height: 1; letter-spacing: -0.01em;
+                 color: rgba(255,255,255,0.94); }
+  .card { container-type: inline-size; }
+  .card .name { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 9% 6%; z-index: 2;
+                font-size: max(9px, 2.4cqw); letter-spacing: 0.14em; text-transform: uppercase;
+                color: rgba(255,255,255,0.55); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Boogie — dancer tests</h1>
+  <p class="lede">Four takes on the stick figure, each on a Boogie-coloured card at the grid's 3:4.
+     The story's own description is the brief: half leg kicks, the occasional spin, and a point on
+     the way round. Speed and weight are live — tell me which one and I'll tune it and put it on the card.</p>
+
+  <div class="controls">
+    <label>Speed <input id="speed" type="range" min="0.3" max="2.2" step="0.05" value="1"></label>
+    <label>Line <input id="weight" type="range" min="1" max="10" step="0.5" value="5"></label>
+    <button id="pause">Pause</button>
+  </div>
+
+  <div class="row" id="row"></div>
+</div>
+
+<script>
+// ── A stick figure, drawn from angles ─────────────────────────────────────────
+// Everything is built off one pelvis point and a set of joint angles, so a dance
+// is just a function of time returning those angles. Angles are radians, 0 =
+// straight down, positive swings the limb to the figure's left (screen right).
+const TAU = Math.PI * 2
+
+function limb(ctx, x, y, ang, len) {
+  const nx = x + Math.sin(ang) * len
+  const ny = y + Math.cos(ang) * len
+  ctx.lineTo(nx, ny)
+  return [nx, ny]
+}
+
+// Palette. Neon orange top against the card's purple — near-complementary, so
+// it reads hot rather than sitting into the ground. Trousers take the blue the
+// PLEASE READ card uses.
+const SHIRT = '#FF6A00'        // neon orange, against the purple
+const TROUSERS = '#1E2BFF'
+const SHOES = '#111111'
+const SKIN = '#F2C6A0'          // peach, filled
+
+function stroke(ctx, colour, width) {
+  ctx.strokeStyle = colour
+  ctx.lineWidth = width
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+}
+
+// Scale a hex colour's brightness — below 1 darkens, above 1 lifts. Limbs on the
+// far side of a turn get shaded, which is most of what sells the depth.
+function shade(hex, k) {
+  const n = parseInt(hex.slice(1), 16)
+  const cl = (v) => Math.max(0, Math.min(255, Math.round(v)))
+  const r = cl(((n >> 16) & 255) * k)
+  const g = cl(((n >> 8) & 255) * k)
+  const b = cl((n & 255) * k)
+  return `rgb(${r},${g},${b})`
+}
+
+// ── Light ─────────────────────────────────────────────────────────────────────
+// One source, up and to the right. Two jobs: a pool that drops everything the
+// figure is standing in, and a direction that shades the figure itself, so the
+// two read as the same light rather than a dark card with a bright cutout on it.
+const LIGHT = { x: 0.80, y: 0.10 }     // as a fraction of the card
+
+// How lit a point is: 1 at the figure's centre, falling off away from the source.
+function lightAt(x, y, W, H) {
+  const lx = LIGHT.x * W, ly = LIGHT.y * H
+  const d = Math.hypot(x - lx, y - ly) / Math.hypot(W, H)
+  return Math.max(0.55, Math.min(1.22, 1.30 - d * 1.15))
+}
+
+// The pool. Drawn under the figure, so the figure keeps its own brightness and
+// only the ground around it goes down.
+function drawSpot(ctx, W, H, fx, fy) {
+  const r = Math.max(W, H) * 0.62
+  const g = ctx.createRadialGradient(fx, fy - H * 0.06, r * 0.10, fx, fy - H * 0.06, r)
+  g.addColorStop(0, 'rgba(0,0,0,0)')
+  g.addColorStop(0.42, 'rgba(0,0,0,0.34)')
+  g.addColorStop(1, 'rgba(0,0,0,0.82)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, W, H)
+
+  // A little warmth spilling from the source itself.
+  const lx = LIGHT.x * W, ly = LIGHT.y * H
+  const w = ctx.createRadialGradient(lx, ly, 0, lx, ly, Math.max(W, H) * 0.55)
+  w.addColorStop(0, 'rgba(255,226,170,0.16)')
+  w.addColorStop(1, 'rgba(255,226,170,0)')
+  ctx.fillStyle = w
+  ctx.fillRect(0, 0, W, H)
+}
+
+// ── Mirror ball ───────────────────────────────────────────────────────────────
+// The ball itself is never drawn — only what it throws. Each facet is a point on
+// a spinning sphere; what you see is where its beam lands, sweeping an arc
+// across the room and dragging a short trail behind it. Blended additively, so
+// two spots crossing get brighter rather than painting over each other.
+const FACETS = Array.from({ length: 162 }, (_, i) => ({
+  a: (i * 2.39996),                    // golden angle, so they never clump
+  lat: -0.55 + ((i * 0.618) % 1) * 1.5,
+  speed: 0.55 + ((i * 0.37) % 1) * 0.5,
+  size: 0.5 + ((i * 0.73) % 1) * 0.9,
+  warm: (i % 5) === 0,
+}))
+
+function facetAt(f, t, W, H) {
+  const ang = f.a + t * f.speed
+  // A wide ellipse: spots travel mostly sideways, rising and falling a little.
+  const x = W * 0.5 + Math.cos(ang) * W * 0.92
+  const y = H * (0.42 + f.lat * 0.30) + Math.sin(ang * 0.8 + f.a) * H * 0.16
+  // Facing away from the room, a facet throws nothing.
+  const face = Math.sin(ang)
+  return { x, y, on: Math.max(0, face) }
+}
+
+// One spot, drawn once into an offscreen canvas per colour and then blitted.
+// Building a fresh radial gradient for every spot of every trail of every frame
+// is what the field actually costs; a sprite makes it a texture copy instead.
+const SPOT_PX = 64
+const SPOT_SPRITES = {}
+function spotSprite(colour) {
+  if (SPOT_SPRITES[colour]) return SPOT_SPRITES[colour]
+  const c = document.createElement('canvas')
+  c.width = c.height = SPOT_PX
+  const x = c.getContext('2d')
+  const g = x.createRadialGradient(SPOT_PX / 2, SPOT_PX / 2, 0, SPOT_PX / 2, SPOT_PX / 2, SPOT_PX / 2)
+  g.addColorStop(0, `rgba(${colour},1)`)
+  g.addColorStop(1, `rgba(${colour},0)`)
+  x.fillStyle = g
+  x.fillRect(0, 0, SPOT_PX, SPOT_PX)
+  SPOT_SPRITES[colour] = c
+  return c
+}
+
+function drawMirrorBall(ctx, W, H, t) {
+  const unit = Math.min(W, H)
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  FACETS.forEach((f) => {
+    if (facetAt(f, t, W, H).on <= 0.02) return
+    const sprite = spotSprite(f.warm ? '255,214,150' : '214,226,255')
+    // The trail: the same facet a few moments ago, fading out.
+    for (let k = 3; k >= 0; k--) {
+      const past = facetAt(f, t - k * 0.055, W, H)
+      if (past.on <= 0) continue
+      const r = unit * 0.030 * f.size * (1 - k * 0.13)
+      ctx.globalAlpha = 0.30 * (1 - k / 4.2) * past.on
+      ctx.drawImage(sprite, past.x - r, past.y - r, r * 2, r * 2)
+    }
+  })
+  ctx.restore()
+}
+
+// The figure is built in body space — x across the body, y down, z toward the
+// viewer — and turned about the vertical axis before being drawn. That is what
+// makes a turn read as a body rotating rather than a cutout being squashed:
+// lateral offsets swing into depth, and depth swings out into width.
+const px = (xb, zb, turn) => xb * Math.cos(turn) + zb * Math.sin(turn)
+const pz = (xb, zb, turn) => -xb * Math.sin(turn) + zb * Math.cos(turn)
+
+// Walk a two-segment limb in body space, returning its projected points and the
+// depth of its midpoint (used for ordering and shading).
+function limbPath(ox, oy, oz, segs, turn) {
+  let xb = ox, y = oy, zb = oz
+  const pts = [[px(xb, zb, turn), y]]
+  let midZ = pz(xb, zb, turn)
+  segs.forEach(([ang, sag, len], i) => {
+    xb += Math.sin(ang) * len
+    zb += Math.sin(sag) * len
+    y += Math.cos(ang) * len
+    pts.push([px(xb, zb, turn), y])
+    if (i === 0) midZ = pz(xb, zb, turn)
+  })
+  return { pts, z: midZ }
+}
+
+function drawPath(ctx, cx, path, colour, width) {
+  stroke(ctx, colour, width)
+  ctx.beginPath()
+  path.pts.forEach(([x, y], i) => (i ? ctx.lineTo(cx + x, y) : ctx.moveTo(cx + x, y)))
+  ctx.stroke()
+}
+
+function drawFigure(ctx, W, H, p, lineWidth, t) {
+  const S = Math.min(W, H) / 190
+  const spine = 46 * S, neck = 8 * S, headR = 11 * S
+  const upperArm = 26 * S, foreArm = 24 * S
+  const thigh = 30 * S, shin = 30 * S
+  const shoulderW = 15 * S, hipW = 9 * S
+  const shoe = 13 * S
+
+  const wTorso = lineWidth * 2.6
+  const wLimb  = lineWidth * 1.7
+  const wShoe  = lineWidth * 2.2
+
+  const turn = p.turn
+  const cx = W / 2 + p.driftX * S
+  const pelvisY = H * 0.62 + p.bob * S
+  const z = (v) => (v || 0)
+
+  drawSpot(ctx, W, H, cx, pelvisY)
+  // Thrown onto the room before the figure, so he stands in the light rather
+  // than wearing it.
+  drawMirrorBall(ctx, W, H, t)
+
+  // Spine top, leaning across the body.
+  const spineXb = Math.sin(p.lean) * spine
+  const neckY = pelvisY - Math.cos(p.lean) * spine
+  const shoulderY = pelvisY - Math.cos(p.lean) * spine * 0.86
+  const shoulderXb = Math.sin(p.lean) * spine * 0.86
+
+  // Limbs, built in body space then projected.
+  const arms = [
+    { side: -1, ...limbPath(shoulderXb - shoulderW, shoulderY, 0,
+        [[p.armL, z(p.armLz), upperArm], [p.armL + p.foreL, z(p.armLz), foreArm]], turn) },
+    { side:  1, ...limbPath(shoulderXb + shoulderW, shoulderY, 0,
+        [[p.armR, z(p.armRz), upperArm], [p.armR + p.foreR, z(p.armRz), foreArm]], turn) },
+  ]
+  const legs = [
+    { side: -1, ...limbPath(-hipW, pelvisY, 0,
+        [[p.legL, z(p.legLz), thigh], [p.legL + p.kneeL, z(p.legLz), shin]], turn) },
+    { side:  1, ...limbPath(hipW, pelvisY, 0,
+        [[p.legR, z(p.legRz), thigh], [p.legR + p.kneeR, z(p.legRz), shin]], turn) },
+  ]
+
+  // Behind the body, and away from the light, are two separate darkenings; a
+  // limb can be both.
+  const tint = (part) => {
+    const [mx, my] = part.pts[1] || part.pts[0]
+    return (part.z < 0 ? 0.62 : 1) * lightAt(cx + mx, my, W, H)
+  }
+
+  const drawLeg = (l) => {
+    drawPath(ctx, cx, l, shade(TROUSERS, tint(l)), wLimb)
+    const [fx, fy] = l.pts[l.pts.length - 1]
+    stroke(ctx, shade(SHOES, tint(l)), wShoe)
+    ctx.beginPath(); ctx.moveTo(cx + fx, fy)
+    // The toe points along the body's own facing, so it swings round with it.
+    ctx.lineTo(cx + fx + px(shoe * l.side, 0, turn), fy + wShoe * 0.15)
+    ctx.stroke()
+  }
+  const drawArm = (a) => drawPath(ctx, cx, a, shade(SHIRT, tint(a)), wLimb)
+
+  // Back to front: whatever is behind the torso, then the torso, then the rest.
+  legs.filter(l => l.z < 0).forEach(drawLeg)
+  arms.filter(a => a.z < 0).forEach(drawArm)
+
+  // Torso. Its width follows the turn, so the body narrows as it comes side-on,
+  // with a floor so it stays a slab rather than disappearing to a line.
+  const torsoH = spine * 0.86
+  const torsoW = Math.max(shoulderW * 0.42, shoulderW * 1.9 * Math.abs(Math.cos(turn)))
+  const hem = wTorso * 0.35
+  ctx.save()
+  ctx.translate(cx + px(0, 0, turn), pelvisY)
+  ctx.rotate(p.lean)
+  // Lit across the body from the source, so the shirt turns rather than sitting flat.
+  const tg = ctx.createLinearGradient(torsoW / 2, -torsoH, -torsoW / 2, hem)
+  tg.addColorStop(0, shade(SHIRT, Math.min(1.18, lightAt(cx + torsoW / 2, pelvisY - torsoH, W, H))))
+  tg.addColorStop(1, shade(SHIRT, lightAt(cx - torsoW / 2, pelvisY, W, H) * 0.82))
+  ctx.fillStyle = tg
+  ctx.beginPath()
+  if (ctx.roundRect) ctx.roundRect(-torsoW / 2, -torsoH, torsoW, torsoH + hem, torsoW * 0.16)
+  else ctx.rect(-torsoW / 2, -torsoH, torsoW, torsoH + hem)
+  ctx.fill()
+  ctx.restore()
+
+  legs.filter(l => l.z >= 0).forEach(drawLeg)
+  arms.filter(a => a.z >= 0).forEach(drawArm)
+
+  // Neck and head.
+  const headXb = spineXb + Math.sin(p.lean + p.headTilt) * (neck + headR)
+  const headY = neckY - Math.cos(p.lean + p.headTilt) * (neck + headR)
+  stroke(ctx, SKIN, wLimb)
+  ctx.beginPath()
+  ctx.moveTo(cx + px(spineXb, 0, turn), neckY)
+  ctx.lineTo(cx + px(headXb, 0, turn), headY)
+  ctx.stroke()
+  // Facing away, the head is the back of a head — same shape, less light on it.
+  const facing = Math.cos(turn)
+  const hxs = cx + px(headXb, 0, turn)
+  const hl = lightAt(hxs, headY, W, H) * (facing < 0 ? 0.78 : 1)
+  // A ball lit from the source: the highlight sits toward it, not at the centre.
+  const hg = ctx.createRadialGradient(hxs + headR * 0.45, headY - headR * 0.45, headR * 0.1,
+                                      hxs, headY, headR * 1.15)
+  hg.addColorStop(0, shade(SKIN, Math.min(1.25, hl * 1.15)))
+  hg.addColorStop(1, shade(SKIN, hl * 0.72))
+  ctx.fillStyle = hg
+  ctx.beginPath(); ctx.arc(hxs, headY, headR, 0, TAU); ctx.fill()
+}
+
+// ── The dances ────────────────────────────────────────────────────────────────
+// Each returns the pose at time t (seconds). Angles in radians.
+const DANCES = {
+  'half kicks': (t) => {
+    const b = t * TAU * 1.6                     // the beat
+    const side = Math.sin(b)                    // weight shifting left/right
+    const kick = Math.max(0, Math.sin(b))       // one knee up per half-beat
+    const kick2 = Math.max(0, -Math.sin(b))
+    return {
+      turn: 0, driftX: side * 4, bob: Math.abs(Math.cos(b)) * -3,
+      lean: side * 0.10, headTilt: -side * 0.12,
+      armL: -0.42 + side * 0.30, foreL: -0.55 - kick * 0.35,
+      armR:  0.42 + side * 0.30, foreR:  0.55 + kick2 * 0.35,
+      legL: -0.10 - kick * 0.42, kneeL: kick * 1.15,
+      legR:  0.10 + kick2 * 0.42, kneeR: -kick2 * 1.15,
+    }
+  },
+
+  'spin & point': (t) => {
+    // Four beats of dancing, then a turn with the arm out — the story's move.
+    const cycle = 4.0
+    const u = (t % cycle) / cycle
+    const spinning = u > 0.5
+    // Eased, so the turn accelerates away and settles rather than running at one
+    // rate — a constant spin looks mechanical once the depth is real.
+    const raw = spinning ? (u - 0.5) / 0.5 : 0
+    const sp = raw * raw * (3 - 2 * raw)
+    const b = t * TAU * 1.6
+    const side = Math.sin(b)
+    const point = spinning ? Math.min(1, sp * 2.2) : 0
+    const kick = Math.max(0, Math.sin(b)), kick2 = Math.max(0, -Math.sin(b))
+    return {
+      turn: spinning ? sp * TAU : 0,
+      driftX: side * 3, bob: Math.abs(Math.cos(b)) * -3,
+      lean: side * 0.08, headTilt: -side * 0.10 + point * 0.16,
+      // The pointing arm comes up and straightens, and reaches forward as the
+      // body comes round — the sagittal swing is what carries it through depth
+      // instead of it sliding flat across the card.
+      armL: -0.42 - point * 1.15, foreL: -0.55 + point * 0.55, armLz: point * 1.05,
+      armR:  0.42 + side * 0.25,  foreR:  0.55,                armRz: -point * 0.35,
+      legL: -0.10 - kick * 0.32, kneeL: kick * 0.9,  legLz: Math.sin(b) * 0.22,
+      legR:  0.10 + kick2 * 0.32, kneeR: -kick2 * 0.9, legRz: -Math.sin(b) * 0.22,
+    }
+  },
+
+  'loose': (t) => {
+    const b = t * TAU * 1.25
+    const s = Math.sin(b), c = Math.cos(b * 0.5)
+    return {
+      turn: Math.sin(b * 0.25) * 0.45, driftX: s * 6, bob: Math.sin(b * 2) * -4,
+      lean: s * 0.16, headTilt: c * 0.18,
+      armL: -0.60 - c * 0.55, foreL: -0.75 + s * 0.45,
+      armR:  0.60 - c * 0.55, foreR:  0.75 + s * 0.45,
+      legL: -0.16 - Math.max(0, s) * 0.30, kneeL: Math.max(0, s) * 0.75,
+      legR:  0.16 + Math.max(0, -s) * 0.30, kneeR: -Math.max(0, -s) * 0.75,
+    }
+  },
+
+  'big boogie': (t) => {
+    // The one he does on arrival: bigger, and both arms overhead.
+    const b = t * TAU * 1.9
+    const s = Math.sin(b)
+    const hop = Math.max(0, Math.sin(b * 2))
+    return {
+      turn: Math.sin(b * 0.5) * 0.7, driftX: s * 7, bob: -hop * 9,
+      lean: s * 0.20, headTilt: -s * 0.22,
+      armL: -2.45 + s * 0.35, foreL: -0.35 - hop * 0.5,
+      armR:  2.45 + s * 0.35, foreR:  0.35 + hop * 0.5,
+      legL: -0.24 - hop * 0.35, kneeL: hop * 0.85,
+      legR:  0.24 + hop * 0.35, kneeR: -hop * 0.85,
+    }
+  },
+}
+
+// ── Cards ─────────────────────────────────────────────────────────────────────
+const row = document.getElementById('row')
+const speedEl = document.getElementById('speed')
+const weightEl = document.getElementById('weight')
+const pauseEl = document.getElementById('pause')
+let running = true, clock = 0, last = performance.now()
+
+const cards = Object.entries(DANCES).map(([name, fn]) => {
+  const el = document.createElement('div')
+  el.className = 'card'
+  el.innerHTML = '<div class="head"><h2 class="title">BOOGIE</h2></div>' +
+                 `<div class="name">${name}</div>`
+  const canvas = document.createElement('canvas')
+  el.insertBefore(canvas, el.firstChild)
+  row.appendChild(el)
+  return { name, fn, canvas, ctx: canvas.getContext('2d') }
+})
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2)
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.canvas.width = Math.round(r.width * dpr)
+    c.canvas.height = Math.round(r.height * dpr)
+    c.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  })
+}
+addEventListener('resize', resize)
+
+function frame(now) {
+  requestAnimationFrame(frame)
+  const dt = Math.min((now - last) / 1000, 0.05); last = now
+  if (running) clock += dt * parseFloat(speedEl.value)
+  const lw = parseFloat(weightEl.value)
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.ctx.clearRect(0, 0, r.width, r.height)
+    drawFigure(c.ctx, r.width, r.height, c.fn(clock), lw, clock)
+  })
+}
+
+pauseEl.addEventListener('click', () => {
+  running = !running
+  pauseEl.textContent = running ? 'Pause' : 'Play'
+})
+
+resize()
+requestAnimationFrame(frame)
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Star — growth tests</title>
+<style>
+  :root { --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  html, body { margin: 0; background: #E7E2D8; font-family: var(--font); color: #111; }
+  .page { padding: 24px; }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .lede { margin: 0 0 22px; font-size: 13px; color: rgba(0,0,0,0.6); max-width: 66ch; line-height: 1.5; }
+  .controls { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; flex-wrap: wrap;
+              font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(0,0,0,0.6); }
+  .controls label { display: flex; align-items: center; gap: 8px; }
+  .controls input[type=range] { width: 120px; }
+  .controls button { font-family: var(--font); font-size: 11px; letter-spacing: 0.14em;
+                     text-transform: uppercase; background: none; border: 1px solid rgba(0,0,0,0.3);
+                     padding: 6px 12px; cursor: pointer; border-radius: 3px; }
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; max-width: 1100px; }
+  .card { container-type: inline-size; position: relative; aspect-ratio: 3/4;
+          border-radius: 6px; overflow: hidden;
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 0 rgba(0,0,0,0.2),
+                      0 2px 3px rgba(0,0,0,0.22), 0 10px 20px rgba(0,0,0,0.18); }
+  .card canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .card .head { position: absolute; top: 0; left: 0; right: 0; padding: 9% 9% 0; z-index: 2; }
+  .card .title { margin: 0; font-weight: 700; font-size: 12.3cqw; line-height: 1;
+                 letter-spacing: -0.01em; color: #FFFFFF; mix-blend-mode: difference; }
+  .card .name { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 9% 5%; z-index: 2;
+                font-size: max(9px, 2.4cqw); letter-spacing: 0.14em; text-transform: uppercase;
+                color: #FFFFFF; mix-blend-mode: difference; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Star — growth tests</h1>
+  <p class="lede">A five-point star opens from a speck at the centre and keeps growing until it runs
+     off the card, with the next one already coming up behind it. The growth is exponential rather
+     than linear, which is what makes it loop: after one lap every star is exactly where the star
+     ahead of it used to be, so the cycle rejoins itself with no jump and nothing ever has to fade.</p>
+
+  <div class="controls">
+    <label>Speed <input id="speed" type="range" min="0.05" max="1.2" step="0.01" value="0.3"></label>
+    <label>Spacing <input id="gap" type="range" min="1.35" max="3" step="0.05" value="1.9"></label>
+    <button id="colour">Colour</button>
+    <button id="pause">Pause</button>
+  </div>
+
+  <div class="row" id="row"></div>
+</div>
+
+<script>
+const PHI_IN = 0.382             // inner/outer radius of a true five-point star
+
+function starPath(ctx, cx, cy, R, rot) {
+  ctx.beginPath()
+  for (let i = 0; i < 10; i++) {
+    const a = rot - Math.PI / 2 + i * Math.PI / 5
+    const r = (i & 1) ? R * PHI_IN : R
+    const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r
+    if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y)
+  }
+  ctx.closePath()
+}
+
+// The stars sit on a geometric ladder — each one K times the last — and every
+// one of them multiplies by K over a lap. So after a lap the ladder is identical
+// with the indices shifted by one, which is what makes this seamless. The lap is
+// two steps rather than one so alternating fills keep their parity across it.
+function ladder(W, H, t, K) {
+  const maxR = Math.hypot(W, H) / 2 * 1.02
+  const R0 = 0.35
+  const u = ((t % 2) + 2) % 2
+  const N = Math.ceil(Math.log(maxR / R0) / Math.log(K))
+  const out = []
+  for (let n = N + 1; n >= 0; n--) {
+    const R = R0 * Math.pow(K, u + n)
+    if (R > maxR * K * 1.05) continue
+    out.push({ R, n, age: u + n })
+  }
+  return out
+}
+
+// 1 — bands: alternate fills, so the growth reads as rings opening outward
+function drawBands(ctx, W, H, t, K, ink, ground) {
+  ctx.fillStyle = ground; ctx.fillRect(0, 0, W, H)
+  for (const s of ladder(W, H, t, K)) {
+    ctx.fillStyle = (s.n & 1) ? ground : ink
+    starPath(ctx, W / 2, H / 2, s.R, 0)
+    ctx.fill()
+  }
+}
+
+// 2 — outline: stroke weight grows with the star, so every one is the same
+// drawing at a different size and nothing thins out as it leaves
+function drawOutline(ctx, W, H, t, K, ink, ground) {
+  ctx.fillStyle = ground; ctx.fillRect(0, 0, W, H)
+  ctx.strokeStyle = ink
+  ctx.lineJoin = 'miter'
+  for (const s of ladder(W, H, t, K)) {
+    ctx.lineWidth = Math.max(0.4, s.R * 0.055)
+    starPath(ctx, W / 2, H / 2, s.R, 0)
+    ctx.stroke()
+  }
+}
+
+// 3 — spin: the same bands, turning as they grow. The turn is tied to the rung
+// a star is on, so it survives the lap the same way the sizes do.
+function drawSpin(ctx, W, H, t, K, ink, ground) {
+  ctx.fillStyle = ground; ctx.fillRect(0, 0, W, H)
+  for (const s of ladder(W, H, t, K)) {
+    ctx.fillStyle = (s.n & 1) ? ground : ink
+    starPath(ctx, W / 2, H / 2, s.R, s.age * 0.42)
+    ctx.fill()
+  }
+}
+
+const VARIANTS = [
+  { name: '1 — bands',   draw: drawBands },
+  { name: '2 — outline', draw: drawOutline },
+  { name: '3 — spin',    draw: drawSpin },
+]
+// Tonal orange first: the star sits a shade deeper than the ground rather than
+// on top of it, the way the gem does on red and the rope does on green.
+const WAYS = [
+  { ink: '#AF5018', ground: '#F37021' },
+  { ink: '#A80022', ground: '#E4002B' },
+  { ink: '#0A3A20', ground: '#046A38' },
+  { ink: '#111111', ground: '#E7E2D8' },
+]
+
+const row = document.getElementById('row')
+const speedEl = document.getElementById('speed')
+const gapEl = document.getElementById('gap')
+const pauseEl = document.getElementById('pause')
+const colourEl = document.getElementById('colour')
+let running = true, clock = 0, last = performance.now(), way = 0
+
+const cards = VARIANTS.map(v => {
+  const el = document.createElement('div')
+  el.className = 'card'
+  el.innerHTML = '<div class="head"><h2 class="title">STAR</h2></div>' +
+                 '<div class="name">' + v.name + '</div>'
+  const canvas = document.createElement('canvas')
+  el.insertBefore(canvas, el.firstChild)
+  row.appendChild(el)
+  return { v, el, canvas, ctx: canvas.getContext('2d') }
+})
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2)
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.canvas.width = Math.round(r.width * dpr)
+    c.canvas.height = Math.round(r.height * dpr)
+    c.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  })
+}
+addEventListener('resize', resize)
+
+function frame(now) {
+  requestAnimationFrame(frame)
+  const dt = Math.min((now - last) / 1000, 0.05); last = now
+  if (running) clock += dt * parseFloat(speedEl.value)
+  const K = parseFloat(gapEl.value)
+  const w = WAYS[way]
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.el.style.background = w.ground
+    c.v.draw(c.ctx, r.width, r.height, clock, K, w.ink, w.ground)
+  })
+}
+
+pauseEl.addEventListener('click', () => {
+  running = !running
+  pauseEl.textContent = running ? 'Pause' : 'Play'
+})
+colourEl.addEventListener('click', () => { way = (way + 1) % WAYS.length })
+
+resize()
+requestAnimationFrame(frame)
+</script>
+</body>
+</html>

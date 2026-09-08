@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Oswin Journal — Oli Goldsmith</title>
+<style>
+  html, body { margin:0; min-height:100%; background:#0a0a0a; color:#fff;
+               font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  body { display:flex; flex-direction:column; }
+
+  /* Same idle-reveal BACK the other carousel sub-pages draw for themselves —
+     index.html deliberately supplies none for relative-URL cards. */
+  #backBtn {
+    position:fixed; top:20px; left:22px; z-index:20;
+    padding:6px 4px; border:none; background:none; cursor:pointer;
+    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.22em; transition:color 200ms ease;
+  }
+  #backBtn:hover { color:rgba(255,255,255,0.92); }
+
+  /* Fullscreen toggle — the ring's own control, same position, chip and icon. */
+  #fsBtn {
+    position: fixed; top: 20px; right: 20px; z-index: 30;
+    background: rgba(255, 255, 255, 0.08); border: none; border-radius: 4px;
+    padding: 8px; line-height: 0; cursor: pointer;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.55s ease;
+  }
+  #fsBtn svg { display: block; }
+
+  main { flex:1; display:flex; align-items:center; justify-content:center; padding:78px 26px 42px; }
+
+  .rack { display:flex; gap:26px; align-items:stretch; justify-content:center;
+          width:100%; max-width:1560px; }
+
+  .card { position:relative; flex:1 1 0; min-width:0; max-width:380px;
+          background:none; border:0; padding:0; cursor:default;
+          transition:transform 340ms cubic-bezier(.22,.61,.36,1); }
+  .card[data-href] { cursor:pointer; }
+  .card[data-href]:hover { transform:translateY(-10px); }
+  .card canvas { display:block; width:100%; height:auto; aspect-ratio:3/4;
+                 border-radius:2px; box-shadow:0 18px 46px rgba(0,0,0,0.62); }
+  .card:focus-visible { outline:1px solid rgba(255,255,255,0.5); outline-offset:6px; }
+
+  /* Two-up below the point where four 3:4 cards stop being readable. */
+  @media (max-width:900px) {
+    .rack { flex-wrap:wrap; gap:18px; max-width:760px; }
+    .card { flex:1 1 calc(50% - 9px); max-width:none; }
+  }
+</style>
+</head>
+<body>
+
+<button id="backBtn" aria-label="Back">←&nbsp;&nbsp;BACK</button>
+<button id="fsBtn" aria-label="Toggle fullscreen">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" stroke-width="2">
+    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+  </svg>
+</button>
+
+<main>
+  <div class="rack" id="rack"></div>
+</main>
+
+<script>
+// ── Oli Goldsmith — the card behind the homepage card ─────────────────────────
+// Typography, margins, gradients and TV static are ported verbatim from the
+// ring's card renderer in index.html (titleLayout / drawPortalCard /
+// drawVideoTrace / applyTvStatic) so these read as the same object as the card
+// you clicked to get here — same 600x800 face, same 54px margin, same Helvetica.
+
+const W = 600, H = 800, LM = 54
+
+const CARDS = [
+  {
+    title: 'OLI GOLDSMITH',
+    sub: '',
+    video: 'videos/oli_oswin_opener.mp4',
+    bg: '#12151b',
+    titleColor: '#FFFFFF',
+    bottomCaption: 'audio by karla is here',
+    action: 'enter',
+    // Broken by hand: auto-wrapping at this measure orphans "continue".
+    instructions: ['immersive space, move through it,', 'double tap to continue'],
+    href: 'https://ethernity.space/',
+  },
+]
+
+// ── Shared TV static (index.html: GRAIN_LIGHTEN / GRAIN_MULTIPLY, 20% down) ────
+const _noiseCanvas = document.createElement('canvas')
+_noiseCanvas.width = 220; _noiseCanvas.height = 293
+const _noiseCtx = _noiseCanvas.getContext('2d')
+function regenNoise() {
+  const id = _noiseCtx.createImageData(_noiseCanvas.width, _noiseCanvas.height)
+  const d = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (Math.random() * 255) | 0
+    d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255
+  }
+  _noiseCtx.putImageData(id, 0, 0)
+}
+const GRAIN_LIGHTEN = 0.088, GRAIN_MULTIPLY = 0.06
+function applyTvStatic(ctx) {
+  ctx.save()
+  ctx.imageSmoothingEnabled = false
+  ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = GRAIN_LIGHTEN
+  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = GRAIN_MULTIPLY
+  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.restore()
+  ctx.save()
+  ctx.globalAlpha = 0.16; ctx.fillStyle = '#000'
+  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1)
+  ctx.restore()
+}
+
+// ── Type layout (verbatim from index.html titleLayout) ─────────────────────────
+function wrapText(ctx, text, maxW) {
+  const words = text.split(' ')
+  const lines = []
+  let line = ''
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w
+    if (line && ctx.measureText(test).width > maxW) { lines.push(line); line = w }
+    else line = test
+  }
+  if (line) lines.push(line)
+  return lines
+}
+
+function titleLayout(ctx, card, maxW) {
+  let size = 74, lines
+  for (; size >= 24; size -= 2) {
+    ctx.font = `700 ${size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
+    ctx.letterSpacing = '-0.01em'
+    lines = wrapText(ctx, card.title, maxW)
+    const widest = Math.max(...lines.map(l => ctx.measureText(l).width))
+    if (lines.length <= 3 && widest <= maxW) break
+  }
+  const lineH = size
+  const titleTop = 64
+  const titleBottom = titleTop + lines.length * lineH
+  const ruleY = titleBottom + 10
+  const subTop = ruleY + 12
+  return { size, lines, lineH, titleTop, titleBottom, ruleY, subTop }
+}
+
+// ── Card face ──────────────────────────────────────────────────────────────────
+function drawVideoCover(ctx, video) {
+  const vw = video.videoWidth, vh = video.videoHeight
+  if (!vw || !vh) return
+  const s = Math.max(W / vw, H / vh)     // cover: fill the card, crop overflow
+  const dw = vw * s, dh = vh * s
+  ctx.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh)
+}
+
+function drawCard(ctx, card) {
+  ctx.clearRect(0, 0, W, H)
+  ctx.fillStyle = card.bg
+  ctx.fillRect(0, 0, W, H)
+
+  if (card._video && card._video.readyState >= 2) drawVideoCover(ctx, card._video)
+
+  // Legibility gradients — top behind the title, bottom behind the instructions
+  // and caption. Heavier than the ring's 0.55 top: the ring never puts white
+  // type over white footage, and the Monty Python line drawings are on near
+  // white, which swallowed the title at the homepage value.
+  if (card._video) {
+    const gTop = ctx.createLinearGradient(0, 0, 0, H * 0.52)
+    gTop.addColorStop(0, 'rgba(0,0,0,0.78)'); gTop.addColorStop(1, 'rgba(0,0,0,0)')
+    ctx.fillStyle = gTop; ctx.fillRect(0, 0, W, H * 0.52)
+
+    // Reaches higher when the card carries instructions, so the whole block
+    // sits on its own ground rather than on the artwork.
+    const botTop = card.action ? H * 0.46 : H * 0.62
+    const gBot = ctx.createLinearGradient(0, botTop, 0, H)
+    gBot.addColorStop(0, 'rgba(0,0,0,0)')
+    gBot.addColorStop(1, card.action ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.62)')
+    ctx.fillStyle = gBot; ctx.fillRect(0, botTop, W, H - botTop)
+  }
+
+  const ink     = card.titleColor + 'F2'
+  const inkSub  = card.titleColor + '99'
+  const inkRule = card.titleColor + '55'
+
+  const t = titleLayout(ctx, card, W - LM * 2)
+
+  ctx.font = `700 ${t.size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
+  ctx.letterSpacing = '-0.01em'
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top'
+  ctx.fillStyle = ink
+  t.lines.forEach((ln, i) => ctx.fillText(ln, LM, t.titleTop + i * t.lineH))
+
+  ctx.strokeStyle = inkRule; ctx.lineWidth = 0.5
+  ctx.beginPath(); ctx.moveTo(LM, t.ruleY); ctx.lineTo(W - LM, t.ruleY); ctx.stroke()
+
+  if (card.sub) {
+    ctx.font = "300 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.16em'
+    ctx.fillStyle = inkSub
+    ctx.fillText(card.sub, LM, t.subTop)
+  }
+
+  // Navigation instructions: "enter" as the action, the how-to underneath.
+  // Sits above the bottom caption so the two never collide.
+  if (card.action) {
+    // "enter" takes the bottom-caption scale (28/300/0.16em) so the two lock-ups
+    // on this card share one voice; the how-to sits under it, smaller but at a
+    // weight that survives the footage behind it.
+    ctx.font = "300 16px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.14em'
+    const instr = Array.isArray(card.instructions)
+      ? card.instructions
+      : wrapText(ctx, card.instructions, W - LM * 2)
+
+    const capReserve = card.bottomCaption ? 92 : 52
+    let y = H - capReserve - (instr.length * 26) - 46
+
+    ctx.font = "300 28px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.16em'
+    ctx.fillStyle = ink
+    ctx.fillText(card.action, LM, y)
+    y += 46
+
+    ctx.font = "300 16px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.14em'
+    ctx.fillStyle = card.titleColor + 'D9'
+    instr.forEach((ln, i) => ctx.fillText(ln, LM, y + i * 26))
+  }
+
+  // Bottom caption — same 28px/0.16em as the ring's "visuals by oswin".
+  if (card.bottomCaption) {
+    ctx.save()
+    ctx.textBaseline = 'alphabetic'
+    ctx.font = "300 28px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '0.16em'
+    ctx.fillStyle = card.titleColor
+    ctx.fillText(card.bottomCaption, LM, H - 48)
+    ctx.restore()
+  }
+
+  applyTvStatic(ctx)
+}
+
+// ── Build ──────────────────────────────────────────────────────────────────────
+const rack = document.getElementById('rack')
+const DPR = Math.min(devicePixelRatio || 1, 2)
+
+CARDS.forEach((card) => {
+  const el = document.createElement(card.href ? 'a' : 'div')
+  el.className = 'card'
+  if (card.href) {
+    el.href = card.href
+    el.dataset.href = '1'
+    if (/^[a-z]+:/i.test(card.href)) {
+      // External, but the visitor never leaves oswinjournal.com: ethernity.space
+      // sets no X-Frame-Options and no CSP frame-ancestors, so it renders framed
+      // (verified cross-origin, not just inferred from the headers). It opens in
+      // an overlay over these cards, with a BACK out of it.
+      el.addEventListener('click', (e) => { e.preventDefault(); openSite(card.href, card.title) })
+    } else {
+      // Our own pages stay inside the overlay — but a normal iframe navigation
+      // pushes onto the TOP-LEVEL session history, which then swallows the BACK
+      // that is supposed to close the overlay. Replacing keeps the frame's
+      // history flat so the ring's own entry stays the next one back.
+      el.addEventListener('click', (e) => { e.preventDefault(); location.replace(card.href) })
+    }
+    el.setAttribute('aria-label', card.action ? card.title + ' — ' + card.action : card.title)
+  }
+
+  const c = document.createElement('canvas')
+  c.width = W * DPR; c.height = H * DPR
+  const ctx = c.getContext('2d')
+  ctx.scale(DPR, DPR)
+  el.appendChild(c)
+  rack.appendChild(el)
+
+  card._ctx = ctx
+
+  if (card.video) {
+    const v = document.createElement('video')
+    v.src = card.video
+    v.muted = true; v.loop = true; v.playsInline = true; v.autoplay = true
+    v.setAttribute('webkit-playsinline', '')
+    v.play().catch(() => {})
+    card._video = v
+  }
+})
+
+// Live cards redraw each frame; the static card is painted once fonts are ready.
+function frame() {
+  regenNoise()
+  CARDS.forEach((card) => { if (card._video) drawCard(card._ctx, card) })
+  requestAnimationFrame(frame)
+}
+
+function paintStatics() {
+  regenNoise()
+  CARDS.forEach((card) => { if (!card._video) drawCard(card._ctx, card) })
+}
+
+// Helvetica is a system face here, but wait for the font set anyway so the
+// auto-sizing title measures against the real metrics rather than a fallback.
+;(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  paintStatics()
+  requestAnimationFrame(frame)
+})
+
+// ── Oli's sound ────────────────────────────────────────────────────────────────
+// ETHERNITY's own ambient bed, served from Oli's host with access-control-allow-
+// origin:* so we can drive it ourselves rather than hoping the tour's internal
+// player starts. Entering the space fades the lobby down and this up; leaving
+// does the reverse, and the ring resumes its track from the parked playhead.
+//
+// Fade matches the ring's FADE_ISSUE (1.6s), so the two halves of the handover
+// are the same length and cross rather than gap.
+// ETHERNITY is a 3DVista tour and carries its own background player, configured
+// asBackground/allowResume against this same file. Whether that player also
+// starts inside our frame could not be settled from outside — a cross-origin
+// frame's audio is neither inspectable nor mutable from here. If you hear the
+// bed doubled and phasing, set this false: the lobby still steps aside, and the
+// tour's own copy becomes the only one. Nothing else changes.
+const PLAY_ROOM_TRACK = true
+const ROOM_AUDIO = 'https://ethernity.space/media/audio_C90D44A6_D02B_52DD_41B2_62B8BCDBD958_en.mp3'
+const ROOM_FADE_MS = 1600
+const ROOM_VOL = 0.85
+
+let roomAudio = null, roomCtx = null, roomGain = null, roomStopTimer = null
+
+// Gain ramps are scheduled on the AudioContext's own clock, which keeps running
+// when the tab is backgrounded. An earlier requestAnimationFrame fade stalled
+// the moment the tab lost focus — and since the pause lived in the fade's
+// completion callback, leaving the space in a background tab left Oli's bed
+// playing silently under the lobby forever.
+function roomFade(to, ms) {
+  if (!roomGain) return
+  const t = roomCtx.currentTime
+  roomGain.gain.cancelScheduledValues(t)
+  roomGain.gain.setValueAtTime(roomGain.gain.value, t)
+  roomGain.gain.linearRampToValueAtTime(Math.max(0.0001, to), t + ms / 1000)
+}
+
+function roomSoundOn() {
+  // The lobby steps aside either way — that is the handover, and it does not
+  // depend on who is playing Oli's track.
+  try { window.top.postMessage({ type: 'oswinRoomAudio', on: true }, location.origin) } catch (e) {}
+  if (!PLAY_ROOM_TRACK) return
+
+  clearTimeout(roomStopTimer)
+
+  // Built once and kept between visits, so stepping back into the space picks
+  // the bed up where it was instead of restarting the piece.
+  if (!roomAudio) {
+    roomAudio = new Audio()
+    roomAudio.loop = true
+    roomAudio.preload = 'auto'
+    // Required before the element can be routed through Web Audio without
+    // tainting the graph; the host sends access-control-allow-origin:*.
+    roomAudio.crossOrigin = 'anonymous'
+    roomAudio.src = ROOM_AUDIO
+
+    roomCtx = new (window.AudioContext || window.webkitAudioContext)()
+    roomGain = roomCtx.createGain()
+    roomGain.gain.value = 0.0001
+    roomCtx.createMediaElementSource(roomAudio).connect(roomGain)
+    roomGain.connect(roomCtx.destination)
+  }
+
+  // Called from the card's click handler, so this is a user gesture and both
+  // the context resume and playback are allowed.
+  roomCtx.resume().catch(() => {})
+  roomAudio.play().catch(() => {})
+  roomFade(ROOM_VOL, ROOM_FADE_MS)
+}
+
+function roomSoundOff() {
+  try { window.top.postMessage({ type: 'oswinRoomAudio', on: false }, location.origin) } catch (e) {}
+  if (!roomAudio) return
+  roomFade(0, ROOM_FADE_MS)
+  // Timers still fire in a backgrounded tab (throttled), so the element is
+  // parked even if the visitor tabs away mid-fade.
+  clearTimeout(roomStopTimer)
+  roomStopTimer = setTimeout(() => { if (roomAudio) roomAudio.pause() }, ROOM_FADE_MS + 120)
+}
+
+// ── Embedded site overlay ──────────────────────────────────────────────────────
+// Keeps an external destination inside oswinjournal.com. Same shape as the ring's
+// own openCardIframe: a full-bleed frame, and a BACK that fades in on movement
+// and settles away. The BACK never auto-hides here — we cannot see pointer events
+// over a cross-origin frame, so hiding it would remove the only way out.
+function openSite(url, label) {
+  if (document.getElementById('siteOverlay')) return
+
+  const overlay = document.createElement('div')
+  overlay.id = 'siteOverlay'
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:2000; background:#000;'
+
+  const frame = document.createElement('iframe')
+  frame.src = url
+  frame.title = label || ''
+  frame.style.cssText = 'position:absolute; inset:0; width:100%; height:100%; border:0;'
+  // Note what is NOT granted: fullscreen. The tour requests fullscreen for
+  // ITSELF, and a fullscreen cross-origin frame paints above everything —
+  // measured, it took BACK and the fullscreen control offscreen and left Escape
+  // as the only way out of Oli's space. Withholding the permission keeps the
+  // frame in its box; fullscreen is then ours to give, applied to this document
+  // so our chrome rides on top of it. autoplay stays — the bed needs it.
+  frame.setAttribute('allow', 'autoplay; microphone; camera; gyroscope; accelerometer; xr-spatial-tracking')
+  overlay.appendChild(frame)
+
+  // mix-blend-mode:difference rather than a fixed colour: what sits behind this
+  // is someone else's page and can be any brightness, and plain white would
+  // vanish into a light one.
+  const back = document.createElement('button')
+  back.textContent = '← BACK'
+  back.setAttribute('aria-label', 'Back to the Oli Goldsmith cards')
+  back.style.cssText = "position:fixed; top:22px; left:26px; z-index:2001; padding:6px 4px; border:none; background:none; color:#fff; mix-blend-mode:difference; font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; font-size:13px; font-weight:400; letter-spacing:0.05em; line-height:1; cursor:pointer;"
+  back.onclick = closeSite
+  overlay.appendChild(back)
+  overlay.appendChild(makeOverlayFsButton())
+
+  document.body.appendChild(overlay)
+  roomSoundOn()
+  // Fullscreen on the way in. Applied to OUR document, not granted to the frame
+  // (see the allow list above), so BACK and the fullscreen control still ride on
+  // top of Oli's space. iOS Safari has no Fullscreen API for non-video elements
+  // and simply rejects; the catch lets it fall back to the edge-to-edge layout.
+  enteredFsForSite = false
+  const fsEl = document.documentElement
+  const req = fsEl.requestFullscreen || fsEl.webkitRequestFullscreen
+  if (req && !(document.fullscreenElement || document.webkitFullscreenElement)) {
+    try { Promise.resolve(req.call(fsEl)).then(() => { enteredFsForSite = true }).catch(() => {}) } catch {}
+  }
+
+  history.pushState({ siteOverlay: true }, '')
+  sitePushed = true
+}
+let sitePushed = false
+
+// Only leave fullscreen if entering the space is what put us there — someone who
+// was already fullscreen should stay that way.
+let enteredFsForSite = false
+function leaveSiteFullscreen() {
+  if (!enteredFsForSite) return
+  enteredFsForSite = false
+  const exit = document.exitFullscreen || document.webkitExitFullscreen
+  if (exit && (document.fullscreenElement || document.webkitFullscreenElement)) {
+    try { Promise.resolve(exit.call(document)).catch(() => {}) } catch {}
+  }
+}
+
+function closeSite() {
+  const o = document.getElementById('siteOverlay')
+  if (!o) return
+  o.remove()
+  leaveSiteFullscreen()
+  roomSoundOff()
+  if (sitePushed) { sitePushed = false; history.back() }
+}
+
+addEventListener('popstate', () => {
+  const o = document.getElementById('siteOverlay')
+  if (o) { sitePushed = false; o.remove(); leaveSiteFullscreen(); roomSoundOff() }
+})
+
+// Leaving these cards entirely (BACK to the ring, or on to a reel) must not
+// strand the room's bed playing under the lobby.
+addEventListener('pagehide', () => { clearTimeout(roomStopTimer); if (roomAudio) roomAudio.pause() })
+addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSite() })
+
+// ── Fullscreen — the ring's control, ported whole ─────────────────────────────
+const fsBtn = document.getElementById('fsBtn')
+const FS_ENTER = 'M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3'
+const FS_EXIT = 'M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3'
+const inFullscreen = () => !!(document.fullscreenElement || document.webkitFullscreenElement)
+
+function toggleFs(e) {
+  if (e) e.stopPropagation()
+  if (inFullscreen()) {
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document)
+  } else {
+    // documentElement, not the embedded frame: fullscreening the frame itself
+    // would take BACK and this control offscreen with it, and the frame is
+    // cross-origin so nothing inside it could bring them back.
+    const el = document.documentElement
+    ;(el.requestFullscreen || el.webkitRequestFullscreen).call(el)
+  }
+}
+fsBtn.addEventListener('click', toggleFs)
+
+// Every fullscreen control on the page shares one icon state — the cards' and
+// the one over the embedded site — so entering fullscreen from either leaves
+// both telling the truth.
+const fsPaths = [fsBtn.querySelector('path')]
+const syncFsIcon = () => fsPaths.forEach((pth) => {
+  if (pth.isConnected) pth.setAttribute('d', inFullscreen() ? FS_EXIT : FS_ENTER)
+})
+document.addEventListener('fullscreenchange', syncFsIcon)
+document.addEventListener('webkitfullscreenchange', syncFsIcon)
+
+// The control as it appears OVER the embedded site: no chip, difference blend,
+// matching the BACK label beside it. Someone else's page can be any brightness
+// and a fixed white icon would vanish into a light one. Like that BACK, it does
+// not idle away — we cannot see pointer movement over a cross-origin frame, so
+// a faded control could never be summoned back.
+function makeOverlayFsButton() {
+  const b = document.createElement('button')
+  b.setAttribute('aria-label', 'Toggle fullscreen')
+  b.style.cssText = 'position:fixed; top:20px; right:24px; z-index:2001; padding:6px 4px; border:none; background:none; line-height:0; cursor:pointer; mix-blend-mode:difference;'
+  b.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">'
+    + '<path d="' + (inFullscreen() ? FS_EXIT : FS_ENTER) + '" /></svg>'
+  b.addEventListener('click', toggleFs)
+  fsPaths.push(b.querySelector('path'))
+  return b
+}
+
+let fsHideTimer = null
+function revealFsBtn() {
+  fsBtn.style.opacity = '0.7'
+  fsBtn.style.pointerEvents = 'auto'
+  clearTimeout(fsHideTimer)
+  fsHideTimer = setTimeout(() => {
+    fsBtn.style.opacity = '0'
+    fsBtn.style.pointerEvents = 'none'
+  }, 2600)
+}
+addEventListener('pointermove', revealFsBtn)
+addEventListener('pointerdown', revealFsBtn)
+addEventListener('touchstart', revealFsBtn, { passive: true })
+revealFsBtn()
+
+document.getElementById('backBtn').onclick = () => {
+  // Embedded in the ring's card overlay this drives the PARENT's history, which
+  // trips its popstate handler and closes the overlay. Standalone it just goes back.
+  if (window !== window.top) { try { window.parent.history.back(); return } catch (e) {} }
+  if (history.length > 1) history.back(); else location.href = 'index.html'
+}
+</script>
+</body>
+</html>

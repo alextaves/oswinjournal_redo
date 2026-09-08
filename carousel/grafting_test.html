@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Grafting — rope tests</title>
+<style>
+  :root { --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; --green: #046A38; }
+  html, body { margin: 0; background: #E7E2D8; font-family: var(--font); color: #111; }
+  .page { padding: 24px; }
+  h1 { margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  .lede { margin: 0 0 22px; font-size: 13px; color: rgba(0,0,0,0.6); max-width: 66ch; line-height: 1.5; }
+
+  .controls { display: flex; align-items: center; gap: 18px; margin-bottom: 22px; flex-wrap: wrap;
+              font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(0,0,0,0.6); }
+  .controls label { display: flex; align-items: center; gap: 8px; }
+  .controls input[type=range] { width: 120px; }
+  .controls button { font-family: var(--font); font-size: 11px; letter-spacing: 0.14em;
+                     text-transform: uppercase; background: none; border: 1px solid rgba(0,0,0,0.3);
+                     padding: 6px 12px; cursor: pointer; border-radius: 3px; }
+
+  .row { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; max-width: 1100px; }
+  .card { container-type: inline-size; position: relative; aspect-ratio: 3/4;
+          border-radius: 6px; overflow: hidden; background: var(--green);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.22), inset 0 -1px 0 rgba(0,0,0,0.30),
+                      0 2px 3px rgba(0,0,0,0.28), 0 10px 20px rgba(0,0,0,0.22); }
+  .card canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .card .head { position: absolute; top: 0; left: 0; right: 0; padding: 9% 9% 0; z-index: 2; }
+  .card .title { margin: 0; font-weight: 700; font-size: 12.3cqw; line-height: 1;
+                 letter-spacing: -0.01em; color: rgba(255,255,255,0.94); }
+  .card .title span { display: block; }
+  .card .name { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 9% 5%; z-index: 2;
+                font-size: max(9px, 2.4cqw); letter-spacing: 0.14em; text-transform: uppercase;
+                color: rgba(255,255,255,0.62); }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Grafting — rope tests</h1>
+  <p class="lede">A rope is fibres twisted into yarns and yarns into strands, each level wound against
+     the one below it — which is the whole trick, since it's the opposing twists that stop it
+     unravelling. These are built the same way: loose fibres hang slack down the card, and a laying
+     front rises from the bottom, pulling everything below it into one closed rope as it climbs.
+     Four takes on how fine the fibres are and how hard the twist is.</p>
+
+  <div class="controls">
+    <label>Speed <input id="speed" type="range" min="0.15" max="1.6" step="0.05" value="0.45"></label>
+    <label>Twist <input id="twist" type="range" min="0.4" max="4" step="0.1" value="1.6"></label>
+    <label>Weight <input id="weight" type="range" min="0.5" max="3" step="0.1" value="1.3"></label>
+    <button id="pause">Pause</button>
+  </div>
+
+  <div class="row" id="row"></div>
+</div>
+
+<script>
+const TAU = Math.PI * 2
+// The rope sits darker than the card's green and stays in its family, so it
+// reads as a solid object cut out of the background rather than a line drawing.
+// Shaded between these two: far side toward the shadow, near side toward the lit.
+const ROPE_SHADE = [2, 18, 10]
+const ROPE_LIT = [10, 58, 32]
+
+const smooth = (v) => v * v * (3 - 2 * v)
+const clamp01 = (v) => v < 0 ? 0 : v > 1 ? 1 : v
+
+// ── The rope ──────────────────────────────────────────────────────────────────
+// Built the way rope is built, so the structure falls out of the geometry rather
+// than being drawn: a fibre rides its own helix around its yarn's centre, and
+// that yarn rides a second helix around the rope's axis. The two are wound in
+// opposite directions, as they are in real rope.
+//
+// `close` is how far a given height has been laid up — 0 is loose and splayed,
+// 1 is closed into rope. The laying front is just where close crosses over, and
+// it rises up the card.
+function fibrePos(cfg, yarn, fibre, h, t, close) {
+  const open = 1 - close
+
+  // Each yarn hangs out on its own wide lane while loose, and is drawn into the
+  // bundle as the front passes. The wobble gives the slack part some life.
+  const wobble = Math.sin(h * 5.5 + yarn * 2.1 + t * 1.3) * 0.16 * open
+  const yarnR = cfg.yarnR * (1 + open * cfg.openness) * (1 + wobble)
+  const yarnA = (yarn / cfg.yarns) * TAU + h * cfg.turns * TAU + t * cfg.drift
+
+  const fibreR = cfg.fibreR * (1 + open * cfg.openness * 1.4)
+  const fibreA = (fibre / cfg.fibres) * TAU - h * cfg.turns * cfg.fibreTwist * TAU + t * cfg.drift
+
+  return {
+    x: Math.cos(yarnA) * yarnR + Math.cos(fibreA) * fibreR,
+    z: Math.sin(yarnA) * yarnR + Math.sin(fibreA) * fibreR,
+  }
+}
+
+function drawRope(ctx, W, H, cfg, t, weight) {
+  const unit = Math.min(W, H)
+  const cx = W / 2
+  const top = -H * 0.04, bottom = H * 0.97      // runs off the top edge
+  const span = bottom - top
+
+  // The front climbs, holds a beat fully laid, then starts over.
+  const cycle = 6.0
+  const u = (t % cycle) / cycle
+  const frontY = bottom - smooth(clamp01(u / 0.8)) * span
+  const band = span * 0.16                      // how abruptly it closes
+
+  const STEPS = cfg.steps
+  const n = cfg.yarns * cfg.fibres
+  const prev = new Float32Array(n * 2)
+  const seg = []                                // reused; sorted per step
+
+  ctx.lineCap = 'round'
+
+  for (let i = 0; i <= STEPS; i++) {
+    const y = bottom - (i / STEPS) * span
+    const h = (bottom - y) / span
+    // Below the front it is closed; above it, open. Softened over `band` so the
+    // rope forms rather than snaps shut.
+    const close = smooth(clamp01((y - frontY) / band))
+
+    seg.length = 0
+    for (let yarn = 0; yarn < cfg.yarns; yarn++) {
+      for (let fibre = 0; fibre < cfg.fibres; fibre++) {
+        const k = yarn * cfg.fibres + fibre
+        const p = fibrePos(cfg, yarn, fibre, h, t, close)
+        const sx = cx + p.x * unit
+        if (i > 0) seg.push({ k, x0: prev[k * 2], y0: prev[k * 2 + 1], x1: sx, y1: y, z: p.z })
+        prev[k * 2] = sx
+        prev[k * 2 + 1] = y
+      }
+    }
+
+    // Back to front, so strands genuinely pass behind one another — without this
+    // the bundle reads flat no matter how it is shaded.
+    seg.sort((a, b) => a.z - b.z)
+    const reach = cfg.yarnR * (1 + cfg.openness) + cfg.fibreR
+    for (const s of seg) {
+      const depth = clamp01(s.z / reach * 0.5 + 0.5)          // 0 far, 1 near
+      const m = 0.10 + depth * 0.90
+      ctx.strokeStyle = 'rgb(' + Math.round(ROPE_SHADE[0] + (ROPE_LIT[0] - ROPE_SHADE[0]) * m) + ',' +
+                                 Math.round(ROPE_SHADE[1] + (ROPE_LIT[1] - ROPE_SHADE[1]) * m) + ',' +
+                                 Math.round(ROPE_SHADE[2] + (ROPE_LIT[2] - ROPE_SHADE[2]) * m) + ')'
+      ctx.lineWidth = weight * unit * cfg.gauge * (0.62 + depth * 0.66)
+      ctx.beginPath()
+      ctx.moveTo(s.x0, s.y0)
+      ctx.lineTo(s.x1, s.y1)
+      ctx.stroke()
+    }
+  }
+}
+
+// ── Variants ──────────────────────────────────────────────────────────────────
+const VARIANTS = [
+  { name: '3 yarns x 5', yarns: 3, fibres: 5, yarnR: 0.042, fibreR: 0.017, gauge: 0.0090, openness: 2.6, fibreTwist: 1.8, drift: 0.10, steps: 150 },
+  { name: '4 yarns x 7', yarns: 4, fibres: 7, yarnR: 0.048, fibreR: 0.014, gauge: 0.0070, openness: 2.2, fibreTwist: 1.6, drift: 0.10, steps: 150 },
+  { name: 'fine, many',  yarns: 6, fibres: 9, yarnR: 0.052, fibreR: 0.011, gauge: 0.0052, openness: 1.8, fibreTwist: 1.3, drift: 0.08, steps: 150 },
+  { name: 'thick, open', yarns: 3, fibres: 4, yarnR: 0.055, fibreR: 0.026, gauge: 0.0125, openness: 3.2, fibreTwist: 2.1, drift: 0.14, steps: 150 },
+]
+
+const row = document.getElementById('row')
+const speedEl = document.getElementById('speed')
+const twistEl = document.getElementById('twist')
+const weightEl = document.getElementById('weight')
+const pauseEl = document.getElementById('pause')
+let running = true, clock = 0, last = performance.now()
+
+const cards = VARIANTS.map(v => {
+  const el = document.createElement('div')
+  el.className = 'card'
+  el.innerHTML = '<div class="head"><h2 class="title"><span>GRAFT-</span><span>ING</span></h2></div>' +
+                 '<div class="name">' + v.name + '</div>'
+  const canvas = document.createElement('canvas')
+  el.insertBefore(canvas, el.firstChild)
+  row.appendChild(el)
+  return { cfg: v, canvas, ctx: canvas.getContext('2d') }
+})
+
+function resize() {
+  const dpr = Math.min(devicePixelRatio || 1, 2)
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.canvas.width = Math.round(r.width * dpr)
+    c.canvas.height = Math.round(r.height * dpr)
+    c.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  })
+}
+addEventListener('resize', resize)
+
+function frame(now) {
+  requestAnimationFrame(frame)
+  const dt = Math.min((now - last) / 1000, 0.05); last = now
+  if (running) clock += dt * parseFloat(speedEl.value)
+  const turns = parseFloat(twistEl.value)
+  const weight = parseFloat(weightEl.value)
+  cards.forEach(c => {
+    const r = c.canvas.getBoundingClientRect()
+    c.ctx.clearRect(0, 0, r.width, r.height)
+    drawRope(c.ctx, r.width, r.height, Object.assign({}, c.cfg, { turns }), clock, weight)
+  })
+}
+
+pauseEl.addEventListener('click', () => {
+  running = !running
+  pauseEl.textContent = running ? 'Play' : 'Pause'
+})
+
+resize()
+requestAnimationFrame(frame)
+</script>
+</body>
+</html>

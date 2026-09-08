@@ -367,32 +367,6 @@ function App() {
   const strobeSpawnRef = useRef(null);
   const exitButtonTimeout = useRef(null);
   const trackPositionsRef = useRef({});
-  const [showInstallBanner, setShowInstallBanner] = useState(false);
-  const deferredInstallPrompt = useRef(null);
-
-  // Detect if running as installed PWA
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;
-
-  // Show install banner on first mobile visit (if not already installed)
-  useEffect(() => {
-    if (isStandalone) return;
-    const dismissed = sessionStorage.getItem('oswin-install-dismissed');
-    if (!dismissed) {
-      const timer = setTimeout(() => setShowInstallBanner(true), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
-
-  // Capture Android install prompt
-  useEffect(() => {
-    const handler = (e) => {
-      e.preventDefault();
-      deferredInstallPrompt.current = e;
-    };
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
 
   // iOS blocks video autoplay until a user gesture — unlock all videos on first touch
   useEffect(() => {
@@ -405,22 +379,6 @@ function App() {
     document.addEventListener('touchstart', unlock, { once: true, passive: true })
     return () => document.removeEventListener('touchstart', unlock)
   }, []);
-
-  const dismissInstallBanner = () => {
-    setShowInstallBanner(false);
-    sessionStorage.setItem('oswin-install-dismissed', 'true');
-  };
-
-  const handleInstallClick = async () => {
-    if (deferredInstallPrompt.current) {
-      deferredInstallPrompt.current.prompt();
-      await deferredInstallPrompt.current.userChoice;
-      deferredInstallPrompt.current = null;
-      setShowInstallBanner(false);
-    } else {
-      setShowInstallBanner(true);
-    }
-  };
 
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -971,15 +929,33 @@ const handleIssueClick = (issue) => {
       window.parent.postMessage({ type: 'oswinExitIssue' }, '*');
       return;
     }
-    window.location.href = '/';
+    // On a phone, '/' is the old React homescreen. Home means the grid the
+    // visitor actually came in through.
+    window.location.href = isDesktop ? '/' : '/carousel/mobile.html';
   };
 
   // Leaving an issue by a BACK control rather than a HOME one. Embedded, there
   // is nothing behind us but the ring, so it is the same exit. Standalone the
   // archive is still a real screen to step back to, so that behaviour stands.
+  // Where the phone grid lives. Same path in dev and in production: the build
+  // copies carousel/ to dist/carousel, so this resolves either way.
+  const PHONE_GRID = '/carousel/mobile.html';
+
   const handleLeaveIssue = () => {
     if (window !== window.top) {
       handleGoHome();
+      return;
+    }
+    // A phone arrives here from the grid, by full navigation rather than in an
+    // iframe, so closing used to drop it into the archive view — the old
+    // homescreen it was never shown. Send it back where it came from.
+    const cameFromGrid = document.referrer.includes(PHONE_GRID);
+    const deepLinked = new URLSearchParams(window.location.search).has('issue');
+    if (cameFromGrid || (deepLinked && !isDesktop)) {
+      // Going back keeps the grid's scroll position; a cold deep link has no
+      // history to go back through, so navigate instead.
+      if (cameFromGrid && window.history.length > 1) window.history.back();
+      else window.location.href = PHONE_GRID;
       return;
     }
     handleBackToArchive();
@@ -2557,12 +2533,13 @@ const handleIssueClick = (issue) => {
           }}
         />
 
-        {/* Triangle back button - top on mobile, left side on larger screens */}
+        {/* Leave the issue: the word on a phone, where it reads as a control
+            without having to be learned; the triangle still on larger screens. */}
         <button
           onClick={handleLeaveIssue}
           className="fixed z-50 transition-all duration-300"
           style={{
-            top: isDesktop ? '50%' : '40px',
+            top: isDesktop ? '50%' : 'calc(28px + env(safe-area-inset-top))',
             left: isDesktop ? '40px' : '50%',
             transform: isDesktop ? 'translateY(-50%)' : 'translateX(-50%)',
             cursor: 'pointer',
@@ -2571,14 +2548,20 @@ const handleIssueClick = (issue) => {
           onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
           onMouseLeave={(e) => e.currentTarget.style.opacity = '0.9'}
         >
-          <svg
-            width={isDesktop ? "32" : "28"}
-            height={isDesktop ? "32" : "28"}
-            viewBox="0 0 24 24"
-            fill="white"
-          >
-            <polygon points="20,2 4,12 20,22" />
-          </svg>
+          {isDesktop ? (
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+              <polygon points="20,2 4,12 20,22" />
+            </svg>
+          ) : (
+            <span style={{
+              color: 'white',
+              fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
+              fontSize: '13px',
+              fontWeight: 700,
+              letterSpacing: '0.22em',
+              textShadow: '0 1px 6px rgba(0,0,0,0.45)'
+            }}>CLOSE</span>
+          )}
         </button>
 
         {/* Centered frosted glass card */}
@@ -2595,7 +2578,11 @@ const handleIssueClick = (issue) => {
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
               borderRadius: '24px',
-              border: '1px solid rgba(255, 255, 255, 0.3)'
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              // Down a third on a phone so more of the film is left showing, then
+              // 15% back on that. Scaled rather than re-specified in smaller type
+              // and padding, so every proportion inside the card holds as drawn.
+              ...(isDesktop ? {} : { transform: 'scale(0.767)', transformOrigin: 'center' })
             }}
           >
             {/* AUDIO Section */}
@@ -3364,24 +3351,6 @@ const handleIssueClick = (issue) => {
                 >
                   home
                 </button>
-                {!isStandalone && (
-                  <button
-                    onClick={() => {
-                      setShowAudioMenu(false);
-                      handleInstallClick();
-                    }}
-                    className="block w-full text-left transition-all duration-300"
-                    style={{
-                      fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-                      fontWeight: 500,
-                      color: 'rgba(40, 40, 40, 0.6)',
-                      letterSpacing: '-0.01em',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    install app
-                  </button>
-                )}
               </div>
             </div>
           </div>
@@ -3572,13 +3541,18 @@ const handleIssueClick = (issue) => {
           }}
         >
           <div
-            className="w-full max-w-xs px-8 py-8 mx-6"
+            /* On a phone this is the same card as the issue player — same width,
+               same padding, same scale — so pressing the circle brings back
+               something you recognise rather than a second, narrower object.
+               Desktop keeps the compact menu it had. */
+            className={`w-full px-8 mx-6 ${isDesktop ? 'max-w-xs py-8' : 'max-w-md py-10'}`}
             style={{
               backgroundColor: 'rgba(255, 255, 255, 0.25)',
               backdropFilter: 'blur(40px)',
               WebkitBackdropFilter: 'blur(40px)',
               borderRadius: '24px',
-              border: '1px solid rgba(255, 255, 255, 0.3)'
+              border: '1px solid rgba(255, 255, 255, 0.3)',
+              ...(isDesktop ? {} : { transform: 'scale(0.767)', transformOrigin: 'center' })
             }}
           >
             {/* Track list only */}
@@ -3686,35 +3660,6 @@ const handleIssueClick = (issue) => {
                 credit info
               </button>
 
-              {/* Notes on Oswin option */}
-              <button
-                onClick={() => {
-                  setShowNotesOnOswin(true);
-                  setShowAudioMenu(false);
-                }}
-                className="block w-full text-left transition-all duration-300"
-                style={{
-                  fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-                  fontWeight: 500,
-                  color: 'rgba(40, 40, 40, 0.6)',
-                  letterSpacing: '-0.01em',
-                  cursor: 'pointer',
-                  transform: 'scale(1)',
-                  filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = '1';
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                  e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                  e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
-                }}
-              >
-                notes on oswin
-              </button>
-
               {/* Home option - smaller font */}
               <button
                 onClick={() => {
@@ -3743,35 +3688,6 @@ const handleIssueClick = (issue) => {
               >
                 home
               </button>
-              {!isStandalone && (
-                <button
-                  onClick={() => {
-                    setShowAudioMenu(false);
-                    handleInstallClick();
-                  }}
-                  className="block w-full text-left transition-all duration-300"
-                  style={{
-                    fontSize: 'clamp(0.875rem, 2vw, 1rem)',
-                    fontWeight: 500,
-                    color: 'rgba(40, 40, 40, 0.6)',
-                    letterSpacing: '-0.01em',
-                    cursor: 'pointer',
-                    transform: 'scale(1)',
-                    filter: 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                    e.currentTarget.style.filter = 'drop-shadow(0 0 8px rgba(26, 26, 26, 0.3))';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.transform = 'scale(1)';
-                    e.currentTarget.style.filter = 'drop-shadow(0 0 0px rgba(26, 26, 26, 0))';
-                  }}
-                >
-                  install app
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -4113,19 +4029,6 @@ const handleIssueClick = (issue) => {
                 ))}
               </div>
 
-              {/* Playground */}
-              <button
-                onClick={() => { setAudioPlaying(false); window.open('https://playground.oswinjournal.com', '_blank') }}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer', padding: '8px 0',
-                  textAlign: 'left', fontFamily: HN,
-                  fontSize: 15, letterSpacing: '0.08em', textTransform: 'uppercase',
-                  color: 'rgba(26,26,26,0.3)',
-                }}
-              >
-                Playground
-              </button>
-
               {/* Divider */}
               <div style={{ height: 1, background: 'rgba(26,26,26,0.08)', margin: '20px 0 4px' }} />
 
@@ -4274,21 +4177,6 @@ const handleIssueClick = (issue) => {
                 {c.name}
               </button>
             ))}
-            <button
-              onClick={() => { setAudioPlaying(false); window.open('https://playground.oswinjournal.com', '_blank') }}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                textAlign: 'left', fontFamily: HN,
-                fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase',
-                color: 'rgba(26,26,26,0.3)',
-                lineHeight: 1.4, transition: 'color 0.2s',
-                marginTop: 4,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'rgba(26,26,26,0.7)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'rgba(26,26,26,0.3)' }}
-            >
-              Playground
-            </button>
           </div>
         ) : null}
 
@@ -4339,77 +4227,8 @@ const handleIssueClick = (issue) => {
           : renderExperienceView()
       )}
 
-      {/* Install PWA Banner */}
-      {showInstallBanner && !isStandalone && (screenSize === 'phone' || screenSize === 'tablet') && (
-        <div
-          className="fixed z-50 bottom-0 left-0 right-0 flex justify-center"
-          style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
-        >
-          <div
-            style={{
-              backgroundColor: 'rgba(30, 30, 30, 0.7)',
-              backdropFilter: 'blur(40px)',
-              WebkitBackdropFilter: 'blur(40px)',
-              borderRadius: '16px',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              padding: '16px 20px',
-              margin: '0 20px',
-              maxWidth: '340px',
-              width: '100%'
-            }}
-          >
-            <div style={{
-              fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#fff',
-              lineHeight: '1.4',
-              textAlign: 'center',
-              marginBottom: '12px'
-            }}>
-              {isIOS
-                ? 'For the best experience, tap the share button then "Add to Home Screen"'
-                : 'Install Oswin for a fullscreen experience'}
-            </div>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-              {!isIOS && (
-                <button
-                  onClick={() => { handleInstallClick(); dismissInstallBanner(); }}
-                  style={{
-                    fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    color: '#000',
-                    backgroundColor: 'rgba(255, 255, 255, 0.85)',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 16px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  install
-                </button>
-              )}
-              <button
-                onClick={dismissInstallBanner}
-                style={{
-                  fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  backgroundColor: 'transparent',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '8px',
-                  padding: '8px 16px',
-                  cursor: 'pointer'
-                }}
-              >
-                not now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* The install banner is gone: the grid's PLEASE READ card carries these
+          instructions now, so this was a second ask for the same thing. */}
     </>
   );
 }
