@@ -292,6 +292,68 @@
     font-size: 1.75cqh; color: rgba(0, 0, 0, 0.6);
   }
 </style>
+<!-- Device tier, decided before anything else loads.
+     This used to sit with the scene code, several hundred lines below a
+     blocking <script src="vendor/three.min.js"> — so a phone downloaded the
+     whole of three.js and parsed 32KB of ring before the redirect it was always
+     going to take. The comment there claimed the hand-off happened "before any
+     of the scene below is built"; it did, but not before the scene was
+     DOWNLOADED, which is the part a phone actually waits on and sees.
+
+     Up here, in <head>, after <base> so the relative path still resolves, a
+     phone leaves on the first script the parser meets and never pays for the
+     ring at all.
+
+     DO NOT classify on pointer/hover media queries. Safari on macOS reports
+     `(pointer: coarse)` and `(hover: none)` true on an ordinary desktop with a
+     trackpad — measured, not theoretical — so a coarse-pointer test silently
+     pulled desktops into the tablet tier and shrank their cards.
+
+     maxTouchPoints is the signal that actually separates them: desktop Safari
+     reports 0 or 1, a real iPad reports 5. iPadOS 13+ also presents itself as
+     "Macintosh" in the UA, which is why the touch count carries the decision
+     rather than the UA string alone.
+
+     ?tier=phone|tablet|desktop forces a tier, so any of them can be checked
+     from a desktop. Unset means detect. -->
+<script>
+(function () {
+  var q = new URLSearchParams(location.search).get('tier')
+  var ua = navigator.userAgent
+  var shortSide = Math.min(innerWidth, innerHeight)
+  var longSide  = Math.max(innerWidth, innerHeight)
+
+  var isTabletDevice =
+    /iPad/.test(ua) ||
+    (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ||
+    (/Android/.test(ua) && !/Mobile/.test(ua))
+  var isPhoneDevice = /iPhone|iPod/.test(ua) || (/Android/.test(ua) && /Mobile/.test(ua))
+
+  // Size still bounds the tablet tier (iPad Pro 12.9" is 1024x1366, the largest
+  // we care about), but a device must identify as a tablet to enter it at all —
+  // so no desktop window, at any size, can fall in.
+  var isPhone  = q ? q === 'phone'  : (isPhoneDevice || (shortSide < 600 && longSide < 1200))
+  var isTablet = q ? q === 'tablet' : (!isPhone && isTabletDevice && shortSide <= 1024)
+
+  window.__TIER = { isPhone: isPhone, isTablet: isTablet }
+
+  // Phones get the card grid, not the ring — the lobby laid flat as something
+  // you scroll.
+  //
+  // Compared by PATH, not origin. The ring is the homepage now, so it shares an
+  // origin with the app it hands phones to — an origin check would find the two
+  // equal, never fire, and leave phones on the ring, the exact failure this
+  // guard exists to prevent. Path still stops a loop if the destination ever
+  // serves this page back.
+  var PHONE_PAGE = 'mobile.html'
+  if (isPhone && !location.pathname.endsWith('/' + PHONE_PAGE)) {
+    // replace(), not assign(): the phone should not be able to press Back into
+    // a carousel it was never meant to see. Relative, so it resolves under the
+    // <base> above in production and beside this file in dev.
+    location.replace(PHONE_PAGE)
+  }
+})()
+</script>
 </head>
 <body>
 <!-- The ring is a canvas, so without this a crawler or a reader with scripting
@@ -499,8 +561,10 @@
 // Alex's bio, the same passage his own site prints on its Alex Taves card.
 // Kept in step by hand: that copy lives in alextaves-site/public/portals.html.
 const ALEX_TAVES_BIO = [
-  "Alex Taves builds rooms on the internet, part of what he calls the Slow Web, and his gut says the web is only beginning. He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened a gallery in Hamilton, Ontario. It took off, earned a nod from The New York Times, then crashed. The crash mattered: it opened a whole new world. Out of desperation he learned to code, and React, the framework Netflix runs on, became an obsession. It seemed wildly untapped as a medium for art.",
-  "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It's time to evolve into the humans we could be: not desperate for likes, not dictated to by an algorithm.",
+  "Alex Taves builds rooms on the internet. He calls it the Slow Web, and his gut says the web is only beginning.",
+  "He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened Oswald Gallery in Hamilton, Ontario, which earned a nod from The New York Times within six months. He saw a chance to take the gallery experience onto the web, studied how a platform like Netflix was built, and learned the same framework. React seemed wildly untapped as a medium for art.",
+  "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It is time to evolve into the humans we could be: not performing for likes, not dictated to by an algorithm.",
+  "He toggles his time between web development, teaching design, and his own art practice.",
 ]
 const ALEXANDER_INDEX = 0
 let alexBioOpen = false
@@ -588,56 +652,12 @@ const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
 scene.background = bgTex
 scene.fog = new THREE.Fog('#0e0b08', 8, 50)
 
-// Three tiers, because the ring is a different proposition on each: phones do
-// not get the ring at all (they are handed to the live site — see the redirect
-// below), tablets run the desktop ring with smaller cards in portrait, desktop
-// is unchanged.
-//
-// ?tier=phone|tablet|desktop forces a tier, so any of them can be checked from
-// a desktop. Same spirit as ?grain / ?scan below. Unset means detect.
-const _tier = new URLSearchParams(location.search).get('tier')
-const _ua = navigator.userAgent
-const shortSide = Math.min(innerWidth, innerHeight)
-const longSide = Math.max(innerWidth, innerHeight)
-
-// DO NOT classify on pointer/hover media queries. Safari on macOS reports
-// `(pointer: coarse)` true and `(hover: none)` true on an ordinary desktop with
-// a trackpad — measured, not theoretical — so a coarse-pointer test silently
-// pulled desktops into the tablet tier and shrank their cards.
-//
-// maxTouchPoints is the signal that actually separates them: desktop Safari
-// reports 0 or 1, a real iPad reports 5. iPadOS 13+ also presents itself as
-// "Macintosh" in the UA, which is why the touch count carries the decision
-// rather than the UA string alone.
-const isTabletDevice =
-  /iPad/.test(_ua) ||
-  (/Macintosh/.test(_ua) && navigator.maxTouchPoints > 1) ||
-  (/Android/.test(_ua) && !/Mobile/.test(_ua))
-const isPhoneDevice = /iPhone|iPod/.test(_ua) || (/Android/.test(_ua) && /Mobile/.test(_ua))
-
-// Size still bounds the tablet tier (iPad Pro 12.9" is 1024×1366, the largest
-// we care about), but a device must identify as a tablet to enter it at all —
-// so no desktop window, at any size, can fall in.
-const isPhone  = _tier ? _tier === 'phone'  : (isPhoneDevice || (shortSide < 600 && longSide < 1200))
-const isTablet = _tier ? _tier === 'tablet' : (!isPhone && isTabletDevice && shortSide <= 1024)
+// The tier was decided in <head>, before three.js was even requested — see the
+// comment on that script for why it cannot live down here. These names are kept
+// because the scene code below reads them throughout.
+const isPhone  = window.__TIER.isPhone
+const isTablet = window.__TIER.isTablet
 const isMobile = isPhone   // every branch below that says "mobile" means phone
-
-// Phones get the card grid, not the ring — the lobby laid flat as something you
-// scroll. Hand off before any of the scene below is built, so a phone never pays
-// for three.js it will not use.
-//
-// Compared by PATH, not origin. The ring is the homepage now, so it shares an
-// origin with the app it hands phones to — an origin check would find the two
-// equal, never fire, and leave phones on the ring, the exact failure this guard
-// exists to prevent. Path still stops a loop if the destination ever serves
-// this page back.
-const PHONE_PAGE = 'mobile.html'
-if (isPhone && !location.pathname.endsWith('/' + PHONE_PAGE)) {
-  // replace(), not assign(): the phone should not be able to press Back into a
-  // carousel it was never meant to see. Relative, so it resolves under the
-  // <base> in production and beside this file in dev.
-  location.replace(PHONE_PAGE)
-}
 
 // Tablet card sizing. PORTRAIT ONLY — landscape is left exactly as desktop,
 // because a landscape tablet has the width to show a card and its badge already.
@@ -2021,8 +2041,10 @@ const STORIES = {
     coverTypeOpts: { typeDur: 1600, backspaceDur: 1600, cycle: 6200 },
     bg: PORTALS[ALEX_TAVES_INDEX]?.bg,
     paragraphs: [
-      "Alex Taves builds rooms on the internet, part of what he calls the Slow Web, and his gut says the web is only beginning. He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened a gallery in Hamilton, Ontario. It took off, earned a nod from The New York Times, then crashed. The crash mattered: it opened a whole new world. Out of desperation he learned to code, and React, the framework Netflix runs on, became an obsession. It seemed wildly untapped as a medium for art.",
-      "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It's time to evolve into the humans we could be: not desperate for likes, not dictated to by an algorithm.",
+      "Alex Taves builds rooms on the internet. He calls it the Slow Web, and his gut says the web is only beginning.",
+      "He started in fashion, twelve years as art director to Joseph Mimran, then got pulled into the art world and opened Oswald Gallery in Hamilton, Ontario, which earned a nod from The New York Times within six months. He saw a chance to take the gallery experience onto the web, studied how a platform like Netflix was built, and learned the same framework. React seemed wildly untapped as a medium for art.",
+      "Canadian by birth, Melburnian by choice. His goal is to bridge art and the net. To Alex, platforms like Instagram already feel dated. It is time to evolve into the humans we could be: not performing for likes, not dictated to by an algorithm.",
+      "He toggles his time between web development, teaching design, and his own art practice.",
     ],
   },
 }
