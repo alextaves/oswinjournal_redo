@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oswin Journal — Oli Goldsmith, Sitting Boy</title>
+<style>
+  html, body { margin:0; min-height:100vh; background:#0a0a0a; color:#fff;
+               font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  body > canvas { position:fixed; inset:0; width:100%; height:100%; display:block;
+                  touch-action:pan-y; cursor:grab; }
+  body.dragging > canvas { cursor:grabbing; }
+  #backBtn {
+    position:fixed; top:20px; left:22px; z-index:20;
+    padding:6px 4px; border:none; background:none; cursor:pointer;
+    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.22em; transition:color 200ms ease;
+  }
+  #backBtn:hover { color:rgba(255,255,255,0.92); }
+  #counter { position:fixed; left:0; right:0; bottom:26px; z-index:20; text-align:center;
+             pointer-events:none; font-size:12px; font-weight:300; letter-spacing:0.26em;
+             color:rgba(255,255,255,0.45); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<button id="backBtn" aria-label="Back">&larr;&nbsp;&nbsp;BACK</button>
+<div id="counter"></div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+// ── Oli Goldsmith — Sitting Boy ──────────────────────────────────────────────
+// Nine in the series, every one 2048x2048. They are square, which makes them the
+// widest cards anywhere on the site — the paintings are 8:9 and everything else
+// is narrower still — so this ring sits wider than the others to clear them.
+//
+// Built on the same data-driven path as the sketchbook: each card takes its
+// dimensions from its own decoded image rather than from a ratio declared up
+// front. Here they all agree, but nothing depends on that being true.
+const COUNT = 9
+const SRCS = Array.from({ length: COUNT }, (_, i) =>
+  'images/oli_sitting/sitting-' + String(i + 1).padStart(2, '0') + '.jpg')
+
+const CARD_FOV_FRAC = 0.855
+const GAP_FRAC = 0.4
+const NEAR = 4.0
+const FOV = 55
+
+const vFOV = (FOV * Math.PI) / 180
+const panelH = CARD_FOV_FRAC * 2 * NEAR * Math.tan(vFOV / 2)
+const THICK = 0.16 * (CARD_FOV_FRAC / 0.9)
+const REFL_FRAC = 0.55
+const reflH = panelH * REFL_FRAC
+
+const scene = new THREE.Scene()
+const bgC = document.createElement('canvas'); bgC.width = 4; bgC.height = 512
+const bgCtx = bgC.getContext('2d')
+const bgG = bgCtx.createLinearGradient(0, 0, 0, 512)
+bgG.addColorStop(0, '#16110d'); bgG.addColorStop(1, '#0a0704')
+bgCtx.fillStyle = bgG; bgCtx.fillRect(0, 0, 4, 512)
+const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
+scene.background = bgTex
+
+const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.1, 400)
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.setSize(innerWidth, innerHeight)
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.appendChild(renderer.domElement)
+
+const envScene = new THREE.Scene()
+envScene.background = new THREE.Color('#0e0b08')
+;[
+  [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
+  [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
+].forEach(([x, y, z, w, h, b]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(b) }))
+  m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
+})
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
+scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
+const keyLight = new THREE.DirectionalLight('#ffffff', 1.1); keyLight.position.set(4, 6, 5)
+const rimLight = new THREE.DirectionalLight('#ffcf90', 0.5); rimLight.position.set(-5, 2, -4)
+scene.add(keyLight, rimLight)
+
+// Cached by ratio: several pages happen to share one, and there is no reason to
+// build the same corner mask twice.
+const _alphaCache = new Map()
+function alphaMapFor(aspect) {
+  const k = aspect.toFixed(4)
+  let t = _alphaCache.get(k)
+  if (t) return t
+  const AW = 128, AH = Math.round(AW / aspect)
+  const c = document.createElement('canvas'); c.width = AW; c.height = AH
+  const ctx = c.getContext('2d')
+  const r = 5
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, AW, AH)
+  ctx.filter = 'blur(2.5px)'
+  ctx.beginPath()
+  ctx.moveTo(r, 0); ctx.lineTo(AW - r, 0)
+  ctx.arcTo(AW, 0, AW, r, r); ctx.lineTo(AW, AH - r)
+  ctx.arcTo(AW, AH, AW - r, AH, r); ctx.lineTo(r, AH)
+  ctx.arcTo(0, AH, 0, AH - r, r); ctx.lineTo(0, r)
+  ctx.arcTo(0, 0, r, 0, r); ctx.closePath()
+  ctx.fillStyle = '#fff'; ctx.fill()
+  t = new THREE.CanvasTexture(c)
+  _alphaCache.set(k, t)
+  return t
+}
+
+function avgColour(img) {
+  const s = document.createElement('canvas'); s.width = 1; s.height = 1
+  const sctx = s.getContext('2d')
+  sctx.drawImage(img, 0, 0, 1, 1)
+  const [r, g, b] = sctx.getImageData(0, 0, 1, 1).data
+  return { r, g, b }
+}
+
+function reflTexFrom(img) {
+  const { r, g, b } = avgColour(img)
+  const c = document.createElement('canvas'); c.width = 256; c.height = 160
+  const ctx = c.getContext('2d')
+  const grd = ctx.createRadialGradient(128, 0, 0, 128, 0, 184)
+  grd.addColorStop(0,    'rgba(' + r + ',' + g + ',' + b + ',0.55)')
+  grd.addColorStop(0.35, 'rgba(' + r + ',' + g + ',' + b + ',0.22)')
+  grd.addColorStop(0.7,  'rgba(' + r + ',' + g + ',' + b + ',0.06)')
+  grd.addColorStop(1,    'rgba(' + r + ',' + g + ',' + b + ',0.0)')
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, 256, 160)
+  const fade = ctx.createLinearGradient(0, 0, 0, 160)
+  fade.addColorStop(0,    'rgba(14,11,8,0.55)')
+  fade.addColorStop(0.12, 'rgba(14,11,8,0.0)')
+  fade.addColorStop(0.7,  'rgba(14,11,8,0.0)')
+  fade.addColorStop(1,    'rgba(14,11,8,0.82)')
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, 256, 160)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+}
+
+const ring = new THREE.Group()
+scene.add(ring)
+
+let CARDS = [], RADIUS = 6, CAM_Z = 10
+let spin = 0, target = 0
+let dragging = false, dragFrom = 0, spinFrom = 0, moved = 0, activeId = null
+let lastDragEnd = -Infinity, lastDragMoved = 0
+
+function slotSpin(card) { return Math.PI / 2 - (card._slot / COUNT) * Math.PI * 2 }
+
+function placePanels() {
+  CARDS.forEach((card) => {
+    const a = (card._slot / COUNT) * Math.PI * 2 + spin
+    const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS
+    card._mesh.position.set(x, 0, z)
+    card._mesh.rotation.set(0, Math.atan2(x, z), 0)
+  })
+}
+
+function nearest(from) {
+  let best = from, bestD = Infinity
+  CARDS.forEach((card) => {
+    let a = slotSpin(card)
+    a += Math.round((from - a) / (Math.PI * 2)) * Math.PI * 2
+    const d = Math.abs(from - a)
+    if (d < bestD) { bestD = d; best = a }
+  })
+  return best
+}
+
+function build(images) {
+  // The ring has to clear its WIDEST card. Spacing off an average would let the
+  // near-square page overlap its neighbours while the narrow ones sat in space.
+  const widest = Math.max(...images.map((im) => im.naturalWidth / im.naturalHeight))
+  RADIUS = (panelH * widest * (1 + GAP_FRAC)) / (2 * Math.sin(Math.PI / COUNT))
+  CAM_Z = RADIUS + NEAR
+  camera.position.set(0, 0, CAM_Z)
+  camera.lookAt(0, 0, 0)
+  scene.fog = new THREE.Fog('#0e0b08', CAM_Z - 2, CAM_Z + RADIUS * 2.6)
+
+  CARDS = images.map((im, i) => {
+    const aspect = im.naturalWidth / im.naturalHeight
+    const w = panelH * aspect
+    const alphaMap = alphaMapFor(aspect)
+
+    const tex = new THREE.Texture(im)
+    tex.encoding = THREE.sRGBEncoding
+    tex.needsUpdate = true
+
+    const col = avgColour(im)
+    const edge = new THREE.Color('rgb(' + col.r + ',' + col.g + ',' + col.b + ')')
+
+    const faceMat = new THREE.MeshPhysicalMaterial({
+      map: tex, transparent: true, opacity: 0.92, side: THREE.FrontSide,
+      roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+      color: new THREE.Color(0xffffff), alphaMap,
+    })
+    const glassMat = new THREE.MeshStandardMaterial({
+      color: edge, transparent: true, opacity: 0.42, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+    })
+    const backMat = new THREE.MeshPhysicalMaterial({
+      map: tex, transparent: true, opacity: 0.72,
+      roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap,
+    })
+    const sideMat = new THREE.MeshStandardMaterial({
+      color: edge, transparent: true, opacity: 0.65, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+    })
+
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, panelH, THICK),
+      [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+    mesh.frustumCulled = false
+
+    const reflMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, reflH),
+      new THREE.MeshBasicMaterial({ map: reflTexFrom(im), transparent: true, opacity: 0.38 }))
+    reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
+    reflMesh.frustumCulled = false
+    mesh.add(reflMesh)
+
+    ring.add(mesh)
+    const card = { _slot: i, _mesh: mesh }
+    mesh.userData.card = card
+    return card
+  })
+
+  spin = target = slotSpin(CARDS[0])
+  placePanels()
+  frame()
+}
+
+const cv = renderer.domElement
+
+cv.addEventListener('pointerdown', (e) => {
+  if (dragging || !e.isPrimary || !CARDS.length) return
+  dragging = true; moved = 0; activeId = e.pointerId
+  dragFrom = e.clientX; spinFrom = spin
+  document.body.classList.add('dragging')
+})
+
+addEventListener('pointermove', (e) => {
+  if (!dragging || e.pointerId !== activeId) return
+  const dx = e.clientX - dragFrom
+  moved = Math.max(moved, Math.abs(dx))
+  // Negated so the ring travels WITH the hand.
+  spin = target = spinFrom - (dx / (innerWidth / 3)) * ((Math.PI * 2) / COUNT)
+})
+
+function endDrag(e) {
+  if (!dragging || (e && e.pointerId !== activeId)) return
+  dragging = false; activeId = null
+  document.body.classList.remove('dragging')
+  lastDragEnd = performance.now(); lastDragMoved = moved
+  target = nearest(spin)
+}
+addEventListener('pointerup', endDrag)
+addEventListener('pointercancel', endDrag)
+
+const raycaster = new THREE.Raycaster()
+const ndc = new THREE.Vector2()
+cv.addEventListener('click', (e) => {
+  if (lastDragMoved > 6 && performance.now() - lastDragEnd < 300) return
+  ndc.x = (e.clientX / innerWidth) * 2 - 1
+  ndc.y = -(e.clientY / innerHeight) * 2 + 1
+  raycaster.setFromCamera(ndc, camera)
+  const hit = raycaster.intersectObjects(ring.children, false)[0]
+  if (hit && hit.object.userData.card) target = nearest(slotSpin(hit.object.userData.card))
+})
+
+addEventListener('keydown', (e) => {
+  if (!CARDS.length) return
+  const step = (Math.PI * 2) / COUNT
+  if (e.key === 'ArrowLeft')  target = nearest(target + step * 0.6)
+  if (e.key === 'ArrowRight') target = nearest(target - step * 0.6)
+  if (e.key === 'Escape') history.back()
+})
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+
+const counterEl = document.getElementById('counter')
+let shownIdx = -1
+
+function frame() {
+  spin += (target - spin) * 0.16
+  if (Math.abs(target - spin) < 0.0001) spin = target
+  placePanels()
+
+  let front = CARDS[0], bestD = Infinity
+  CARDS.forEach((card) => {
+    const off = (card._slot / COUNT) * Math.PI * 2 + spin - Math.PI / 2
+    const d = Math.abs(Math.atan2(Math.sin(off), Math.cos(off)))
+    if (d < bestD) { bestD = d; front = card }
+  })
+  if (front._slot !== shownIdx) {
+    shownIdx = front._slot
+    counterEl.textContent = String(shownIdx + 1).padStart(2, '0') + ' / ' + COUNT
+  }
+
+  renderer.render(scene, camera)
+  requestAnimationFrame(frame)
+}
+
+document.getElementById('backBtn').onclick = () => { history.back() }
+
+// Built only once every page has decoded: the ring's radius depends on the
+// widest of them, and each card's geometry on its own dimensions, so none of it
+// can be laid out before the real sizes are known.
+Promise.all(SRCS.map((src) => new Promise((res, rej) => {
+  const im = new Image()
+  im.onload = () => res(im)
+  im.onerror = rej
+  im.src = src
+}))).then(build).catch((e) => console.error('sitting boy failed to load', e))
+</script>
+</body>
+</html>
