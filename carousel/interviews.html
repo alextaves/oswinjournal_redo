@@ -7,26 +7,13 @@
 <style>
   html, body { margin:0; min-height:100%; background:#0e0b08; color:#fff;
                font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
-  main { padding:96px 26px 54px; }
-
-  /* Three, side by side. A ring built for eight reads sparse at three, and the
-     pieces are a set to be compared rather than a sequence to be spun through. */
-  .rack { display:grid; grid-template-columns:repeat(3, 1fr); gap:26px;
-          width:100%; max-width:1180px; margin:0 auto; }
-  @media (max-width:900px) { .rack { grid-template-columns:1fr; max-width:380px; } }
-
-  .card { position:relative; background:none; border:0; padding:0; cursor:pointer;
-          transition:transform 340ms cubic-bezier(.22,.61,.36,1); }
-  .card:hover { transform:translateY(-10px); }
-  .card canvas.face { display:block; width:100%; height:auto; aspect-ratio:3/4;
-                      border-radius:2px; box-shadow:0 18px 46px rgba(0,0,0,0.62); }
-  /* The glow the ring's cards cast on its floor, brought to the rack. On the
-     ring it is a bloom of the card's own bg colour; these are all near-black,
-     so a colour bloom would show nothing — here it is the card itself, mirrored
-     and faded out, which the portraits actually carry. */
-  .card canvas.refl { display:block; width:100%; height:auto; margin-top:2px;
-                      opacity:0.38; pointer-events:none; }
-  .card:focus-visible { outline:1px solid rgba(255,255,255,0.5); outline-offset:6px; }
+  /* The ring is WebGL — index.html's renderer, the same one Oli's room and the
+     fiction room use — so the canvas fills the window and the chrome rides on
+     top of it. */
+  main { display:none; }
+  body > canvas { position:fixed; inset:0; width:100%; height:100%; display:block;
+                  touch-action:pan-y; cursor:grab; }
+  body.dragging > canvas { cursor:grabbing; }
 
   #backBtn {
     position:fixed; top:20px; left:22px; z-index:20;
@@ -73,7 +60,7 @@
 <div class="mast">INTERVIEWS</div>
 
 <main>
-  <div class="rack" id="rack"></div>
+  <!-- The ring's canvas is appended here by the renderer. -->
 </main>
 
 <div id="reader" aria-hidden="true">
@@ -81,6 +68,7 @@
   <div class="col" id="readerCol"></div>
 </div>
 
+<script src="vendor/three.min.js"></script>
 <script src="interviews.js"></script>
 <script>
 // ── Interviews — the room behind the ring's INTERVIEWS card ──────────────────
@@ -219,66 +207,319 @@ const REFL_FRAC = 0.55            // the ring's own proportion
 
 // The card, upside down beneath itself, fading to nothing. Drawn from the
 // finished face so it carries the type and the static too, not just the photo.
-function drawReflection(card) {
-  const ctx = card._rctx
-  const rh = Math.round(H * REFL_FRAC)
-  ctx.clearRect(0, 0, W, rh)
-  ctx.save()
-  ctx.scale(1, -1)
-  ctx.drawImage(card._face, 0, -H, W, H)   // flipped: the card's foot at the top
-  ctx.restore()
-  const fade = ctx.createLinearGradient(0, 0, 0, rh)
-  fade.addColorStop(0, 'rgba(0,0,0,1)')
-  fade.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.save()
-  ctx.globalCompositeOperation = 'destination-in'
-  ctx.fillStyle = fade
-  ctx.fillRect(0, 0, W, rh)
-  ctx.restore()
-}
 
 // ── Build ────────────────────────────────────────────────────────────────────
-const rack = document.getElementById('rack')
-const DPR = Math.min(devicePixelRatio || 1, 2)
-
-CARDS.forEach((card) => {
-  const el = document.createElement('button')
-  el.className = 'card'
-  el.type = 'button'
-  el.setAttribute('aria-label', card.title)
-  el.addEventListener('click', () => openInterview(card))
-
+// Each portrait still paints into its own 600x800 canvas; that canvas is now a
+// texture on a ring panel rather than a DOM element.
+CARDS.forEach((card, i) => {
+  card._slot = i
   const c = document.createElement('canvas')
-  c.className = 'face'
-  c.width = W * DPR; c.height = H * DPR
-  const ctx = c.getContext('2d')
-  ctx.scale(DPR, DPR)
-  el.appendChild(c)
-
-  const rc = document.createElement('canvas')
-  rc.className = 'refl'
-  rc.width = W * DPR; rc.height = Math.round(H * REFL_FRAC) * DPR
-  const rctx = rc.getContext('2d')
-  rctx.scale(DPR, DPR)
-  el.appendChild(rc)
-
-  rack.appendChild(el)
-  card._ctx = ctx
+  c.width = W; c.height = H
+  card._ctx = c.getContext('2d')
   card._face = c
-  card._rctx = rctx
 
   const im = new Image()
   im.src = card.image
-  im.onload = () => { drawCard(card); drawReflection(card) }
+  im.onload = () => {
+    drawCard(card)
+    if (card._faceTex) card._faceTex.needsUpdate = true
+    if (card._backTex) refreshBack(card)
+  }
   card._img = im
 })
 
-// Portraits are stills, so these are painted once rather than driven by a loop.
-// The static is regenerated per paint, which is what gives each card its own
-// grain rather than three identical fields.
-;(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
-  CARDS.forEach(card => { regenNoise(); drawCard(card); drawReflection(card) })
+// ── Ring ─────────────────────────────────────────────────────────────────────
+// index.html's ring, lifted rather than approximated: same RADIUS and CAM_Z,
+// same panelH arithmetic off CARD_FOV_FRAC, same BoxGeometry with six
+// materials, same rounded alpha map, same glow reflection. SLOTS placements of
+// which the first few carry a card, so issue 5 drops into the next placement
+// and the ones already there do not move.
+const SLOTS  = 9
+const RADIUS = 6.0
+const CAM_Z  = 10.0
+
+const scene = new THREE.Scene()
+const bgC = document.createElement('canvas'); bgC.width = 4; bgC.height = 512
+const bgCtx2 = bgC.getContext('2d')
+const bgG = bgCtx2.createLinearGradient(0, 0, 0, 512)
+bgG.addColorStop(0, '#16110d'); bgG.addColorStop(1, '#0a0704')
+bgCtx2.fillStyle = bgG; bgCtx2.fillRect(0, 0, 4, 512)
+const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
+scene.background = bgTex
+scene.fog = new THREE.Fog('#0e0b08', 8, 50)
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200)
+camera.position.set(0, 0, CAM_Z)
+camera.lookAt(0, 0, 0)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.setSize(innerWidth, innerHeight)
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.appendChild(renderer.domElement)
+
+const envScene = new THREE.Scene()
+envScene.background = new THREE.Color('#0e0b08')
+;[
+  [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
+  [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
+].forEach(([x, y, z, w, h, b]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(b) }))
+  m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
 })
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
+scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
+const keyLight = new THREE.DirectionalLight('#ffffff', 1.1); keyLight.position.set(4, 6, 5)
+const rimLight = new THREE.DirectionalLight('#ffcf90', 0.5); rimLight.position.set(-5, 2, -4)
+scene.add(keyLight, rimLight)
+
+const nearDist = CAM_Z - RADIUS
+const vFOV = (camera.fov * Math.PI) / 180
+// How much of the vertical field of view a card fills. Was 0.9; trimmed by 5%
+// so the ring sits a touch shorter in the window — the same number the homepage,
+// Oli's room and the fiction room carry.
+const CARD_FOV_FRAC = 0.855
+const panelH = CARD_FOV_FRAC * 2 * nearDist * Math.tan(vFOV / 2)
+const panelW = panelH * (3 / 4)
+const THICK = 0.16 * (CARD_FOV_FRAC / 0.9)
+const FRONT_OPACITY = 0.92
+const BACK_OPACITY = 0.42
+const reflH = panelH * REFL_FRAC
+const panelGeo = new THREE.BoxGeometry(panelW, panelH, THICK)
+const reflGeo = new THREE.PlaneGeometry(panelW, reflH)
+
+const roundedAlphaMap = (() => {
+  const AW = 128, AH = Math.round(AW * panelH / panelW)
+  const c = document.createElement('canvas'); c.width = AW; c.height = AH
+  const ctx = c.getContext('2d')
+  const r = 5
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, AW, AH)
+  ctx.filter = 'blur(2.5px)'
+  ctx.beginPath()
+  ctx.moveTo(r, 0); ctx.lineTo(AW - r, 0)
+  ctx.arcTo(AW, 0, AW, r, r); ctx.lineTo(AW, AH - r)
+  ctx.arcTo(AW, AH, AW - r, AH, r); ctx.lineTo(r, AH)
+  ctx.arcTo(0, AH, 0, AH - r, r); ctx.lineTo(0, r)
+  ctx.arcTo(0, 0, r, 0, r); ctx.closePath()
+  ctx.fillStyle = '#fff'; ctx.fill()
+  return new THREE.CanvasTexture(c)
+})()
+
+function makePortalReflTex(bgHex) {
+  const r = parseInt(bgHex.slice(1, 3), 16)
+  const g = parseInt(bgHex.slice(3, 5), 16)
+  const b = parseInt(bgHex.slice(5, 7), 16)
+  const RW = 256, RH = 160
+  const c = document.createElement('canvas'); c.width = RW; c.height = RH
+  const ctx = c.getContext('2d')
+  const grd = ctx.createRadialGradient(RW / 2, 0, 0, RW / 2, 0, RW * 0.72)
+  grd.addColorStop(0,    'rgba(' + r + ',' + g + ',' + b + ',0.55)')
+  grd.addColorStop(0.35, 'rgba(' + r + ',' + g + ',' + b + ',0.22)')
+  grd.addColorStop(0.7,  'rgba(' + r + ',' + g + ',' + b + ',0.06)')
+  grd.addColorStop(1,    'rgba(' + r + ',' + g + ',' + b + ',0.0)')
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, RW, RH)
+  const fade = ctx.createLinearGradient(0, 0, 0, RH)
+  fade.addColorStop(0,    'rgba(14,11,8,0.55)')
+  fade.addColorStop(0.12, 'rgba(14,11,8,0.0)')
+  fade.addColorStop(0.7,  'rgba(14,11,8,0.0)')
+  fade.addColorStop(1,    'rgba(14,11,8,0.82)')
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, RW, RH)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+}
+
+function refreshBack(card) {
+  const img = card._backTex.image
+  const ctx = img.getContext('2d')
+  ctx.setTransform(1, 0, 0, 1, 0, 0)
+  ctx.clearRect(0, 0, img.width, img.height)
+  ctx.save(); ctx.translate(img.width, 0); ctx.scale(-1, 1)
+  ctx.drawImage(card._face, 0, 0); ctx.restore()
+  card._backTex.needsUpdate = true
+}
+
+function makeFlippedTex(src) {
+  const c = document.createElement('canvas')
+  c.width = src.width; c.height = src.height
+  const ctx = c.getContext('2d')
+  ctx.translate(c.width, 0); ctx.scale(-1, 1)
+  ctx.drawImage(src, 0, 0)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+}
+
+const ring = new THREE.Group()
+scene.add(ring)
+
+CARDS.forEach((card) => {
+  const faceTex = new THREE.CanvasTexture(card._face)
+  faceTex.encoding = THREE.sRGBEncoding
+  const backTex = makeFlippedTex(card._face)
+  const panelCol = new THREE.Color(card.bg)
+
+  const faceMat = new THREE.MeshPhysicalMaterial({
+    map: faceTex, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide,
+    roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+    color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+  })
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: panelCol, transparent: true, opacity: BACK_OPACITY,
+    roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  })
+  const backMat = new THREE.MeshPhysicalMaterial({
+    map: backTex, transparent: true, opacity: 0.72,
+    roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+  })
+  const sideMat = new THREE.MeshStandardMaterial({
+    color: panelCol, transparent: true, opacity: 0.65,
+    roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  })
+  const reflMat = new THREE.MeshBasicMaterial({
+    map: makePortalReflTex(card.bg), transparent: true, opacity: 0.38,
+  })
+
+  const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+  mesh.frustumCulled = false
+  mesh.userData.card = card
+
+  const reflMesh = new THREE.Mesh(reflGeo, reflMat)
+  reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
+  reflMesh.frustumCulled = false
+  mesh.add(reflMesh)
+
+  ring.add(mesh)
+  card._mesh = mesh
+  card._faceTex = faceTex
+  card._backTex = backTex
+})
+
+// Each panel is set from its CURRENT orbit position — rotation.y = atan2(x, z)
+// turns it to face straight out from the centre, which at the front of the ring
+// is straight at the camera. index.html does it this way rather than rotating a
+// parent; a group rotation plus a fixed local angle double-counts the turn.
+function placePanels() {
+  CARDS.forEach((card) => {
+    const a = (card._slot / SLOTS) * Math.PI * 2 + spin
+    const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS
+    card._mesh.position.set(x, 0, z)
+    card._mesh.rotation.set(0, Math.atan2(x, z), 0)
+  })
+}
+
+function slotSpin(card) { return Math.PI / 2 - (card._slot / SLOTS) * Math.PI * 2 }
+
+// Arrive facing the middle card, so the ring opens with a filled placement on
+// either side rather than everything stacked off one edge — unless ?i names an
+// interview, which is how the homepage's INTERVIEW card lands you on the piece
+// it shows rather than on whatever happens to sit in the middle.
+const _wantId = new URLSearchParams(location.search).get('i')
+const _startCard = (_wantId && CARDS.find((c) => c.id === _wantId))
+  || CARDS[Math.floor((CARDS.length - 1) / 2)]
+let spin = slotSpin(_startCard), target = spin
+let dragging = false, dragFrom = 0, spinFrom = 0, moved = 0, activeId = null
+let lastDragEnd = -Infinity, lastDragMoved = 0
+
+function nearestFilled(from) {
+  let best = from, bestD = Infinity
+  CARDS.forEach((card) => {
+    let a = slotSpin(card)
+    a += Math.round((from - a) / (Math.PI * 2)) * Math.PI * 2
+    const d = Math.abs(from - a)
+    if (d < bestD) { bestD = d; best = a }
+  })
+  return best
+}
+
+const cv = renderer.domElement
+
+cv.addEventListener('pointerdown', (e) => {
+  // One gesture, primary contact only: a duplicate down would re-read the
+  // baseline mid-drag and throw away the travel so far.
+  if (dragging || !e.isPrimary) return
+  dragging = true; moved = 0; activeId = e.pointerId
+  dragFrom = e.clientX; spinFrom = spin
+  document.body.classList.add('dragging')
+  // No setPointerCapture: it retargets the click away from the canvas, and the
+  // raycast below needs it.
+})
+
+addEventListener('pointermove', (e) => {
+  if (!dragging || e.pointerId !== activeId) return
+  const dx = e.clientX - dragFrom
+  moved = Math.max(moved, Math.abs(dx))
+  // Negated so the ring travels WITH the hand: drag left and the card that was
+  // on the right comes to the centre.
+  spin = target = spinFrom - (dx / (innerWidth / 3)) * ((Math.PI * 2) / SLOTS)
+})
+
+function endDrag(e) {
+  if (!dragging || (e && e.pointerId !== activeId)) return
+  dragging = false; activeId = null
+  document.body.classList.remove('dragging')
+  lastDragEnd = performance.now(); lastDragMoved = moved
+  target = nearestFilled(spin)
+}
+addEventListener('pointerup', endDrag)
+addEventListener('pointercancel', endDrag)
+
+const raycaster = new THREE.Raycaster()
+const ndc = new THREE.Vector2()
+
+cv.addEventListener('click', (e) => {
+  // A drag ends in a click too. Ignored by time rather than a flag, which would
+  // stick whenever a drag ends without one.
+  if (lastDragMoved > 6 && performance.now() - lastDragEnd < 300) return
+  ndc.x = (e.clientX / innerWidth) * 2 - 1
+  ndc.y = -(e.clientY / innerHeight) * 2 + 1
+  raycaster.setFromCamera(ndc, camera)
+  const hit = raycaster.intersectObjects(ring.children, false)[0]
+  if (!hit) return
+  const card = hit.object.userData.card
+  if (!card) return
+  // An off-centre card turns to face you first; only the front one opens.
+  if (Math.abs(((spin - slotSpin(card)) % (Math.PI * 2) + Math.PI * 3) % (Math.PI * 2) - Math.PI) > 0.25) {
+    target = nearestFilled(slotSpin(card))
+    return
+  }
+  openInterview(card)
+})
+
+addEventListener('keydown', (e) => {
+  if (reader.classList.contains('open')) return
+  const step = (Math.PI * 2) / SLOTS
+  if (e.key === 'ArrowLeft')  target = nearestFilled(target + step * 0.6)
+  if (e.key === 'ArrowRight') target = nearestFilled(target - step * 0.6)
+})
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+
+function frame() {
+  spin += (target - spin) * 0.16
+  if (Math.abs(target - spin) < 0.0001) spin = target
+  placePanels()
+  renderer.render(scene, camera)
+  requestAnimationFrame(frame)
+}
+
+// Portraits are stills, so the faces are painted once rather than per frame. The
+// static is regenerated per paint, which is what gives each card its own grain
+// rather than four identical fields.
+;(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => {
+  CARDS.forEach((card) => {
+    regenNoise()
+    drawCard(card)
+    card._faceTex.needsUpdate = true
+    refreshBack(card)
+  })
+})
+placePanels()
+frame()
 
 // ── Reading view ──────────────────────────────────────────────────────────────
 const reader = document.getElementById('reader')

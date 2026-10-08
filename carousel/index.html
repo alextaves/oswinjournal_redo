@@ -367,12 +367,18 @@
   <p>Contact: <a href="mailto:oswinjournal@gmail.com">oswinjournal@gmail.com</a></p>
 </noscript>
 <script>
-  // Lobby music — the HWY 3 track, on Web Audio rather than <audio> because an
+  // Lobby music — ETHERNITY's ambient bed, on Web Audio rather than <audio>
+  // because an
   // <audio> element cannot play backwards (playbackRate is clamped positive).
   // We decode once, keep a sample-reversed copy of the buffer, and crossfade
   // between the two voices whenever the ring changes direction. The playhead is
   // tracked in forward-time, so the reverse voice starts at (duration - pos).
-  const LOBBY_URL = 'audio/hwy3_lobby.mp3'
+  // Served from our own origin rather than linked off ethernity.space: this is
+  // the first sound of the site and it should not depend on another host being
+  // up, nor re-download on every visit. It is the same recording the ETHERNITY
+  // tour plays, which is the whole point — walking into Oli's space is then a
+  // continuation rather than a handover (see the oswinRoomAudio note below).
+  const LOBBY_URL = 'audio/ethernity_lobby.mp3'
   // Three fade lengths, because the three transitions mean different things.
   // XFADE stays tiny: it only spans a direction flip, where both voices are the
   // same tape and a long blend would phase against itself. The other two are
@@ -511,14 +517,21 @@
     const d = e.data
     if (!d) return
     if (d.type === 'oswinIssueAudio' && d.on) duckLobby()
-    // A ROOM inside a card taking the sound over — the Oli space. Deliberately
-    // its own message rather than reusing oswinIssueAudio: an issue keeps the
-    // lobby ducked until you LEAVE it (muting a track mid-visit must not pipe
-    // corridor music back into the room), but a room hands the sound back the
-    // moment you step out of it, while the card overlay stays open. duckLobby /
-    // restoreLobby already park and resume the playhead, so the lobby picks up
-    // exactly where it left off.
-    if (d.type === 'oswinRoomAudio') { d.on ? duckLobby() : restoreLobby() }
+    // oswinRoomAudio — the Oli space (ETHERNITY) turning its sound on and off.
+    // Deliberately NOT ducked. The lobby bed IS ETHERNITY's bed now, so stepping
+    // into Oli's room is a continuation, not a handover: ducking here would fade
+    // the track out and straight back in again at the threshold, which is the
+    // one seam this is meant not to have. oli.html therefore also leaves
+    // PLAY_ROOM_TRACK false, so there is exactly one copy of the recording
+    // playing — this one — for the whole visit.
+    //
+    // The message is still sent and still worth keeping: it is the only signal
+    // that a room took the sound, and ducking is one line away if a future room
+    // has a bed of its own.
+    //
+    // Issues are the opposite and stay ducked above: an issue is its own sound
+    // world, and it keeps the lobby out until you LEAVE it (muting a track
+    // mid-visit must not pipe corridor music back into the room).
     // The issue's own "home" control. Home is this ring, so close the overlay
     // and fade the lobby back in.
     if (d.type === 'oswinExitIssue') closeCardIframe()
@@ -584,18 +597,26 @@ const PORTALS = [
     body: ALEX_TAVES_BIO, bodyReserve: 168 },  // Alexander Taves (04) — clicking turns the portrait over to the bio
   { title: 'ENQUIRIES', sub: 'get in touch · looking for like minded', bg: '#00C2A8', light: false },  // Enquiries — exact alextaves card (index must match ENQUIRIES_INDEX)
   { title: 'OSWIN JOURNAL', sub: 'a browser built as a gallery', body: OSWIN_JOURNAL_BODY, bg: '#D4D2CB', light: false },  // was ALEX TAVES (06.png)
-  { video: 'videos/oli_oswin_opener.mp4', title: 'OLI GOLDSMITH', sub: '', bottomCaption: 'audio by karla is here', bg: '#12151b', titleColor: '#FFFFFF', iframe: 'oli.html', badge: 4,
-    // Broken by hand — there is no space to break at. '#F9FF45' is BADGE_YELLOW,
-    // which is declared further down the file than this list can reach.
-    subLines: ['UNDER', 'CONSTRUC-', 'TION'], subColor: '#F9FF45' },  // issue 4 — Oli (landing card); click opens the four-card Oli page, which links on to ethernity.space
+  { video: 'videos/oli_oswin_opener.mp4', title: 'OLI GOLDSMITH', sub: '', bottomCaption: 'audio by karla is here', bg: '#12151b', titleColor: '#FFFFFF', iframe: 'oli.html', badge: 4 },  // issue 4 — Oli (landing card); click opens the three-card Oli page, which links on to ethernity.space
   { slideshow: ['images/giftshop-green.jpg', 'images/giftshop-orange.jpg', 'images/giftshop-purple.jpg', 'images/giftshop-red.jpg'], title: 'ARNOLD SCHOENBERG', sub: '', bottomCaption: 'visuals by oswin', bg: '#777777', titleColor: '#FFFFFF', badge: 3, iframe: LIVE_ISSUE(3) },  // issue 3 — Arnold (click enters the live Schoenberg piano experience)
   { video: 'videos/guy_corner_panel3.mp4', title: 'CHRISTOPHER BISSONNETTE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#FFFFFF', badge: 2, iframe: LIVE_ISSUE(2) },  // issue 2 — Chris; the card runs the corner-panel clip, cover-fit (a card-sized encode of public/videos/issue2/panels/guy_corner_panel3.mp4, which is untouched)
   { video: 'videos/karla_prerace.mp4', title: 'KARLA IS HERE', sub: '', bottomCaption: 'visuals by oswin', bg: '#12151b', titleColor: '#1E2BFF', badge: 1, iframe: LIVE_ISSUE(1) },  // issue 1 — Karla (click enters the live issue-1 detail page)
   { title: 'FICTION', sub: 'sci fi meets absurdism', bg: '#FF5F00', light: false, iframe: 'fiction.html' },
-  // The writing that sits beside the issues. Same shape as FICTION: its own
-  // ring of the three pieces, in issue order. '#F9FF45' is BADGE_YELLOW, which
-  // is declared further down the file than this list can reach.
-  { title: 'INTERVIEWS', sub: 'karla is here · christopher bissonnette · arnold schoenberg', bg: '#F9FF45', light: false, iframe: 'interviews.html' },  // moved off alextaves.com — opens its own ring of the eight pieces, with the four live covers and the writing
+  // The interviews door, and it wears the latest interview rather than a label:
+  // the title says where it goes, the standing head says what is behind it right
+  // now. Replaced the old flat yellow INTERVIEWS card, which went to the same
+  // room — two cards for one destination is the confusion, not the feature.
+  //
+  // The same piece shows in three places: here, in the room this opens, and in
+  // the ring on Oli's own page. ?i=oli lands the room on his interview rather
+  // than on whatever happens to sit in its middle.
+  //
+  // APPENDED, never inserted: ALEXANDER_INDEX, ENQUIRIES_INDEX and
+  // LANDING_INDEX are hardcoded positions, so anything but the end of this list
+  // moves the cards they point at.
+  { image: 'images/interviews/oli.jpg', title: 'INTERVIEWS', sub: 'Latest \u00b7 Oli Goldsmith',
+    bg: '#9285c7', titleColor: '#FFFFFF', iframe: 'interviews.html?i=oli',
+    tonal: { alpha: 0.85, grayscale: 1, tint: '#9285c7', shadow: '#2c234d' } },
 ]
 const LANDING_INDEX = 3   // Oli — the card the ring lands on
 const COUNT = PORTALS.length
@@ -757,6 +778,13 @@ const rim = new THREE.DirectionalLight('#ffcf90', 0.5); rim.position.set(-5, 2, 
 scene.add(key, rim)
 
 // ── Panel geometry ────────────────────────────────────────────────────────────
+// How much of the vertical field of view a card fills. Was 0.9; trimmed by 5%
+// so the ring sits a touch shorter in the window. Kept as a named constant
+// because every other size on the card — its width, its thickness, the glow it
+// throws on the floor — is derived from panelH, so this one number moves them
+// all together and nothing has to be re-tuned by hand.
+const CARD_FOV_FRAC = 0.855
+
 const nearDist    = CAM_Z - RADIUS
 const mobNearDist = MOB_CAM_Z - MOB_RADIUS
 const vFOV = (camera.fov * Math.PI) / 180
@@ -770,7 +798,7 @@ if (isMobile) {
   // view, so it sizes to the viewport rather than to a pixel count. On desktop
   // and on landscape tablets TABLET_CARD_SCALE is exactly 1, leaving this
   // arithmetically identical to what it has always been.
-  panelH = 0.9 * 2 * nearDist * Math.tan(vFOV / 2) * TABLET_CARD_SCALE
+  panelH = CARD_FOV_FRAC * 2 * nearDist * Math.tan(vFOV / 2) * TABLET_CARD_SCALE
   panelW = panelH * (3 / 4)
 }
 // THICK is the card's physical depth in world units. Kept proportional to
@@ -847,7 +875,12 @@ function makePortalReflTex(bgHex) {
 // "reads" as that card's colour, just varied by the source's luminance.
 const duotoneOff = document.createElement('canvas')
 const duotoneOffCtx = duotoneOff.getContext('2d')
-function drawDuotoneTrace(ctx, source, W, H, tintHex, alpha, grayscaleAmt = 1) {
+// shadowHex is optional. Multiply alone sends every dark pixel to black, since
+// black times any tint is black — fine for a card sitting on this near-black
+// ring, but it is the one thing a card made entirely of one hue cannot have.
+// Filling again with 'lighten' takes the per-channel max, so nothing falls below
+// the shadow colour and the image spans shadow -> highlight instead.
+function drawDuotoneTrace(ctx, source, W, H, tintHex, alpha, grayscaleAmt = 1, shadowHex = null) {
   const sw = source.videoWidth || source.naturalWidth
   const sh = source.videoHeight || source.naturalHeight
   if (!sw || !sh) return
@@ -860,6 +893,11 @@ function drawDuotoneTrace(ctx, source, W, H, tintHex, alpha, grayscaleAmt = 1) {
   duotoneOffCtx.globalCompositeOperation = 'multiply'
   duotoneOffCtx.fillStyle = tintHex
   duotoneOffCtx.fillRect(0, 0, W, H)
+  if (shadowHex) {
+    duotoneOffCtx.globalCompositeOperation = 'lighten'
+    duotoneOffCtx.fillStyle = shadowHex
+    duotoneOffCtx.fillRect(0, 0, W, H)
+  }
   duotoneOffCtx.globalCompositeOperation = 'source-over'
   ctx.save()
   ctx.globalAlpha = alpha
@@ -1057,9 +1095,10 @@ const _titleSampled = new Map()
 // shrinking only as a last resort. Also reports where the header ends so the
 // content cards can start their body below a taller, wrapped title.
 function titleLayout(ctx, portal, maxW) {
-  // A card may carry a second block set at the NAME's own size (Oli's UNDER
-  // CONSTRUCTION). It is measured alongside the name so the two land at one
-  // size that fits, rather than the name sizing itself and the block overrunning.
+  // A card may carry a second block (subLines) set at the NAME's own size. It is
+  // measured alongside the name so the two land at one size that fits, rather
+  // than the name sizing itself and the block then overrunning. No card uses
+  // this at present — Oli's UNDER CONSTRUCTION did until it came off.
   const extra = portal.subLines || []
   let size = 74, lines
   for (; size >= 24; size -= 2) {
@@ -1419,6 +1458,11 @@ function drawCardBase(ctx, portal, W, H, drawTrace) {
   if (portal.body && portal._showBio) drawAlexBioFace(ctx, portal, W, H)
   else if (portal.tv) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawTvBase(cx, portal, w, h))
   else if (portal.slideshow) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawSlideshow(cx, portal, w, h))
+  // Before the plain image branch: a tonal card keeps its title and standing
+  // head, with the portrait behind them as a duotone rather than a photograph.
+  else if (portal.tonal && portal._img) drawPortalCard(ctx, portal, W, H, lm,
+    (cx, w, h) => drawDuotoneTrace(cx, portal._img, w, h, portal.tonal.tint || portal.bg,
+                                   portal.tonal.alpha, portal.tonal.grayscale, portal.tonal.shadow))
   else if (portal._img) drawImageCover(ctx, portal._img, W, H)
   else if (portal._video) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawVideoTrace(cx, portal, w, h))
   else if (portal.body) drawPortalCard(ctx, portal, W, H, lm, (cx, w, h) => drawBodyText(cx, w, h, portal))
@@ -2719,22 +2763,64 @@ let last = performance.now()
 // pre-baking the grayscale swim tile once (see buildSwimGray) instead of running
 // a canvas filter on every tile of every frame, which is what used to stutter
 // the ring while spinning.
-let prFrames = 0, prAccum = 0
+let prFrames = 0, prAccum = 0, prGood = 0
+let prProbe = false, prProbeFps = 0, prNoGainUntil = 0
 function render(now) {
   requestAnimationFrame(render)
   let dt = (now - last) / 1000; last = now
   if (dt > 0.05) dt = 0.05
 
-  // Twice a second, if we're below ~56fps, shed a quarter step of pixel ratio
-  // (down to 0.75) so the ring recovers when the GPU throttles under sustained
-  // load. Only steps down, so it settles without oscillating. Checking twice a
-  // second lets it react to a thermal drop within ~half a second.
+  // Twice a second, steer the pixel ratio by measured framerate. Below ~56fps
+  // shed a quarter step at once (down to 0.75) so the ring recovers when the
+  // GPU throttles under sustained load; above ~58fps for four windows running
+  // (~2s) put a quarter step back, up to MAX_PR.
+  //
+  // The climb matters as much as the drop. This used to only ever step down,
+  // so one slow half-second — uploading card textures during load, or the
+  // opening spin — pinned the whole session at 0.75 and left the card text
+  // permanently upscaled, which reads as the ring being softly out of focus
+  // even on a machine that could hold 60fps at native resolution.
+  //
+  // The asymmetry is the hysteresis: drop on a single bad window, climb only
+  // after four good ones, so it can't oscillate around the threshold. 56/58
+  // leaves a deliberate dead band in between where nothing moves.
   prFrames++; prAccum += dt
   if (prAccum >= 0.5) {
     const fps = prFrames / prAccum
     prFrames = 0; prAccum = 0
-    if (fps < 56 && curPR > 0.75) {
-      curPR = Math.max(0.75, curPR - 0.25)
+    let next = curPR
+
+    if (prProbe) {
+      // A step down is a PROBE, not a conclusion. Resolution is only worth
+      // trading away if shedding it actually bought framerate — and often it
+      // doesn't, because this scene's real per-frame cost is redrawing and
+      // re-uploading the 600x800 card-face canvases, which is CPU and upload
+      // work that pixel ratio has no bearing on. (Measured: dropping to 0.75
+      // and even disabling the whole post chain left the framerate unchanged.)
+      // So if the probe gained less than 8%, put the pixels straight back and
+      // stop trying for a while. Without this the loop reads ANY slow frame —
+      // a throttled background tab, a 30Hz display, a CPU-side hitch — as
+      // "too many pixels", drops to the floor, and leaves the card text
+      // permanently upscaled having bought nothing for it.
+      if (fps < prProbeFps * 1.08) {
+        next = Math.min(MAX_PR, curPR + 0.25)
+        prNoGainUntil = now + 30000
+      }
+      prProbe = false; prGood = 0
+    } else if (fps < 56 && curPR > 0.75 && now >= prNoGainUntil) {
+      next = curPR - 0.25
+      prProbe = true; prProbeFps = fps; prGood = 0
+    } else if (fps > 58 && curPR < MAX_PR) {
+      // Climb back when there's headroom. Four good windows (~2s) against a
+      // single bad one is the hysteresis that stops it oscillating; the 56/58
+      // gap is a deliberate dead band where nothing moves at all.
+      if (++prGood >= 4) { next = Math.min(MAX_PR, curPR + 0.25); prGood = 0 }
+    } else {
+      prGood = 0
+    }
+
+    if (next !== curPR) {
+      curPR = next
       renderer.setPixelRatio(curPR)
       renderer.setSize(innerWidth, viewportH())
     }
@@ -2926,7 +3012,7 @@ function drawNoteBase() {
   ctx.font = `500 ${cs}px ${FONT}`
   ctx.letterSpacing = '0.04em'
   ctx.fillStyle = 'rgba(17,17,17,0.92)'
-  wrapText(ctx, 'AUDIO: WRONG BY HWY 3', maxW).forEach((l) => { ctx.fillText(l, lm, y); y += cs * 1.26 })
+  wrapText(ctx, 'AUDIO: FOR OLI GOLDSMITH BY KARLA IS HERE', maxW).forEach((l) => { ctx.fillText(l, lm, y); y += cs * 1.26 })
 
   // Quick links.
   y += 24

@@ -173,6 +173,16 @@ const INTERVIEWS = [
       "a": "Consider what this implies. It implies that everything in the room is scoreable. The light, the duration, the order of arrival, the silence before. Nobody wants this, because it means the composer is responsible for the whole experience and can no longer blame the hall. I accept the responsibility. I do not expect the means to exist in my lifetime."
     }
   ]
+},
+{
+  "id": "oli",
+  "issue": 4,
+  "cardLines": ["OLI", "GOLD-", "SMITH"],
+  "title": "OLI GOLDSMITH",
+  "sub": "Issue 4 \u00b7 Oli Goldsmith",
+  "portrait": "images/interviews/oli.jpg",
+  "intro": [],
+  "qa": []
 }
 ]
 const INTERVIEWS_BY_ISSUE = [...INTERVIEWS].sort((a, b) => a.issue - b.issue)

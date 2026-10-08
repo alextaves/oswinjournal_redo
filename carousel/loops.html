@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oswin Journal — Oli Goldsmith, Moving Pieces</title>
+<style>
+  html, body { margin:0; min-height:100vh; background:#0a0a0a; color:#fff;
+               font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  body > canvas { position:fixed; inset:0; width:100%; height:100%; display:block;
+                  touch-action:pan-y; cursor:grab; }
+  body.dragging > canvas { cursor:grabbing; }
+  #backBtn {
+    position:fixed; top:20px; left:22px; z-index:20;
+    padding:6px 4px; border:none; background:none; cursor:pointer;
+    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.22em; transition:color 200ms ease;
+  }
+  #backBtn:hover { color:rgba(255,255,255,0.92); }
+  #counter { position:fixed; left:0; right:0; bottom:26px; z-index:20; text-align:center;
+             pointer-events:none; font-size:12px; font-weight:300; letter-spacing:0.26em;
+             color:rgba(255,255,255,0.45); font-variant-numeric:tabular-nums; }
+</style>
+</head>
+<body>
+
+<button id="backBtn" aria-label="Back">&larr;&nbsp;&nbsp;BACK</button>
+<div id="counter"></div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+// ── Oli Goldsmith — Moving Pieces ────────────────────────────────────────────
+// Nineteen looping animations on one ring. Same renderer as every other carousel
+// here; what is different is that each card is a VIDEO, and nineteen of them
+// decoding at once would bring any machine to its knees.
+//
+// So playback is GATED to the front arc: a loop plays while it is near enough to
+// be read and is paused the moment it swings away, holding its last frame as a
+// still. The ring never has more than a handful running. This is the same
+// reasoning index.html applies to its two animated cards, taken further because
+// here every card is one.
+const PLAY_ARC = 55 * Math.PI / 180   // how far off centre a loop keeps running
+
+const COUNT = 19
+const LOOPS = Array.from({ length: COUNT }, (_, i) =>
+  'videos/oli_loops/loop-' + String(i + 1).padStart(2, '0') + '.mp4')
+
+// Source is 468x622 — near enough the site's 3:4 that the cards keep their shape,
+// but taken from the files rather than assumed so nothing is cropped.
+const ASPECT = 468 / 622
+
+const CARD_FOV_FRAC = 0.855
+const GAP_FRAC = 0.4
+const NEAR = 4.0
+const FOV = 55
+
+const vFOV = (FOV * Math.PI) / 180
+const panelH = CARD_FOV_FRAC * 2 * NEAR * Math.tan(vFOV / 2)
+const panelW = panelH * ASPECT
+const THICK = 0.16 * (CARD_FOV_FRAC / 0.9)
+const REFL_FRAC = 0.55
+const reflH = panelH * REFL_FRAC
+// Derived, not picked: nineteen cards on the homepage's radius of 6 would
+// overlap badly. Solving for the gap keeps the ring breathable at any count.
+const RADIUS = (panelW * (1 + GAP_FRAC)) / (2 * Math.sin(Math.PI / COUNT))
+const CAM_Z = RADIUS + NEAR
+
+const scene = new THREE.Scene()
+const bgC = document.createElement('canvas'); bgC.width = 4; bgC.height = 512
+const bgCtx = bgC.getContext('2d')
+const bgG = bgCtx.createLinearGradient(0, 0, 0, 512)
+bgG.addColorStop(0, '#16110d'); bgG.addColorStop(1, '#0a0704')
+bgCtx.fillStyle = bgG; bgCtx.fillRect(0, 0, 4, 512)
+const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
+scene.background = bgTex
+scene.fog = new THREE.Fog('#0e0b08', CAM_Z - 2, CAM_Z + RADIUS * 2.6)
+
+const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.1, 400)
+camera.position.set(0, 0, CAM_Z)
+camera.lookAt(0, 0, 0)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.setSize(innerWidth, innerHeight)
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.appendChild(renderer.domElement)
+
+const envScene = new THREE.Scene()
+envScene.background = new THREE.Color('#0e0b08')
+;[
+  [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
+  [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
+].forEach(([x, y, z, w, h, b]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(b) }))
+  m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
+})
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
+scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
+const keyLight = new THREE.DirectionalLight('#ffffff', 1.1); keyLight.position.set(4, 6, 5)
+const rimLight = new THREE.DirectionalLight('#ffcf90', 0.5); rimLight.position.set(-5, 2, -4)
+scene.add(keyLight, rimLight)
+
+const panelGeo = new THREE.BoxGeometry(panelW, panelH, THICK)
+const reflGeo = new THREE.PlaneGeometry(panelW, reflH)
+
+const roundedAlphaMap = (() => {
+  const AW = 128, AH = Math.round(AW / ASPECT)
+  const c = document.createElement('canvas'); c.width = AW; c.height = AH
+  const ctx = c.getContext('2d')
+  const r = 5
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, AW, AH)
+  ctx.filter = 'blur(2.5px)'
+  ctx.beginPath()
+  ctx.moveTo(r, 0); ctx.lineTo(AW - r, 0)
+  ctx.arcTo(AW, 0, AW, r, r); ctx.lineTo(AW, AH - r)
+  ctx.arcTo(AW, AH, AW - r, AH, r); ctx.lineTo(r, AH)
+  ctx.arcTo(0, AH, 0, AH - r, r); ctx.lineTo(0, r)
+  ctx.arcTo(0, 0, r, 0, r); ctx.closePath()
+  ctx.fillStyle = '#fff'; ctx.fill()
+  return new THREE.CanvasTexture(c)
+})()
+
+// The loops are black and white, so the floor glow is neutral rather than
+// sampled — there is no colour in them for it to carry.
+const reflTex = (() => {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 160
+  const ctx = c.getContext('2d')
+  const grd = ctx.createRadialGradient(128, 0, 0, 128, 0, 184)
+  grd.addColorStop(0, 'rgba(228,226,222,0.42)')
+  grd.addColorStop(0.35, 'rgba(228,226,222,0.17)')
+  grd.addColorStop(0.7, 'rgba(228,226,222,0.05)')
+  grd.addColorStop(1, 'rgba(228,226,222,0.0)')
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, 256, 160)
+  const fade = ctx.createLinearGradient(0, 0, 0, 160)
+  fade.addColorStop(0, 'rgba(14,11,8,0.55)')
+  fade.addColorStop(0.12, 'rgba(14,11,8,0.0)')
+  fade.addColorStop(0.7, 'rgba(14,11,8,0.0)')
+  fade.addColorStop(1, 'rgba(14,11,8,0.82)')
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, 256, 160)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+})()
+
+const edgeCol = new THREE.Color('#15151a')
+const ring = new THREE.Group()
+scene.add(ring)
+
+const CARDS = LOOPS.map((src, i) => {
+  const v = document.createElement('video')
+  v.src = src
+  v.muted = true; v.loop = true; v.playsInline = true
+  v.setAttribute('webkit-playsinline', '')
+  // Not autoplay and not preload:auto — nineteen of those would all start
+  // fetching at once. The frame loop starts whichever ones come near the front.
+  v.preload = 'metadata'
+
+  const tex = new THREE.VideoTexture(v)
+  tex.encoding = THREE.sRGBEncoding
+  tex.minFilter = THREE.LinearFilter
+  tex.magFilter = THREE.LinearFilter
+
+  const faceMat = new THREE.MeshPhysicalMaterial({
+    map: tex, transparent: true, opacity: 0.92, side: THREE.FrontSide,
+    roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+    color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+  })
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: edgeCol, transparent: true, opacity: 0.42, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  })
+  const backMat = new THREE.MeshPhysicalMaterial({
+    map: tex, transparent: true, opacity: 0.72,
+    roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+  })
+  const sideMat = new THREE.MeshStandardMaterial({
+    color: edgeCol, transparent: true, opacity: 0.65, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  })
+  const reflMat = new THREE.MeshBasicMaterial({ map: reflTex, transparent: true, opacity: 0.38 })
+
+  const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+  mesh.frustumCulled = false
+
+  const reflMesh = new THREE.Mesh(reflGeo, reflMat)
+  reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
+  reflMesh.frustumCulled = false
+  mesh.add(reflMesh)
+
+  ring.add(mesh)
+  const card = { _slot: i, _mesh: mesh, _video: v, _playing: false }
+  mesh.userData.card = card
+  return card
+})
+
+function placePanels() {
+  CARDS.forEach((card) => {
+    const a = (card._slot / COUNT) * Math.PI * 2 + spin
+    const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS
+    card._mesh.position.set(x, 0, z)
+    card._mesh.rotation.set(0, Math.atan2(x, z), 0)
+  })
+}
+
+function slotSpin(card) { return Math.PI / 2 - (card._slot / COUNT) * Math.PI * 2 }
+
+let spin = slotSpin(CARDS[0]), target = spin
+let dragging = false, dragFrom = 0, spinFrom = 0, moved = 0, activeId = null
+let lastDragEnd = -Infinity, lastDragMoved = 0
+
+function nearest(from) {
+  let best = from, bestD = Infinity
+  CARDS.forEach((card) => {
+    let a = slotSpin(card)
+    a += Math.round((from - a) / (Math.PI * 2)) * Math.PI * 2
+    const d = Math.abs(from - a)
+    if (d < bestD) { bestD = d; best = a }
+  })
+  return best
+}
+
+const cv = renderer.domElement
+
+cv.addEventListener('pointerdown', (e) => {
+  if (dragging || !e.isPrimary) return
+  dragging = true; moved = 0; activeId = e.pointerId
+  dragFrom = e.clientX; spinFrom = spin
+  document.body.classList.add('dragging')
+})
+
+addEventListener('pointermove', (e) => {
+  if (!dragging || e.pointerId !== activeId) return
+  const dx = e.clientX - dragFrom
+  moved = Math.max(moved, Math.abs(dx))
+  // Negated so the ring travels WITH the hand.
+  spin = target = spinFrom - (dx / (innerWidth / 3)) * ((Math.PI * 2) / COUNT)
+})
+
+function endDrag(e) {
+  if (!dragging || (e && e.pointerId !== activeId)) return
+  dragging = false; activeId = null
+  document.body.classList.remove('dragging')
+  lastDragEnd = performance.now(); lastDragMoved = moved
+  target = nearest(spin)
+}
+addEventListener('pointerup', endDrag)
+addEventListener('pointercancel', endDrag)
+
+const raycaster = new THREE.Raycaster()
+const ndc = new THREE.Vector2()
+cv.addEventListener('click', (e) => {
+  if (lastDragMoved > 6 && performance.now() - lastDragEnd < 300) return
+  ndc.x = (e.clientX / innerWidth) * 2 - 1
+  ndc.y = -(e.clientY / innerHeight) * 2 + 1
+  raycaster.setFromCamera(ndc, camera)
+  const hit = raycaster.intersectObjects(ring.children, false)[0]
+  if (hit && hit.object.userData.card) target = nearest(slotSpin(hit.object.userData.card))
+})
+
+addEventListener('keydown', (e) => {
+  const step = (Math.PI * 2) / COUNT
+  if (e.key === 'ArrowLeft')  target = nearest(target + step * 0.6)
+  if (e.key === 'ArrowRight') target = nearest(target - step * 0.6)
+  if (e.key === 'Escape') history.back()
+})
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+
+// A backgrounded tab should not keep nineteen decoders warm.
+addEventListener('visibilitychange', () => {
+  if (document.hidden) CARDS.forEach((c) => { c._video.pause(); c._playing = false })
+})
+
+const counterEl = document.getElementById('counter')
+let shownIdx = -1
+
+function frame() {
+  spin += (target - spin) * 0.16
+  if (Math.abs(target - spin) < 0.0001) spin = target
+  placePanels()
+
+  let front = CARDS[0], bestD = Infinity
+  CARDS.forEach((card) => {
+    // Angle off the front of the ring, wrapped to [-180, 180].
+    const off = ((card._slot / COUNT) * Math.PI * 2 + spin - Math.PI / 2)
+    const wrapped = Math.atan2(Math.sin(off), Math.cos(off))
+    const d = Math.abs(wrapped)
+    if (d < bestD) { bestD = d; front = card }
+
+    const shouldPlay = d < PLAY_ARC
+    if (shouldPlay && !card._playing) {
+      card._playing = true
+      card._video.play().catch(() => {})
+    } else if (!shouldPlay && card._playing) {
+      // Paused, not stopped: the texture keeps the last frame, so a card that
+      // swings away goes still rather than blank.
+      card._playing = false
+      card._video.pause()
+    }
+  })
+
+  if (front._slot !== shownIdx) {
+    shownIdx = front._slot
+    counterEl.textContent = String(shownIdx + 1).padStart(2, '0') + ' / ' + COUNT
+  }
+
+  renderer.render(scene, camera)
+  requestAnimationFrame(frame)
+}
+
+document.getElementById('backBtn').onclick = () => { history.back() }
+
+placePanels()
+frame()
+</script>
+</body>
+</html>

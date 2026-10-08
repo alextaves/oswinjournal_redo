@@ -7,4 +7,5 @@
 # re-include a file whose parent directory is excluded, so "audio/" followed by
 # a negation would silently keep ignoring the track.
 audio/*
+!audio/ethernity_lobby.mp3
 !audio/hwy3_lobby.mp3

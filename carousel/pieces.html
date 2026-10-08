@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Oswin Journal — Oli Goldsmith, Selected Pieces</title>
+<style>
+  html, body { margin:0; min-height:100vh; background:#0a0a0a; color:#fff;
+               font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  body > canvas { position:fixed; inset:0; width:100%; height:100%; display:block;
+                  touch-action:pan-y; cursor:grab; }
+  body.dragging > canvas { cursor:grabbing; }
+
+  #backBtn {
+    position:fixed; top:20px; left:22px; z-index:20;
+    padding:6px 4px; border:none; background:none; cursor:pointer;
+    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing:0.22em; transition:color 200ms ease;
+  }
+  #backBtn:hover { color:rgba(255,255,255,0.92); }
+
+  /* The work's own title, under the ring rather than printed on the painting.
+     Nothing is drawn over the artwork itself. */
+  #caption { position:fixed; left:0; right:0; bottom:26px; z-index:20; text-align:center;
+             pointer-events:none; font-size:13px; font-weight:300; letter-spacing:0.22em;
+             text-transform:uppercase; color:rgba(255,255,255,0.62);
+             transition:opacity 260ms ease; }
+</style>
+</head>
+<body>
+
+<button id="backBtn" aria-label="Back">&larr;&nbsp;&nbsp;BACK</button>
+<div id="caption"></div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+// ── Oli Goldsmith — Selected Pieces ──────────────────────────────────────────
+// A ring of the works themselves. Every card here IS a painting: no title laid
+// over it, no TV static, no legibility gradient. The titles live under the ring
+// instead, so nothing is printed on top of someone's work.
+//
+// The source files are 800x900, so the cards are built at 8:9 rather than the
+// site's 3:4 — the artwork sets the card's shape and none of it is cropped.
+const ASPECT = 8 / 9
+
+const PIECES = [
+  { src: 'images/oli_pieces/i-know-a-place.jpg', title: 'I Know a Place' },
+  { src: 'images/oli_pieces/air-bag.jpg',        title: 'Air Bag' },
+  { src: 'images/oli_pieces/boysintown.jpg',     title: 'Boys in Town' },
+  { src: 'images/oli_pieces/camel.jpg',          title: 'Camel' },
+  { src: 'images/oli_pieces/pass-go.jpg',        title: 'Pass Go' },
+  { src: 'images/oli_pieces/polo-for-polio.jpg', title: 'Polo for Polio' },
+  { src: 'images/oli_pieces/pushpull.jpg',       title: 'Push Pull' },
+  { src: 'images/oli_pieces/scotty.jpg',         title: 'Scotty' },
+  { src: 'images/oli_pieces/seven-steps.jpg',    title: 'Seven Steps' },
+  { src: 'images/oli_pieces/toilent-toll.jpg',   title: 'Toilent Toll' },
+  { src: 'images/oli_pieces/tvtaste.jpg',        title: 'TV Taste' },
+]
+
+const SLOTS = PIECES.length
+
+// ── Ring geometry ────────────────────────────────────────────────────────────
+// Same card size as every other ring on the site: 0.855 of the vertical field of
+// view, four units in front of the camera. What differs is the RADIUS, and it is
+// DERIVED rather than picked — eleven cards at 8:9 on the homepage's radius of 6
+// would sit 0.07 card-widths apart, which is touching. Solving for the gap keeps
+// the ring comfortable at any number of pieces: add a twelfth and it widens.
+const CARD_FOV_FRAC = 0.855
+const GAP_FRAC = 0.4             // bare space between card edges, in card widths
+const NEAR = 4.0                 // camera to front card
+const FOV = 55
+
+const vFOV = (FOV * Math.PI) / 180
+const panelH = CARD_FOV_FRAC * 2 * NEAR * Math.tan(vFOV / 2)
+const panelW = panelH * ASPECT
+const THICK = 0.16 * (CARD_FOV_FRAC / 0.9)
+const REFL_FRAC = 0.55
+const reflH = panelH * REFL_FRAC
+const RADIUS = (panelW * (1 + GAP_FRAC)) / (2 * Math.sin(Math.PI / SLOTS))
+const CAM_Z = RADIUS + NEAR
+
+const scene = new THREE.Scene()
+const bgC = document.createElement('canvas'); bgC.width = 4; bgC.height = 512
+const bgCtx = bgC.getContext('2d')
+const bgG = bgCtx.createLinearGradient(0, 0, 0, 512)
+bgG.addColorStop(0, '#16110d'); bgG.addColorStop(1, '#0a0704')
+bgCtx.fillStyle = bgG; bgCtx.fillRect(0, 0, 4, 512)
+const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
+scene.background = bgTex
+// Pushed back with the ring: the homepage's 8/50 would start fogging the front
+// card once the camera sits at eleven units rather than ten.
+scene.fog = new THREE.Fog('#0e0b08', CAM_Z - 2, CAM_Z + RADIUS * 2.6)
+
+const camera = new THREE.PerspectiveCamera(FOV, innerWidth / innerHeight, 0.1, 200)
+camera.position.set(0, 0, CAM_Z)
+camera.lookAt(0, 0, 0)
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
+renderer.setSize(innerWidth, innerHeight)
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
+renderer.outputEncoding = THREE.sRGBEncoding
+renderer.toneMapping = THREE.ACESFilmicToneMapping
+renderer.toneMappingExposure = 1.2
+document.body.appendChild(renderer.domElement)
+
+const envScene = new THREE.Scene()
+envScene.background = new THREE.Color('#0e0b08')
+;[
+  [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
+  [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
+].forEach(([x, y, z, w, h, b]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h),
+    new THREE.MeshBasicMaterial({ color: new THREE.Color().setScalar(b) }))
+  m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
+})
+const pmrem = new THREE.PMREMGenerator(renderer)
+scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
+scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
+const keyLight = new THREE.DirectionalLight('#ffffff', 1.1); keyLight.position.set(4, 6, 5)
+const rimLight = new THREE.DirectionalLight('#ffcf90', 0.5); rimLight.position.set(-5, 2, -4)
+scene.add(keyLight, rimLight)
+
+const panelGeo = new THREE.BoxGeometry(panelW, panelH, THICK)
+const reflGeo = new THREE.PlaneGeometry(panelW, reflH)
+
+const roundedAlphaMap = (() => {
+  const AW = 128, AH = Math.round(AW / ASPECT)
+  const c = document.createElement('canvas'); c.width = AW; c.height = AH
+  const ctx = c.getContext('2d')
+  const r = 5
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, AW, AH)
+  ctx.filter = 'blur(2.5px)'
+  ctx.beginPath()
+  ctx.moveTo(r, 0); ctx.lineTo(AW - r, 0)
+  ctx.arcTo(AW, 0, AW, r, r); ctx.lineTo(AW, AH - r)
+  ctx.arcTo(AW, AH, AW - r, AH, r); ctx.lineTo(r, AH)
+  ctx.arcTo(0, AH, 0, AH - r, r); ctx.lineTo(0, r)
+  ctx.arcTo(0, 0, r, 0, r); ctx.closePath()
+  ctx.fillStyle = '#fff'; ctx.fill()
+  return new THREE.CanvasTexture(c)
+})()
+
+// The floor glow is sampled FROM the painting rather than from a declared bg —
+// these cards have no colour of their own, so the light each one throws is its
+// own average. Falls back to the ring's dark until the image decodes.
+function reflTexFromImage(img) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 160
+  const ctx = c.getContext('2d')
+  const s = document.createElement('canvas'); s.width = 1; s.height = 1
+  const sctx = s.getContext('2d')
+  sctx.drawImage(img, 0, 0, 1, 1)
+  const [r, g, b] = sctx.getImageData(0, 0, 1, 1).data
+  const grd = ctx.createRadialGradient(128, 0, 0, 128, 0, 184)
+  grd.addColorStop(0,    'rgba(' + r + ',' + g + ',' + b + ',0.55)')
+  grd.addColorStop(0.35, 'rgba(' + r + ',' + g + ',' + b + ',0.22)')
+  grd.addColorStop(0.7,  'rgba(' + r + ',' + g + ',' + b + ',0.06)')
+  grd.addColorStop(1,    'rgba(' + r + ',' + g + ',' + b + ',0.0)')
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, 256, 160)
+  const fade = ctx.createLinearGradient(0, 0, 0, 160)
+  fade.addColorStop(0,    'rgba(14,11,8,0.55)')
+  fade.addColorStop(0.12, 'rgba(14,11,8,0.0)')
+  fade.addColorStop(0.7,  'rgba(14,11,8,0.0)')
+  fade.addColorStop(1,    'rgba(14,11,8,0.82)')
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, 256, 160)
+  const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+}
+
+const ring = new THREE.Group()
+scene.add(ring)
+
+PIECES.forEach((piece, i) => {
+  piece._slot = i
+
+  const faceTex = new THREE.Texture()
+  faceTex.encoding = THREE.sRGBEncoding
+  const faceMat = new THREE.MeshPhysicalMaterial({
+    map: faceTex, transparent: true, opacity: 0.92, side: THREE.FrontSide,
+    roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+    color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+  })
+  const edge = new THREE.Color('#15151a')
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: edge, transparent: true, opacity: 0.42, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  })
+  const backMat = new THREE.MeshPhysicalMaterial({
+    map: faceTex, transparent: true, opacity: 0.72,
+    roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+  })
+  const sideMat = new THREE.MeshStandardMaterial({
+    color: edge, transparent: true, opacity: 0.65, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+  })
+  const reflMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.38 })
+
+  const im = new Image()
+  im.onload = () => {
+    faceTex.image = im
+    faceTex.needsUpdate = true
+    // Edges and glass take the painting's own average, so the slab reads as part
+    // of the work rather than as a dark box someone taped a picture to.
+    const s = document.createElement('canvas'); s.width = 1; s.height = 1
+    s.getContext('2d').drawImage(im, 0, 0, 1, 1)
+    const [r, g, b] = s.getContext('2d').getImageData(0, 0, 1, 1).data
+    const col = new THREE.Color('rgb(' + r + ',' + g + ',' + b + ')')
+    glassMat.color.copy(col); sideMat.color.copy(col)
+    reflMat.map = reflTexFromImage(im); reflMat.needsUpdate = true
+  }
+  im.src = piece.src
+
+  const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+  mesh.frustumCulled = false
+  mesh.userData.piece = piece
+
+  const reflMesh = new THREE.Mesh(reflGeo, reflMat)
+  reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
+  reflMesh.frustumCulled = false
+  mesh.add(reflMesh)
+
+  ring.add(mesh)
+  piece._mesh = mesh
+})
+
+// Each panel is set from its CURRENT orbit position: rotation.y = atan2(x, z)
+// turns it to face straight out from the centre, which at the front of the ring
+// is straight at the camera.
+function placePanels() {
+  PIECES.forEach((piece) => {
+    const a = (piece._slot / SLOTS) * Math.PI * 2 + spin
+    const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS
+    piece._mesh.position.set(x, 0, z)
+    piece._mesh.rotation.set(0, Math.atan2(x, z), 0)
+  })
+}
+
+function slotSpin(piece) { return Math.PI / 2 - (piece._slot / SLOTS) * Math.PI * 2 }
+
+let spin = slotSpin(PIECES[Math.floor((PIECES.length - 1) / 2)]), target = spin
+let dragging = false, dragFrom = 0, spinFrom = 0, moved = 0, activeId = null
+let lastDragEnd = -Infinity, lastDragMoved = 0
+
+function nearest(from) {
+  let best = from, bestD = Infinity
+  PIECES.forEach((piece) => {
+    let a = slotSpin(piece)
+    a += Math.round((from - a) / (Math.PI * 2)) * Math.PI * 2
+    const d = Math.abs(from - a)
+    if (d < bestD) { bestD = d; best = a }
+  })
+  return best
+}
+
+const cv = renderer.domElement
+
+cv.addEventListener('pointerdown', (e) => {
+  // One gesture, primary contact only: a duplicate down re-reads the baseline
+  // mid-drag and throws away the travel so far.
+  if (dragging || !e.isPrimary) return
+  dragging = true; moved = 0; activeId = e.pointerId
+  dragFrom = e.clientX; spinFrom = spin
+  document.body.classList.add('dragging')
+})
+
+addEventListener('pointermove', (e) => {
+  if (!dragging || e.pointerId !== activeId) return
+  const dx = e.clientX - dragFrom
+  moved = Math.max(moved, Math.abs(dx))
+  // Negated so the ring travels WITH the hand: drag left and the piece that was
+  // on the right comes to the centre.
+  spin = target = spinFrom - (dx / (innerWidth / 3)) * ((Math.PI * 2) / SLOTS)
+})
+
+function endDrag(e) {
+  if (!dragging || (e && e.pointerId !== activeId)) return
+  dragging = false; activeId = null
+  document.body.classList.remove('dragging')
+  lastDragEnd = performance.now(); lastDragMoved = moved
+  target = nearest(spin)
+}
+addEventListener('pointerup', endDrag)
+addEventListener('pointercancel', endDrag)
+
+const raycaster = new THREE.Raycaster()
+const ndc = new THREE.Vector2()
+
+// Clicking an off-centre piece brings it to the front. The centre one is already
+// as large as the ring shows it, so clicking it does nothing.
+cv.addEventListener('click', (e) => {
+  if (lastDragMoved > 6 && performance.now() - lastDragEnd < 300) return
+  ndc.x = (e.clientX / innerWidth) * 2 - 1
+  ndc.y = -(e.clientY / innerHeight) * 2 + 1
+  raycaster.setFromCamera(ndc, camera)
+  const hit = raycaster.intersectObjects(ring.children, false)[0]
+  if (!hit) return
+  const piece = hit.object.userData.piece
+  if (piece) target = nearest(slotSpin(piece))
+})
+
+addEventListener('keydown', (e) => {
+  const step = (Math.PI * 2) / SLOTS
+  if (e.key === 'ArrowLeft')  target = nearest(target + step * 0.6)
+  if (e.key === 'ArrowRight') target = nearest(target - step * 0.6)
+  if (e.key === 'Escape') history.back()
+})
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight
+  camera.updateProjectionMatrix()
+  renderer.setSize(innerWidth, innerHeight)
+})
+
+const captionEl = document.getElementById('caption')
+let shownTitle = null
+
+function frame() {
+  spin += (target - spin) * 0.16
+  if (Math.abs(target - spin) < 0.0001) spin = target
+  placePanels()
+
+  // The caption names whichever piece is nearest the front, and fades while the
+  // ring is between two so it never flickers through the titles mid-drag.
+  let front = PIECES[0], bestD = Infinity
+  PIECES.forEach((piece) => {
+    let a = slotSpin(piece)
+    a += Math.round((spin - a) / (Math.PI * 2)) * Math.PI * 2
+    const d = Math.abs(spin - a)
+    if (d < bestD) { bestD = d; front = piece }
+  })
+  const settled = bestD < 0.12
+  captionEl.style.opacity = settled ? '1' : '0'
+  if (settled && front.title !== shownTitle) {
+    shownTitle = front.title
+    captionEl.textContent = front.title
+  }
+
+  renderer.render(scene, camera)
+  requestAnimationFrame(frame)
+}
+
+// Embedded in the ring's card overlay this drives the PARENT's history, which
+// trips its popstate handler and closes the overlay. Standalone it just goes back.
+document.getElementById('backBtn').onclick = () => { history.back() }
+
+placePanels()
+frame()
+</script>
+</body>
+</html>
