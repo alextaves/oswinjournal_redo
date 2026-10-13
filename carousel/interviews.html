@@ -148,6 +148,7 @@ insertAfter('karla', {
   ],
   bg: '#FFFFFF',
   light: true,          // light ground, so drawCardBase mirrors the ink
+  href: 'https://oswingallery.com/',
 })
 
 const COUNT = CARDS.length
@@ -681,7 +682,14 @@ cv.addEventListener('click', (e) => {
   // use. The notice and the spine have no interview behind them — openInterview
   // reads card.iv and would throw on a card that has none.
   if (card.href) {
-    if (Math.abs(slotSpin(card) - spin) < 0.01) { location.replace(card.href); return }
+    if (Math.abs(slotSpin(card) - spin) < 0.01) {
+      // An absolute URL is another site. location.replace would take the ring's
+      // history entry with it and leave no way back, so it opens alongside —
+      // the same move the lobby's ALEXTAVES.COM makes.
+      if (/^https?:/i.test(card.href)) window.open(card.href, '_blank', 'noopener')
+      else location.replace(card.href)
+      return
+    }
     target = nearestFilled(slotSpin(card)); return
   }
   if (!card.iv) { target = nearestFilled(slotSpin(card)); return }

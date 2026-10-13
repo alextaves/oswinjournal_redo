@@ -544,7 +544,9 @@ const CARDS = [
     notes: [
       { label: 'currently showing', lines: ['No Beginning,', 'No End'], foot: 'Alex Taves' },
       { label: 'upcoming', lines: ['Oli Goldsmith'], small: true, foot: 'Feb 12, 2027' },
-    ] },
+    ],
+    // Another site, so it opens alongside rather than replacing the grid.
+    open: () => window.open('https://oswingallery.com/', '_blank', 'noopener') },
 
   // Same treatment as the Oswin Journal card — flat ground, title, caption — on
   // the site's own yellow, the one the badges and the masthead already use.

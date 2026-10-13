@@ -3121,7 +3121,7 @@ function setView(v) { try { localStorage.setItem(VIEW_KEY, v) } catch (e) {} }
 const NOTE_MENU = [
   { id: 'enquiries', label: 'ENQUIRIES' },
   { id: 'interviews', label: 'INTERVIEWS' },
-  { id: 'gallery', label: 'OSWIN GALLERY', muted: true },
+  { id: 'gallery', label: 'OSWIN GALLERY' },
   { id: 'records', label: 'OSWIN RECORDS', muted: true },
   { id: 'alextaves', label: 'ALEXTAVES.COM' },
 ]
@@ -3397,8 +3397,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     if (!inRect(m.rect)) continue
     if (m.id === 'enquiries') { focusCard(ENQUIRIES_INDEX); noteOpen = false }
     else if (m.id === 'alextaves') window.open('https://alextaves.com', '_blank', 'noopener')
-    // 'interviews' and the two Oswin rooms have no destination yet — their hit
-    // targets are live, actions pending. The rooms open in October.
+    else if (m.id === 'gallery') window.open('https://oswingallery.com/', '_blank', 'noopener')
+    // 'interviews' and OSWIN RECORDS have no destination yet — their hit
+    // targets are live, actions pending.
     return
   }
 }, true)
