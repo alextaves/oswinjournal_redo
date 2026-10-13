@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- The browser's own bars take the paper too, so the chrome above and
+     below the page is not a white edge around it. Only this view: the
+     ring sits on black and sets its own. -->
+<meta name="theme-color" content="#E7E2D8">
 <title>Oswin Journal</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -32,13 +36,29 @@
     --card: 507px;
     /* Sheets hold passages, so they keep a measure rather than running wide. */
     --measure: 1024px;
+    /* The ground. Painted on the root as well as on .wrap — see the note there;
+       a drift between the two would show as a band at the foot of a phone. */
+    --paper: #E7E2D8;
+    /* The masthead band. One token for the lobby and every room — trying white
+       against the yellow it was; flip this line to #F9FF45 to go back. */
+    --band: #FFFFFF;
+    --bandInk: #111111;
   }
 
-  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  /* The paper is painted here as well as on .wrap. .wrap is position:fixed and
+     so is laid out against the SMALL viewport — the one with the address bar
+     showing. When a phone's bar collapses, the strip it uncovers is outside the
+     fixed layer, and with no background on html or body that strip falls
+     through to the browser's canvas, which is white. Colouring the root means
+     whatever the fixed layer does not cover is still paper. */
+  html, body {
+    margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none;
+    background: var(--paper);
+  }
 
   .wrap {
     position: fixed; inset: 0;
-    background: #E7E2D8;
+    background: var(--paper);
     overflow-y: auto; overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
@@ -116,7 +136,7 @@
     white-space: nowrap;
     margin-bottom: 10px;
     border-radius: 6px;
-    background: #F9FF45; color: #111111;
+    background: var(--band); color: var(--bandInk);
     font-weight: 700; letter-spacing: -0.01em; line-height: 1;
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.30),
@@ -323,7 +343,7 @@
   /* ── Sheets ───────────────────────────────────────────────────────────── */
   .sheet {
     position: fixed; inset: 0; z-index: 60;
-    background: #E7E2D8; color: #111;
+    background: var(--paper); color: #111;
     overflow-y: auto; touch-action: pan-y;
     padding: calc(28px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right))
              calc(28px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
@@ -410,9 +430,9 @@
     </span>
     <span class="pair">
       <span class="lab">AUDIO</span>
-      <button type="button" id="audOn" class="off">ON</button>
+      <button type="button" class="audOn off">ON</button>
       <span class="sep">/</span>
-      <button type="button" id="audOff" class="on">OFF</button>
+      <button type="button" class="audOff on">OFF</button>
     </span>
   </div>
   <div class="masthead" id="masthead">OSWIN JOURNAL</div>
@@ -577,7 +597,13 @@ const FICTION_CARDS = [
 function openInterview(iv) {
   const sh = document.createElement('div')
   sh.className = 'sheet'
+  // The reading screen gets the band too, naming the room it belongs to rather
+   // than the piece — the piece names itself in the <h2> just below. Yellow
+   // here, where the rooms are white, so a reading reads as somewhere you have
+   // gone INTO rather than another room alongside them.
   sh.innerHTML =
+    `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">INTERVIEWS` +
+    '<button type="button" class="home" aria-label="Back to interviews"></button></div>' +
     `<img class="portrait" src="${iv.portrait}" alt="">` +
     `<h2>${iv.title}</h2><p class="sheetSub">${iv.sub}</p>` +
     (iv.deck ? `<p class="deck">${iv.deck}</p>` : '') +
@@ -588,11 +614,17 @@ function openInterview(iv) {
     (iv.sections || []).map(sec =>
       `<h3 class="section">${sec.heading}</h3>` + sec.paras.map(p => `<p class="copy">${p}</p>`).join('')
     ).join('') +
-    `<h3 class="section">${iv.qaLead}</h3>` +
+    // Guarded like the other two readers: an interview with nothing to ask yet
+    // has no lead, and unguarded this printed the word "undefined" as a heading.
+    (iv.qaLead ? `<h3 class="section">${iv.qaLead}</h3>` : '') +
     iv.qa.map(x => (x.q ? `<p class="q">${x.q}</p>` : '') + (x.a ? `<p class="copy">${x.a}</p>` : '')).join('') +
     '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
-  sh.querySelector('.close').addEventListener('click', () => history.back())
+  // One level up from a reading is the room it was opened from.
+  const up = () => history.back()
+  sh.querySelector('.home').addEventListener('click', up)
+  sh.querySelector('.close').addEventListener('click', up)
   mountSheet(sh, () => openInterviews(false))
+  applyMastheadMetrics(sh.querySelector('.masthead'))
 }
 
 // Oli's room. The ring's version of this page is a carousel; on a phone it is
@@ -632,7 +664,7 @@ const OLI_ROOM = [
 function openWorkRoom({ title, items, back }, push = true) {
   const sh = document.createElement('div')
   sh.className = 'sheet room'
-  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">${title}` +
+  sh.innerHTML = `<div class="masthead">${title}` +
                  '<button type="button" class="home" aria-label="Back to Oli Goldsmith"></button></div>' +
                  '<div class="grid"></div>' +
                  '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
@@ -718,7 +750,7 @@ function openOli(push = true) {
   // Yellow with black type, like every room below it. The disc means the same
   // thing here as it does in those rooms — one level up — and from the grid of
   // choices that level is the lobby.
-  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">OLI GOLDSMITH` +
+  sh.innerHTML = '<div class="masthead">OLI GOLDSMITH' +
                  '<button type="button" class="home" aria-label="Home"></button></div>' +
                  '<div class="grid"></div>' +
                  '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
@@ -740,7 +772,10 @@ function openOli(push = true) {
 function openInterviews(push = true) {
   const sh = document.createElement('div')
   sh.className = 'sheet room'
-  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">INTERVIEWS</div>` +
+  // Yellow, like the readings it opens into — the interviews are one strand and
+  // wear one colour, where the rooms of work take the common band.
+  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">INTERVIEWS` +
+                 '<button type="button" class="home" aria-label="Home"></button></div>' +
                  '<div class="grid"></div>' +
                  '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
   const g = sh.querySelector('.grid')
@@ -751,7 +786,10 @@ function openInterviews(push = true) {
     lines: iv.cardLines, sub: iv.sub, bg: '#1a1a1a',
     open: () => openInterview(iv),
   })))
-  sh.querySelector('.close').addEventListener('click', () => history.back())
+  // This room opens off the lobby, so its one level up is the lobby itself.
+  const up = () => history.back()
+  sh.querySelector('.home').addEventListener('click', up)
+  sh.querySelector('.close').addEventListener('click', up)
   mountSheet(sh, null, push)
   applyMastheadMetrics(sh.querySelector('.masthead'))
 }
@@ -759,7 +797,8 @@ function openInterviews(push = true) {
 function openFiction(push = true) {
   const s = document.createElement('div')
   s.className = 'sheet room'
-  s.innerHTML = '<div class="masthead" style="background:#FF5F00;color:#111111">FICTION</div>' +
+  s.innerHTML = '<div class="masthead" style="background:#FF5F00;color:#111111">FICTION' +
+                '<button type="button" class="home" aria-label="Home"></button></div>' +
                 '<div class="grid"></div>' +
                 '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
   const g = s.querySelector('.grid')
@@ -771,7 +810,9 @@ function openFiction(push = true) {
                                         onBack: () => openFiction(false) }) }
       : c))
   })
-  s.querySelector('.close').addEventListener('click', () => history.back())
+  const up = () => history.back()
+  s.querySelector('.home').addEventListener('click', up)
+  s.querySelector('.close').addEventListener('click', up)
   mountSheet(s, null, push)
   applyMastheadMetrics(s.querySelector('.masthead'))
 }
@@ -799,7 +840,7 @@ function fitTitle(lines) {
 // ── Badge ─────────────────────────────────────────────────────────────────────
 const BADGE_STYLES = [
   { kind: 'hash',   bg: '#111111', fg: '#FFFFFF' },
-  { kind: 'number', bg: BADGE_YELLOW, fg: '#111111' },
+  { kind: 'number', bg: '#FFFFFF', fg: '#111111' },
   { kind: 'circle', bg: '#FFFFFF', fg: '#111111' },
 ]
 const BADGE_HOLD_MS = 3000
@@ -1071,7 +1112,9 @@ function closeSheet() { removeSheet() }
 function mountSheet(node, onBack, push = true) {
   removeSheet()
   node._onBack = onBack || null
+  node.insertAdjacentHTML('afterbegin', audioRowHTML())
   document.body.appendChild(node)
+  registerAudioRow(node)
   if (push) history.pushState({ sheet: true }, '')
 }
 
@@ -1179,13 +1222,45 @@ document.getElementById('subscribeBtn').addEventListener('click', openSubscribe)
 // purple one that would be lying.
 const LOBBY_SRC = 'audio/ethernity_lobby.mp3'
 const AUD_FADE_MS = 600          // the ring's FADE_TOGGLE, in milliseconds
-const audOn = document.getElementById('audOn')
-const audOff = document.getElementById('audOff')
 let lobbyEl = null, audFade = null, audWanted = false
 
+// Every screen carries its own pair of buttons over one shared player, so the
+// state has to be painted onto all of them at once. Rows go stale as sheets are
+// torn down; they are dropped on the next paint rather than tracked.
+const audRows = []
+
+function registerAudioRow(root) {
+  const on = root.querySelector('.audOn'), off = root.querySelector('.audOff')
+  if (!on || !off) return
+  on.addEventListener('click', audioOn)
+  off.addEventListener('click', audioOff)
+  audRows.push({ on, off })
+  paintAudio()
+}
+
 function paintAudio() {
-  audOn.className = audWanted ? 'on' : 'off'
-  audOff.className = audWanted ? 'off' : 'on'
+  for (let i = audRows.length - 1; i >= 0; i--) {
+    const r = audRows[i]
+    if (!r.on.isConnected) { audRows.splice(i, 1); continue }
+    r.on.className = 'audOn ' + (audWanted ? 'on' : 'off')
+    r.off.className = 'audOff ' + (audWanted ? 'off' : 'on')
+  }
+}
+
+// The row a sheet gets: the audio pair alone. CAROUSEL / GRID belongs to the
+// lobby, where the choice of view is actually made.
+//
+// ETHERNITY needs no exception of its own — it is Oli's own site, reached by
+// leaving ours, so there is no screen of ours left to carry the control.
+function audioRowHTML() {
+  return '<div class="viewtoggle">' +
+           '<span class="pair">' +
+             '<span class="lab">AUDIO</span>' +
+             '<button type="button" class="audOn off">ON</button>' +
+             '<span class="sep">/</span>' +
+             '<button type="button" class="audOff on">OFF</button>' +
+           '</span>' +
+         '</div>'
 }
 
 // Nothing on this site cuts, so the bed arrives and leaves on a ramp. The
@@ -1229,9 +1304,7 @@ function audioOff() {
   if (lobbyEl) fadeAudio(0, () => { if (!audWanted) lobbyEl.pause() })
 }
 
-audOn.addEventListener('click', audioOn)
-audOff.addEventListener('click', audioOff)
-paintAudio()
+registerAudioRow(document.querySelector('.wrap'))
 </script>
 </body>
 </html>

@@ -181,7 +181,7 @@ const INTERVIEWS = [
   "title": "OLI GOLDSMITH",
   "sub": "Issue 4 \u00b7 Oli Goldsmith",
   "portrait": "images/interviews/oli.jpg",
-  "intro": [],
+  "intro": ["Coming shortly."],
   "qa": []
 }
 ]
