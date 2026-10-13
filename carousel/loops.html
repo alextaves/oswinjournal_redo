@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Oswin Journal — Oli Goldsmith, Moving Pieces</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <style>
   html, body { margin:0; min-height:100vh; background:#0a0a0a; color:#fff;
                font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -41,9 +43,81 @@
 // here every card is one.
 const PLAY_ARC = 55 * Math.PI / 180   // how far off centre a loop keeps running
 
-const COUNT = 19
-const LOOPS = Array.from({ length: COUNT }, (_, i) =>
-  'videos/oli_loops/loop-' + String(i + 1).padStart(2, '0') + '.mp4')
+// Nineteen loops and one card that is not a loop — the same "more oli" board
+// the sketchbook ends on, so the two rooms close the same way.
+// loop-04 is dropped rather than the ring growing to twenty: eighteen loops
+// plus the label still reads as nineteen cards, so the flow is unchanged. The
+// file is left in place, just unreferenced.
+const SKIP_LOOPS = new Set([4])
+const ENTRIES = [
+  ...Array.from({ length: 19 }, (_, i) => i + 1)
+    .filter((n) => !SKIP_LOOPS.has(n))
+    .map((n) => ({ src: 'videos/oli_loops/loop-' + String(n).padStart(2, '0') + '.mp4' })),
+  { label: 'more oli', href: 'pieces.html' },
+]
+const COUNT = ENTRIES.length
+
+// ── The label card's hop ─────────────────────────────────────────────────────
+// A still board in a room of moving things reads as a dead spot, so its letters
+// take turns lifting. ONE at a time and never overlapping: a shared timer picks
+// a letter, runs it through a single arc, then waits a random beat before
+// choosing again. That is what keeps it a tic rather than a wave — several
+// letters moving together would read as an animation, which is not the idea.
+const LABEL_MATT = '#FCFCFC'
+const LABEL_SIZE = 27
+const LABEL_TRACK = 0.14
+const HOP_PX = 11            // how far a letter lifts, in canvas px
+const HOP_MS = 380           // one arc, up and back down
+const HOP_GAP_MIN = 420      // quietest pause between hops
+const HOP_GAP_MAX = 1700     // longest, so the rhythm never settles
+
+let hopIdx = -1, hopStart = 0, nextHopAt = 0
+
+function updateHop(t, letters) {
+  if (hopIdx < 0) {
+    if (t < nextHopAt) return
+    // Pick any letter but the space — a hopping gap is just a pause that moves.
+    const pickable = letters.map((c, i) => (c === ' ' ? -1 : i)).filter((i) => i >= 0)
+    hopIdx = pickable[Math.floor(Math.random() * pickable.length)]
+    hopStart = t
+  } else if (t - hopStart >= HOP_MS) {
+    hopIdx = -1
+    nextHopAt = t + HOP_GAP_MIN + Math.random() * (HOP_GAP_MAX - HOP_GAP_MIN)
+  }
+}
+
+// sin gives the arc its own ease: zero at both ends, so the letter leaves and
+// lands softly instead of starting and stopping at full speed.
+function hopOffset(i, t) {
+  if (i !== hopIdx) return 0
+  return -HOP_PX * Math.sin(((t - hopStart) / HOP_MS) * Math.PI)
+}
+
+function drawLabel(ctx, entry, t) {
+  const W = ctx.canvas.width, H = ctx.canvas.height
+  const letters = [...entry.label]
+  updateHop(t, letters)
+
+  ctx.fillStyle = LABEL_MATT
+  ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = '#111111'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'middle'
+  ctx.font = '600 ' + LABEL_SIZE + "px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+  ctx.letterSpacing = LABEL_TRACK + 'em'
+
+  // Drawn letter by letter so one can move alone, which means the centring has
+  // to be measured rather than handed to textAlign. Each glyph's advance already
+  // includes the tracking, so the run is the sum minus the trailing gap.
+  const track = LABEL_SIZE * LABEL_TRACK
+  const widths = letters.map((c) => ctx.measureText(c).width)
+  const total = widths.reduce((a, b) => a + b, 0) - track
+  let x = (W - total) / 2
+  letters.forEach((c, i) => {
+    ctx.fillText(c, x, H / 2 + hopOffset(i, t))
+    x += widths[i]
+  })
+}
 
 // Source is 468x622 — near enough the site's 3:4 that the cards keep their shape,
 // but taken from the files rather than assumed so nothing is cropped.
@@ -148,19 +222,32 @@ const edgeCol = new THREE.Color('#15151a')
 const ring = new THREE.Group()
 scene.add(ring)
 
-const CARDS = LOOPS.map((src, i) => {
-  const v = document.createElement('video')
-  v.src = src
-  v.muted = true; v.loop = true; v.playsInline = true
-  v.setAttribute('webkit-playsinline', '')
-  // Not autoplay and not preload:auto — nineteen of those would all start
-  // fetching at once. The frame loop starts whichever ones come near the front.
-  v.preload = 'metadata'
+const CARDS = ENTRIES.map((entry, i) => {
+  let v = null, tex = null, labelCtx = null
 
-  const tex = new THREE.VideoTexture(v)
-  tex.encoding = THREE.sRGBEncoding
-  tex.minFilter = THREE.LinearFilter
-  tex.magFilter = THREE.LinearFilter
+  if (entry.label) {
+    // Same 3:4-ish footprint as the loops so the ring stays even. Drawn at the
+    // loops' own pixel height so its type sits at a comparable size.
+    const c = document.createElement('canvas')
+    c.height = 622; c.width = Math.round(622 * ASPECT)
+    labelCtx = c.getContext('2d')
+    drawLabel(labelCtx, entry, performance.now())
+    tex = new THREE.CanvasTexture(c)
+    tex.encoding = THREE.sRGBEncoding
+  } else {
+    v = document.createElement('video')
+    v.src = entry.src
+    v.muted = true; v.loop = true; v.playsInline = true
+    v.setAttribute('webkit-playsinline', '')
+    // Not autoplay and not preload:auto — eighteen of those would all start
+    // fetching at once. The frame loop starts whichever ones come near the front.
+    v.preload = 'metadata'
+
+    tex = new THREE.VideoTexture(v)
+    tex.encoding = THREE.sRGBEncoding
+    tex.minFilter = THREE.LinearFilter
+    tex.magFilter = THREE.LinearFilter
+  }
 
   const faceMat = new THREE.MeshPhysicalMaterial({
     map: tex, transparent: true, opacity: 0.92, side: THREE.FrontSide,
@@ -188,7 +275,7 @@ const CARDS = LOOPS.map((src, i) => {
   mesh.add(reflMesh)
 
   ring.add(mesh)
-  const card = { _slot: i, _mesh: mesh, _video: v, _playing: false }
+  const card = { _slot: i, _mesh: mesh, _video: v, _playing: false, entry, _labelCtx: labelCtx, _tex: tex }
   mesh.userData.card = card
   return card
 })
@@ -254,7 +341,15 @@ cv.addEventListener('click', (e) => {
   ndc.y = -(e.clientY / innerHeight) * 2 + 1
   raycaster.setFromCamera(ndc, camera)
   const hit = raycaster.intersectObjects(ring.children, false)[0]
-  if (hit && hit.object.userData.card) target = nearest(slotSpin(hit.object.userData.card))
+  if (!hit || !hit.object.userData.card) return
+  const card = hit.object.userData.card
+  // Off to the side it turns to face you first; only a card already centred
+  // acts — the same contract the other rings use.
+  if (Math.abs(slotSpin(card) - spin) < 0.01 && card.entry && card.entry.href) {
+    location.replace(card.entry.href)
+    return
+  }
+  target = nearest(slotSpin(card))
 })
 
 addEventListener('keydown', (e) => {
@@ -272,13 +367,14 @@ addEventListener('resize', () => {
 
 // A backgrounded tab should not keep nineteen decoders warm.
 addEventListener('visibilitychange', () => {
-  if (document.hidden) CARDS.forEach((c) => { c._video.pause(); c._playing = false })
+  if (document.hidden) CARDS.forEach((c) => { if (c._video) { c._video.pause(); c._playing = false } })
 })
 
 const counterEl = document.getElementById('counter')
 let shownIdx = -1
 
 function frame() {
+  const now = performance.now()
   spin += (target - spin) * 0.16
   if (Math.abs(target - spin) < 0.0001) spin = target
   placePanels()
@@ -291,11 +387,20 @@ function frame() {
     const d = Math.abs(wrapped)
     if (d < bestD) { bestD = d; front = card }
 
-    const shouldPlay = d < PLAY_ARC
-    if (shouldPlay && !card._playing) {
+    const near = d < PLAY_ARC
+    if (card._labelCtx) {
+      // Redrawn only while it is near enough to read, on the same arc that
+      // gates the loops — a card nobody can see has no reason to be animating.
+      if (near) {
+        drawLabel(card._labelCtx, card.entry, now)
+        card._tex.needsUpdate = true
+      }
+      return
+    }
+    if (near && !card._playing) {
       card._playing = true
       card._video.play().catch(() => {})
-    } else if (!shouldPlay && card._playing) {
+    } else if (!near && card._playing) {
       // Paused, not stopped: the texture keeps the last frame, so a card that
       // swings away goes still rather than blank.
       card._playing = false

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Oswin Journal — Oli Goldsmith, Sketchbook</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <style>
   html, body { margin:0; min-height:100vh; background:#0a0a0a; color:#fff;
                font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -38,9 +40,42 @@
 // the rounded corner mask are all per-aspect, and the ring is not built until
 // the images have decoded — their real dimensions are the input, rather than a
 // ratio declared up front and hoped for.
-const COUNT = 13
-const SRCS = Array.from({ length: COUNT }, (_, i) =>
-  'images/oli_sketches/sketch-' + String(i + 1).padStart(2, '0') + '.jpg')
+// Thirteen sheets and one card that is not a sheet: a way on to the animations
+// once you have been through the book. It is built as a canvas rather than a
+// file so its board matches the sheets' matt exactly — same colour value, not a
+// second export to keep in step.
+const MATT_COLOUR = '#FCFCFC'
+const ENTRIES = [
+  ...Array.from({ length: 13 }, (_, i) => ({
+    src: 'images/oli_sketches/sketch-' + String(i + 1).padStart(2, '0') + '.jpg',
+  })),
+  { label: 'more oli', href: 'loops.html', aspect: 3 / 4 },
+]
+const COUNT = ENTRIES.length
+
+// The label card. Drawn at the sheets' own scale so its type sits at a size
+// that belongs with them, and centred on both axes.
+function makeLabelCanvas(entry) {
+  const H = 900, W = Math.round(H * entry.aspect)
+  const c = document.createElement('canvas')
+  c.width = W; c.height = H
+  const ctx = c.getContext('2d')
+  ctx.fillStyle = MATT_COLOUR
+  ctx.fillRect(0, 0, W, H)
+  ctx.fillStyle = '#111111'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const SIZE = 27
+  const TRACK = 0.14
+  ctx.font = '600 ' + SIZE + "px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+  ctx.letterSpacing = TRACK + 'em'
+  // letterSpacing adds a trailing gap after the LAST character too, which shifts
+  // centred text left by half of it. Adding it back is the difference between
+  // "centred" and "nearly centred".
+  const trail = SIZE * TRACK / 2
+  ctx.fillText(entry.label, W / 2 + trail, H / 2)
+  return c
+}
 
 const CARD_FOV_FRAC = 0.855
 const GAP_FRAC = 0.4
@@ -140,6 +175,24 @@ function reflTexFrom(img) {
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
 }
 
+// Authored sRGB, converted for the linear pipeline. Handed straight to a
+// material the renderer encodes it out again on the way to the canvas and a
+// pale tint washes to near-white; converting in means it lands as the colour
+// that was picked.
+// Deepened from the pale #FFF5BC: same hue, same full saturation, taken down in
+// lightness. A near-white cream has nowhere to go to become more intense — it
+// can only get brighter, which is whiter. Lowering the lightness is what
+// actually puts more colour in it.
+const EDGE_COLOUR = new THREE.Color('#FFE87A').convertSRGBToLinear()
+// The edge is a lit material in a deliberately dim room, so it renders well
+// below the colour that was picked — the scene eats most of it. Emissive adds
+// the colour back as light the material carries itself, so the depth reads at
+// the chosen strength instead of whatever the key light leaves of it. 0 is
+// fully lit-only (what it was), 1 is the flat colour ignoring the room.
+// Kept modest: at 0.75 the emissive and the lit colour summed past white and
+// the yellow blew out altogether — brighter is not the same as more saturated.
+const EDGE_GLOW = 0.35
+
 const ring = new THREE.Group()
 scene.add(ring)
 
@@ -170,18 +223,19 @@ function nearest(from) {
   return best
 }
 
-function build(images) {
+function build(sources) {
   // The ring has to clear its WIDEST card. Spacing off an average would let the
   // near-square page overlap its neighbours while the narrow ones sat in space.
-  const widest = Math.max(...images.map((im) => im.naturalWidth / im.naturalHeight))
+  const widest = Math.max(...sources.map((s) => s.w / s.h))
   RADIUS = (panelH * widest * (1 + GAP_FRAC)) / (2 * Math.sin(Math.PI / COUNT))
   CAM_Z = RADIUS + NEAR
   camera.position.set(0, 0, CAM_Z)
   camera.lookAt(0, 0, 0)
   scene.fog = new THREE.Fog('#0e0b08', CAM_Z - 2, CAM_Z + RADIUS * 2.6)
 
-  CARDS = images.map((im, i) => {
-    const aspect = im.naturalWidth / im.naturalHeight
+  CARDS = sources.map((src, i) => {
+    const im = src.el
+    const aspect = src.w / src.h
     const w = panelH * aspect
     const alphaMap = alphaMapFor(aspect)
 
@@ -189,8 +243,11 @@ function build(images) {
     tex.encoding = THREE.sRGBEncoding
     tex.needsUpdate = true
 
-    const col = avgColour(im)
-    const edge = new THREE.Color('rgb(' + col.r + ',' + col.g + ',' + col.b + ')')
+    // The slab's depth — its sides and its top and bottom — is a fixed colour
+    // here rather than each sheet's own average, so the stack reads as one set
+    // of mounted boards rather than as thirteen differently-edged objects. The
+    // floor glow below still comes from the individual sheet.
+    const edge = EDGE_COLOUR.clone()
 
     const faceMat = new THREE.MeshPhysicalMaterial({
       map: tex, transparent: true, opacity: 0.92, side: THREE.FrontSide,
@@ -199,6 +256,7 @@ function build(images) {
     })
     const glassMat = new THREE.MeshStandardMaterial({
       color: edge, transparent: true, opacity: 0.42, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+      emissive: EDGE_COLOUR.clone(), emissiveIntensity: EDGE_GLOW,
     })
     const backMat = new THREE.MeshPhysicalMaterial({
       map: tex, transparent: true, opacity: 0.72,
@@ -206,6 +264,7 @@ function build(images) {
     })
     const sideMat = new THREE.MeshStandardMaterial({
       color: edge, transparent: true, opacity: 0.65, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+      emissive: EDGE_COLOUR.clone(), emissiveIntensity: EDGE_GLOW,
     })
 
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, panelH, THICK),
@@ -219,7 +278,8 @@ function build(images) {
     mesh.add(reflMesh)
 
     ring.add(mesh)
-    const card = { _slot: i, _mesh: mesh }
+    mesh.userData.restOpacity = mesh.material.map((m) => m.opacity)
+    const card = { _slot: i, _mesh: mesh, entry: src.entry }
     mesh.userData.card = card
     return card
   })
@@ -264,7 +324,20 @@ cv.addEventListener('click', (e) => {
   ndc.y = -(e.clientY / innerHeight) * 2 + 1
   raycaster.setFromCamera(ndc, camera)
   const hit = raycaster.intersectObjects(ring.children, false)[0]
-  if (hit && hit.object.userData.card) target = nearest(slotSpin(hit.object.userData.card))
+  if (!hit || !hit.object.userData.card) return
+  const card = hit.object.userData.card
+  // A card off to the side turns to face you first; only one already at the
+  // centre acts. Same contract as the rings on Oli's page, so a card never
+  // takes you somewhere you had not squarely looked at.
+  const centred = Math.abs(slotSpin(card) - spin) < 0.01
+  if (centred && card.entry && card.entry.href) {
+    // replace(), not assign(): this page is shown inside the ring's card
+    // overlay, and pushing onto the top-level history would swallow the BACK
+    // that closes it.
+    location.replace(card.entry.href)
+    return
+  }
+  target = nearest(slotSpin(card))
 })
 
 addEventListener('keydown', (e) => {
@@ -290,10 +363,23 @@ function frame() {
   placePanels()
 
   let front = CARDS[0], bestD = Infinity
+  const halfStep = Math.PI / COUNT
   CARDS.forEach((card) => {
     const off = (card._slot / COUNT) * Math.PI * 2 + spin - Math.PI / 2
     const d = Math.abs(Math.atan2(Math.sin(off), Math.cos(off)))
     if (d < bestD) { bestD = d; front = card }
+
+    // The card at the centre goes fully opaque; the rest sit back at their
+    // resting translucency. Driven by distance from centre rather than by the
+    // click itself, so it is the same whether you clicked it, dragged to it or
+    // arrowed to it — and it eases rather than snapping, because the ring
+    // easing into place and the card solidifying should be one movement.
+    const k = Math.max(0, 1 - d / halfStep)
+    const e = k * k * (3 - 2 * k)                       // smoothstep
+    const rest = card._mesh.userData.restOpacity
+    card._mesh.material.forEach((m, mi) => {
+      m.opacity = rest[mi] + (1 - rest[mi]) * e
+    })
   })
   if (front._slot !== shownIdx) {
     shownIdx = front._slot
@@ -309,12 +395,18 @@ document.getElementById('backBtn').onclick = () => { history.back() }
 // Built only once every page has decoded: the ring's radius depends on the
 // widest of them, and each card's geometry on its own dimensions, so none of it
 // can be laid out before the real sizes are known.
-Promise.all(SRCS.map((src) => new Promise((res, rej) => {
-  const im = new Image()
-  im.onload = () => res(im)
-  im.onerror = rej
-  im.src = src
-}))).then(build).catch((e) => console.error('sketchbook failed to load', e))
+Promise.all(ENTRIES.map((entry) => entry.src
+  ? new Promise((res, rej) => {
+      const im = new Image()
+      im.onload = () => res({ el: im, w: im.naturalWidth, h: im.naturalHeight, entry })
+      im.onerror = rej
+      im.src = entry.src
+    })
+  : Promise.resolve((() => {
+      const c = makeLabelCanvas(entry)
+      return { el: c, w: c.width, h: c.height, entry }
+    })())
+)).then(build).catch((e) => console.error('sketchbook failed to load', e))
 </script>
 </body>
 </html>

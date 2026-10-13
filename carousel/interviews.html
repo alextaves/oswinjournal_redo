@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Oswin Journal — Interviews</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <style>
   html, body { margin:0; min-height:100%; background:#0e0b08; color:#fff;
                font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -86,8 +88,16 @@
 // from interviews.js, shared with mobile.html.
 
 const W = 600, H = 800, LM = 54
+// A fifth of a card's width at the same height. Declared up here with the card
+// dimensions, not down with the geometry: the canvas-sizing loop below needs it
+// first, and a const read before its declaration throws and kills the script.
+const SPINE_ASPECT = (3 / 4) / 5
 
-const CARDS = INTERVIEWS_BY_ISSUE.map(iv => ({
+// Newest first: 4, 3, 2, 1. INTERVIEWS_BY_ISSUE is the reading order ascending
+// and is shared with mobile.html, so it is copied before reversing rather than
+// turned over in place — reverse() mutates, and the other front end would get
+// the flip too.
+const CARDS = [...INTERVIEWS_BY_ISSUE].reverse().map(iv => ({
   id: iv.id,
   title: iv.title,
   sub: iv.sub,
@@ -95,6 +105,51 @@ const CARDS = INTERVIEWS_BY_ISSUE.map(iv => ({
   bg: '#1a1a1a',
   iv,
 }))
+
+// Two cards that are not interviews. Spliced in by POSITION rather than added
+// to interviews.js: that file is the issue list, and neither of these has an
+// issue number for it to sort by.
+//
+// Order ends up: Karla, Chris, Schoenberg, FICTION, Oli, Oswin Gallery.
+
+// A slim board, a fifth of a card's width at the same height, with the word
+// turned on its side — the same object the paintings ring uses for INTERVIEW.
+// After Arnold.
+// Positioned by ANCHOR, not by index: both were asked for relative to a
+// particular interview, and an index would have quietly meant something else
+// the moment the issues were reversed.
+function insertAfter(id, card) {
+  const i = CARDS.findIndex((c) => c.id === id)
+  CARDS.splice(i < 0 ? CARDS.length : i + 1, 0, card)
+}
+
+insertAfter('schoenberg', {
+  id: 'fiction',
+  spine: 'FICTION',
+  href: 'fiction.html',
+  bg: '#FFFFFF',
+  light: true,
+})
+
+// The gallery notice, after Karla — so it closes the ring rather than
+// interrupting the run of issues.
+insertAfter('karla', {
+  id: 'oswin-gallery',
+  title: 'OSWIN GALLERY',
+  // A list of notices rather than one set of fields, so a third is a list entry
+  // and not another pair of properties threaded through the renderer.
+  // `lines` are broken by hand: the measure would fit "No Beginning, No End" on
+  // one line, and the break belongs after the comma.
+  blocks: [
+    { label: 'currently showing', lines: ['No Beginning,', 'No End'], foot: 'Alex Taves' },
+    // small: the name takes the foot's treatment instead of the reading size,
+    // so the whole upcoming notice sits quieter than what is currently on.
+    { label: 'upcoming', lines: ['Oli Goldsmith'], small: true, foot: 'Feb 12, 2027' },
+  ],
+  bg: '#FFFFFF',
+  light: true,          // light ground, so drawCardBase mirrors the ink
+})
+
 const COUNT = CARDS.length
 
 // ── TV static (index.html: GRAIN_LIGHTEN / GRAIN_MULTIPLY) ────────────────────
@@ -111,17 +166,19 @@ function regenNoise() {
   _noiseCtx.putImageData(id, 0, 0)
 }
 const GRAIN_LIGHTEN = 0.088, GRAIN_MULTIPLY = 0.06
-function applyTvStatic(ctx) {
+// Sized per call: a spine's canvas is not the cards' 600x800, and stretching
+// the field to the wrong box would scale the grain differently on it.
+function applyTvStatic(ctx, w = W, h = H) {
   ctx.save()
   ctx.imageSmoothingEnabled = false
   ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = GRAIN_LIGHTEN
-  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.drawImage(_noiseCanvas, 0, 0, w, h)
   ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = GRAIN_MULTIPLY
-  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.drawImage(_noiseCanvas, 0, 0, w, h)
   ctx.restore()
   ctx.save()
   ctx.globalAlpha = 0.16; ctx.fillStyle = '#000'
-  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1)
+  for (let y = 0; y < h; y += 3) ctx.fillRect(0, y, w, 1)
   ctx.restore()
 }
 
@@ -161,11 +218,36 @@ function drawMediaCover(ctx, src, mw, mh) {
   ctx.drawImage(src, (W - mw * s) / 2, (H - mh * s) / 2, mw * s, mh * s)
 }
 
-function drawCard(card) {
-  const ctx = card._ctx
-  ctx.clearRect(0, 0, W, H)
+// Split from the static so the loop can re-lay fresh noise over cached content
+// without redrawing the portrait and the type sixty times a second.
+function drawCardBase(card, ctx) {
+  // A light card needs dark ink. Everything here was written for white-on-near-
+  // black, so the weights are mirrored rather than hard-coded twice.
+  const INK = card.light
+    ? { title: 'rgba(17,17,17,0.95)', rule: 'rgba(17,17,17,0.30)',
+        sub: 'rgba(17,17,17,0.55)', show: 'rgba(17,17,17,0.92)', artist: 'rgba(17,17,17,0.60)' }
+    : { title: 'rgba(255,255,255,0.95)', rule: 'rgba(255,255,255,0.33)',
+        sub: 'rgba(255,255,255,0.60)', show: 'rgba(255,255,255,0.92)', artist: 'rgba(255,255,255,0.62)' }
+  const CW = card._w, CH = card._h
+  ctx.clearRect(0, 0, CW, CH)
   ctx.fillStyle = card.bg
-  ctx.fillRect(0, 0, W, H)
+  ctx.fillRect(0, 0, CW, CH)
+
+  // A spine carries one word and nothing else, turned a quarter turn clockwise
+  // so it reads top to bottom. Same face as the card titles: Helvetica Neue at
+  // 700, tightened the same way.
+  if (card.spine) {
+    ctx.save()
+    ctx.translate(CW / 2, CH / 2)
+    ctx.rotate(Math.PI / 2)
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.font = "700 74px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+    ctx.letterSpacing = '-0.01em'
+    ctx.fillStyle = INK.title
+    ctx.fillText(card.spine, 0, 0)
+    ctx.restore()
+    return
+  }
 
   let footage = false
   if (card._video && card._video.readyState >= 2) {
@@ -187,20 +269,79 @@ function drawCard(card) {
   ctx.font = `700 ${t2.size}px 'Helvetica Neue', Helvetica, Arial, sans-serif`
   ctx.letterSpacing = '-0.01em'
   ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-  ctx.fillStyle = 'rgba(255,255,255,0.95)'
+  ctx.fillStyle = INK.title
   t2.lines.forEach((ln, i) => ctx.fillText(ln, LM, t2.titleTop + i * t2.lineH))
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.33)'; ctx.lineWidth = 0.5
+  ctx.strokeStyle = INK.rule; ctx.lineWidth = 0.5
   ctx.beginPath(); ctx.moveTo(LM, t2.ruleY); ctx.lineTo(W - LM, t2.ruleY); ctx.stroke()
 
   if (card.sub) {
     ctx.font = "300 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
     ctx.letterSpacing = '0.16em'
-    ctx.fillStyle = 'rgba(255,255,255,0.60)'
+    ctx.fillStyle = INK.sub
     ctx.fillText(card.sub, LM, t2.subTop)
   }
 
-  applyTvStatic(ctx)
+  // What is on. Set below the standing head rather than in it: the show's name
+  // is the thing to read on this card, so it takes the weight the portraits give
+  // their sitter's name, with the artist quieter beneath it.
+  // Each notice is label / name / foot, in three weights and only two sizes:
+  // the name takes the card's reading size, and the label and foot share the
+  // standing head's — the foot bold and in caps so it reads as its pair rather
+  // than as a third size.
+  if (card.blocks) {
+    let y = t2.subTop
+    card.blocks.forEach((b, bi) => {
+      if (bi > 0) y += 34                     // air between notices
+      ctx.font = "300 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+      ctx.letterSpacing = '0.16em'
+      ctx.fillStyle = INK.sub
+      ctx.fillText(b.label, LM, y)
+      y += 46
+
+      if (b.small) {
+        // Same weight, size and tracking as the foot below it.
+        ctx.font = "700 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        ctx.letterSpacing = '0.16em'
+        ctx.fillStyle = INK.show
+        b.lines.forEach((ln) => { ctx.fillText(ln, LM, y); y += 24 })
+        y -= 24
+      } else {
+        ctx.font = "600 38px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        ctx.letterSpacing = '-0.01em'
+        ctx.fillStyle = INK.show
+        b.lines.forEach((ln) => { ctx.fillText(ln, LM, y); y += 44 })
+        y -= 44
+      }
+      y += b.small ? 24 : 44
+
+      if (b.foot) {
+        y += b.small ? 2 : 16
+        ctx.font = "700 14px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        ctx.letterSpacing = '0.16em'
+        ctx.fillStyle = INK.artist
+        ctx.fillText(b.foot.toUpperCase(), LM, y)
+        y += 22
+      }
+    })
+  }
+
+}
+
+// Content cached once; the loop lays live static over it (see frame()).
+function cacheBase(card) {
+  if (!card._base) {
+    card._base = document.createElement('canvas')
+    card._base.width = card._w; card._base.height = card._h
+  }
+  drawCardBase(card, card._base.getContext('2d'))
+}
+
+function drawCard(card) {
+  cacheBase(card)
+  card._ctx.clearRect(0, 0, card._w, card._h)
+  card._ctx.drawImage(card._base, 0, 0)
+  applyTvStatic(card._ctx, card._w, card._h)
 }
 
 const REFL_FRAC = 0.55            // the ring's own proportion
@@ -213,10 +354,16 @@ const REFL_FRAC = 0.55            // the ring's own proportion
 // texture on a ring panel rather than a DOM element.
 CARDS.forEach((card, i) => {
   card._slot = i
+  // A spine's canvas is its own shape, not the cards' 600x800 — drawing a
+  // narrow board into a wide canvas would letterbox it.
+  card._w = card.spine ? 160 : W
+  card._h = card.spine ? Math.round(160 / SPINE_ASPECT) : H
   const c = document.createElement('canvas')
-  c.width = W; c.height = H
+  c.width = card._w; c.height = card._h
   card._ctx = c.getContext('2d')
   card._face = c
+
+  if (!card.image) return          // nothing to load; painted with the statics
 
   const im = new Image()
   im.src = card.image
@@ -246,11 +393,10 @@ bgG.addColorStop(0, '#16110d'); bgG.addColorStop(1, '#0a0704')
 bgCtx2.fillStyle = bgG; bgCtx2.fillRect(0, 0, 4, 512)
 const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
 scene.background = bgTex
-scene.fog = new THREE.Fog('#0e0b08', 8, 50)
+scene.fog = new THREE.Fog('#0e0b08', 8, 50)   // refitted to the ring below
 
-const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 200)
-camera.position.set(0, 0, CAM_Z)
-camera.lookAt(0, 0, 0)
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 400)
+camera.lookAt(0, 0, 0)   // placed below, once the ring's radius is known
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' })
 renderer.setSize(innerWidth, innerHeight)
@@ -292,8 +438,49 @@ const reflH = panelH * REFL_FRAC
 const panelGeo = new THREE.BoxGeometry(panelW, panelH, THICK)
 const reflGeo = new THREE.PlaneGeometry(panelW, reflH)
 
-const roundedAlphaMap = (() => {
-  const AW = 128, AH = Math.round(AW * panelH / panelW)
+const spineW = panelH * SPINE_ASPECT
+const spineGeo = new THREE.BoxGeometry(spineW, panelH, THICK)
+const spineReflGeo = new THREE.PlaneGeometry(spineW, reflH)
+const widthOf = (card) => (card.spine ? spineW : panelW)
+
+// Cards are NOT evenly spaced. Equal slots sized for the widest card leave a
+// slim board marooned between two full-width gaps. Each card instead gets an
+// arc of its OWN width plus a share of the gap, and the radius is whatever
+// closes the circle — so the space between any two neighbours is the same.
+//
+// A spine contributes NO padding of its own, which leaves only its neighbours'
+// halves: exactly half the space either side of it, by construction.
+const RING_GAP = panelW * 0.57
+const ARCS = CARDS.map((c) => widthOf(c) + (c.spine ? 0 : RING_GAP))
+const CIRCUM = ARCS.reduce((a, b) => a + b, 0)
+
+// The RADIUS stays what it always was. Solving it from the arcs instead — the
+// way the paintings ring does — packs the cards into a complete circle, and
+// with only six of them that circle came out at half the size: the ring drew
+// in to 3.1 and the neighbours loomed over the frame.
+//
+// This room was built with spare placements and should keep them. So the arcs
+// set the ANGLES at a fixed radius, and whatever they do not use stays empty
+// arc behind you — the same roominess as before, but with each card's share
+// sized to its own width.
+const RING_RADIUS = RADIUS
+const SLOT_ANGLE = (() => {
+  const out = []; let acc = 0
+  ARCS.forEach((w) => { out.push((acc + w / 2) / RING_RADIUS); acc += w })
+  return out
+})()
+const MEAN_STEP = (Math.PI * 2) / CARDS.length
+
+// Now that the radius is known, sit the camera back from it and refit the fog.
+// Both were declared above, before this block could exist — reading RING_RADIUS
+// up there is a dead-zone error that kills the whole script.
+camera.position.set(0, 0, RING_RADIUS + nearDist)
+camera.lookAt(0, 0, 0)
+scene.fog.near = RING_RADIUS + nearDist - 2
+scene.fog.far = RING_RADIUS * 3.6
+
+function makeRoundedAlphaMap(aspect) {
+  const AW = 128, AH = Math.round(AW / aspect)
   const c = document.createElement('canvas'); c.width = AW; c.height = AH
   const ctx = c.getContext('2d')
   const r = 5
@@ -307,7 +494,9 @@ const roundedAlphaMap = (() => {
   ctx.arcTo(0, 0, r, 0, r); ctx.closePath()
   ctx.fillStyle = '#fff'; ctx.fill()
   return new THREE.CanvasTexture(c)
-})()
+}
+const roundedAlphaMap = makeRoundedAlphaMap(3 / 4)
+const spineAlphaMap = makeRoundedAlphaMap(SPINE_ASPECT)
 
 function makePortalReflTex(bgHex) {
   const r = parseInt(bgHex.slice(1, 3), 16)
@@ -362,7 +551,7 @@ CARDS.forEach((card) => {
   const faceMat = new THREE.MeshPhysicalMaterial({
     map: faceTex, transparent: true, opacity: FRONT_OPACITY, side: THREE.FrontSide,
     roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
-    color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+    color: new THREE.Color(0xffffff), alphaMap: card.spine ? spineAlphaMap : roundedAlphaMap,
   })
   const glassMat = new THREE.MeshStandardMaterial({
     color: panelCol, transparent: true, opacity: BACK_OPACITY,
@@ -370,7 +559,7 @@ CARDS.forEach((card) => {
   })
   const backMat = new THREE.MeshPhysicalMaterial({
     map: backTex, transparent: true, opacity: 0.72,
-    roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap: roundedAlphaMap,
+    roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap: card.spine ? spineAlphaMap : roundedAlphaMap,
   })
   const sideMat = new THREE.MeshStandardMaterial({
     color: panelCol, transparent: true, opacity: 0.65,
@@ -380,11 +569,11 @@ CARDS.forEach((card) => {
     map: makePortalReflTex(card.bg), transparent: true, opacity: 0.38,
   })
 
-  const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+  const mesh = new THREE.Mesh(card.spine ? spineGeo : panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
   mesh.frustumCulled = false
   mesh.userData.card = card
 
-  const reflMesh = new THREE.Mesh(reflGeo, reflMat)
+  const reflMesh = new THREE.Mesh(card.spine ? spineReflGeo : reflGeo, reflMat)
   reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
   reflMesh.frustumCulled = false
   mesh.add(reflMesh)
@@ -401,21 +590,26 @@ CARDS.forEach((card) => {
 // parent; a group rotation plus a fixed local angle double-counts the turn.
 function placePanels() {
   CARDS.forEach((card) => {
-    const a = (card._slot / SLOTS) * Math.PI * 2 + spin
-    const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS
+    const a = SLOT_ANGLE[card._slot] + spin
+    const x = Math.cos(a) * RING_RADIUS, z = Math.sin(a) * RING_RADIUS
     card._mesh.position.set(x, 0, z)
     card._mesh.rotation.set(0, Math.atan2(x, z), 0)
   })
 }
 
-function slotSpin(card) { return Math.PI / 2 - (card._slot / SLOTS) * Math.PI * 2 }
+function slotSpin(card) { return Math.PI / 2 - SLOT_ANGLE[card._slot] }
 
 // Arrive facing the middle card, so the ring opens with a filled placement on
 // either side rather than everything stacked off one edge — unless ?i names an
 // interview, which is how the homepage's INTERVIEW card lands you on the piece
 // it shows rather than on whatever happens to sit in the middle.
 const _wantId = new URLSearchParams(location.search).get('i')
+// Opens on Oli — the latest interview — rather than on whatever happens to sit
+// in the middle. ?i= still overrides it, which is how the homepage card lands
+// you on a specific piece. The middle stays the last resort for a set that has
+// no latest.
 const _startCard = (_wantId && CARDS.find((c) => c.id === _wantId))
+  || CARDS.find((c) => c.id === 'oli')
   || CARDS[Math.floor((CARDS.length - 1) / 2)]
 let spin = slotSpin(_startCard), target = spin
 let dragging = false, dragFrom = 0, spinFrom = 0, moved = 0, activeId = null
@@ -451,7 +645,7 @@ addEventListener('pointermove', (e) => {
   moved = Math.max(moved, Math.abs(dx))
   // Negated so the ring travels WITH the hand: drag left and the card that was
   // on the right comes to the centre.
-  spin = target = spinFrom - (dx / (innerWidth / 3)) * ((Math.PI * 2) / SLOTS)
+  spin = target = spinFrom - (dx / (innerWidth / 3)) * MEAN_STEP
 })
 
 function endDrag(e) {
@@ -483,12 +677,20 @@ cv.addEventListener('click', (e) => {
     target = nearestFilled(slotSpin(card))
     return
   }
+  // Only a card already at the centre acts, the same contract the other rings
+  // use. The notice and the spine have no interview behind them — openInterview
+  // reads card.iv and would throw on a card that has none.
+  if (card.href) {
+    if (Math.abs(slotSpin(card) - spin) < 0.01) { location.replace(card.href); return }
+    target = nearestFilled(slotSpin(card)); return
+  }
+  if (!card.iv) { target = nearestFilled(slotSpin(card)); return }
   openInterview(card)
 })
 
 addEventListener('keydown', (e) => {
   if (reader.classList.contains('open')) return
-  const step = (Math.PI * 2) / SLOTS
+  const step = MEAN_STEP
   if (e.key === 'ArrowLeft')  target = nearestFilled(target + step * 0.6)
   if (e.key === 'ArrowRight') target = nearestFilled(target - step * 0.6)
 })
@@ -500,6 +702,19 @@ addEventListener('resize', () => {
 })
 
 function frame() {
+  // One fresh noise field per frame, shared by every card — the same field they
+  // already shared within a single paint. Only the static is re-laid; the
+  // content underneath is the cached base, so this costs a blit per card rather
+  // than a redraw of the portrait and the type.
+  regenNoise()
+  CARDS.forEach((card) => {
+    if (!card._base) return                 // not painted yet; fonts resolving
+    card._ctx.clearRect(0, 0, card._w, card._h)
+    card._ctx.drawImage(card._base, 0, 0)
+    applyTvStatic(card._ctx, card._w, card._h)
+    card._faceTex.needsUpdate = true
+  })
+
   spin += (target - spin) * 0.16
   if (Math.abs(target - spin) < 0.0001) spin = target
   placePanels()

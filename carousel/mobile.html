@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Oswin Journal</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <style>
   /* The phone version of the lobby. The ring is a WebGL scene you spin; there is
      no good phone equivalent, so the same rooms are laid out flat as a grid you
@@ -15,7 +17,22 @@
      Faces are DOM, not the ring's canvas textures: a 600x800 card scaled into a
      ~180px column lands its caption at about 4px. Metrics below are the card
      design in container-query units, so the proportions still hold. */
-  :root { --font: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+  :root {
+    --font: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    /* The CARD's size, not the page's. The lobby runs full width again; what
+       is held steady is how big a card is, by adding columns as the window
+       grows rather than stretching two of them across a monitor.
+
+       Derived from the iPad Pro 12.9" portrait width — 1024 CSS points, the
+       same figure index.html's tier script uses as the top of the tablet tier
+       — split into the two columns that view has: (1024 - gap) / 2. So a card
+       on a wide desktop is the size it is on the largest device this view was
+       built for, and the screen simply holds more of them. */
+    --gap: 10px;
+    --card: 507px;
+    /* Sheets hold passages, so they keep a measure rather than running wide. */
+    --measure: 1024px;
+  }
 
   html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
 
@@ -35,11 +52,53 @@
       calc(10px + env(safe-area-inset-left));
     font-family: var(--font);
   }
+
+  /* The cap sits on an inner column, not on .wrap: .wrap is the fixed scroller
+     and carries the safe-area insets, so narrowing it would pull the scrollbar
+     and the background in with it. */
+  .col { width: 100%; margin: 0 auto; }
+  /* Sheets are their own fixed layers and carry reading copy, so they keep a
+     measure even though the lobby does not. */
+  .sheet > * { max-width: var(--measure); margin-left: auto; margin-right: auto; }
+  /* A ROOM is not a passage — it is the lobby's grid under another masthead, so
+     it tiles the full width. Without this the measure above, which exists for
+     paragraphs, quietly held every room to a 1024px column. */
+  .sheet.room > * { max-width: none; }
   /* Masthead. Its height is set from the first card's title block in JS, so it
      stands exactly as tall as KARLA IS HERE does on the card beneath it — a
      measurement rather than a number that would drift from the cards. Carries
      the same radius and lift as a card so it sits in the same world. */
+  /* The view toggle. Set in the same relationship as the ring's: where you are
+     stated plainly, where you can go in the site's purple — the one colour that
+     already means "press this" on the menu card. */
+  .viewtoggle {
+    display: flex; align-items: center; gap: 10px;
+    margin: 2px 2px 12px;
+    font: 700 12px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    letter-spacing: 0.14em;
+  }
+  /* Purple states what is true, grey what is merely available — the ring's
+     menu now reads the same way, so the colour means one thing across the site.
+     Not the #8127D3 the ring's note is authored in: that canvas is a texture in
+     a lit, tone-mapped scene, and what reaches the screen is this — sampled off
+     the rendered frame. Matching the hex would have missed the colour. */
+  .viewtoggle .on { color: #BA76CF; }
+  .viewtoggle .off { color: rgba(17,17,17,0.38); }
+  .viewtoggle .sep { color: rgba(17,17,17,0.28); }
+  .viewtoggle a, .viewtoggle button {
+    text-decoration: none; -webkit-tap-highlight-color: transparent;
+    font: inherit; letter-spacing: inherit; color: inherit;
+    background: none; border: 0; padding: 0; cursor: pointer;
+    -webkit-appearance: none; appearance: none;
+  }
+  /* The two pairs read as two statements, so they need more air between them
+     than the words inside either one get. */
+  .viewtoggle .pair { display: flex; align-items: center; gap: 10px; }
+  .viewtoggle .pair + .pair { margin-left: 26px; }
+  .viewtoggle .lab { color: rgba(17,17,17,0.38); }
+
   .masthead {
+    position: relative;
     display: flex; align-items: center; justify-content: center;
     margin-bottom: 10px;
     border-radius: 6px;
@@ -52,7 +111,15 @@
       0 10px 20px rgba(0,0,0,0.22);
   }
 
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  /* Two columns is the phone's layout and stays the default — auto-fill with a
+     desktop-sized minimum would collapse a phone to a single column. Only once
+     there is room for the cards at their intended size does the grid start
+     adding columns instead of widening the two. 1fr, not the raw card width, so
+     the row always divides the full width exactly and never leaves a gutter. */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
+  @media (min-width: 900px) {
+    .grid { grid-template-columns: repeat(auto-fill, minmax(var(--card), 1fr)); }
+  }
 
   .card {
     container-type: inline-size;
@@ -92,6 +159,14 @@
   .media { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; object-fit: cover; }
   .dancer, .cardArt { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; display: block; }
   .slide { position: absolute; inset: 0; z-index: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 900ms ease; }
+  /* Artwork is shown whole. A cover crop is right for a cover image, which is
+     chosen to be cropped; it is wrong for a painting. */
+  .card.whole .slide { background-size: contain; }
+  .card.whole video.media { object-fit: contain; }
+  /* A card may take the proportion of the work it holds rather than the grid's
+     3:4. The paintings are 800x900, so on their own cards the art fills the
+     frame edge to edge instead of sitting letterboxed inside a taller one. */
+  .card[style*="--ar"] { aspect-ratio: var(--ar); }
   .slide.on { opacity: 1; }
 
   /* Same grain the ring wears over every card, so the two read as one site. */
@@ -123,6 +198,21 @@
   .subTitle { margin: 1cqw 0 0; }
   .rule { height: 1px; margin: 2.2cqw 0 2cqw; }
   .sub { margin: 0; font-weight: 300; font-size: max(9.5px, 2.33cqw); letter-spacing: 0.14em; line-height: 1.4; }
+  /* The gallery notice. Two sizes only, matching the interviews room's card:
+     the show's name at the card's reading size, the label and the date sharing
+     the sub's — the date bold and in caps so it reads as the label's pair
+     rather than as a third size. Sized in cqw like everything else here, so it
+     holds its proportions whether the card is a phone column or a desktop one. */
+  .notes { position: relative; z-index: 2; padding: 4cqw 9cqw 0; }
+  .note + .note { margin-top: 5cqw; }
+  .noteLabel { display: block; font-weight: 300; font-size: max(9.5px, 2.33cqw);
+               letter-spacing: 0.14em; line-height: 1.4; }
+  .noteName  { display: block; margin-top: 2.4cqw; font-weight: 600;
+               font-size: max(14px, 5.2cqw); letter-spacing: -0.01em; line-height: 1.12; }
+  .noteName.small { font-weight: 700; font-size: max(9.5px, 2.33cqw); letter-spacing: 0.14em; }
+  .noteFoot  { display: block; margin-top: 2.2cqw; font-weight: 700;
+               font-size: max(9.5px, 2.33cqw); letter-spacing: 0.14em; }
+
   .foot {
     position: absolute; left: 0; right: 0; bottom: 0; z-index: 2;
     padding: 0 9cqw 7cqw;
@@ -146,6 +236,31 @@
     display: flex; align-items: center; justify-content: center;
     transition: transform 550ms cubic-bezier(0.4, 0, 0.2, 1);
   }
+  /* The home button, far right inside a room's band. Sized and inset in em so
+     it tracks the masthead's type, which applyMastheadMetrics sets in px from
+     the cards — the disc stays in proportion through a resize or a change of
+     columns without being measured itself. Absolute, so the title keeps the
+     exact centre it had before the button existed. */
+  .masthead .home {
+    position: absolute; top: 50%; right: 0.62em;
+    transform: translateY(-50%);
+    /* As tall as the lettering: 0.747em is the measured cap height of OSWIN
+       JOURNAL in this face, and every masthead shares one type size, so the
+       disc reads as the same height as the wordmark on any screen. */
+    width: 0.747em; height: 0.747em; padding: 0;
+    border: 0; border-radius: 50%;
+    background: currentColor; color: inherit;
+    /* A button does not inherit type by default, so without this the em units
+       above resolve against the UA's 13px and the disc comes out a speck. */
+    font: inherit;
+    cursor: pointer; -webkit-appearance: none; appearance: none;
+    transition: opacity 160ms ease;
+  }
+  .masthead .home:hover { opacity: 0.72; }
+  .masthead .home:active { opacity: 0.55; }
+  .masthead .home:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { .masthead .home { transition: none; } }
+
   .badge i { display: block; width: 62%; height: 62%; border-radius: 50%; background: currentColor; }
   @media (prefers-reduced-motion: reduce) { .badge .tile { transition: none; } }
 
@@ -251,10 +366,36 @@
 </style>
 </head>
 <body>
+<script>
+  // Remember the choice before leaving, so index.html's tier script does not
+  // simply detect a phone and send the visitor straight back here. Written on
+  // the click rather than on arrival: landing here by detection is not a choice.
+  addEventListener('DOMContentLoaded', () => {
+    const a = document.getElementById('toCarousel')
+    if (a) a.addEventListener('click', () => { try { localStorage.setItem('oswinView', 'carousel') } catch (e) {} })
+  })
+</script>
 <div class="wrap">
+ <div class="col">
+  <!-- The ring's menu carries the same pair at its head; this is its other
+       half, so the choice can be undone from the side it lands on. -->
+  <div class="viewtoggle">
+    <span class="pair">
+      <a id="toCarousel" class="off" href="index.html?tier=desktop">CAROUSEL</a>
+      <span class="sep">/</span>
+      <span class="on">GRID</span>
+    </span>
+    <span class="pair">
+      <span class="lab">AUDIO</span>
+      <button type="button" id="audOn" class="off">ON</button>
+      <span class="sep">/</span>
+      <button type="button" id="audOff" class="on">OFF</button>
+    </span>
+  </div>
   <div class="masthead" id="masthead">OSWIN JOURNAL</div>
   <div class="grid" id="grid"></div>
   <button class="subscribe" type="button" id="subscribeBtn">SUBSCRIBE</button>
+ </div>
 </div>
 
 <script src="covers.js"></script>
@@ -339,19 +480,28 @@ const CARDS = [
   { id: 'readme', kind: 'plain', title: 'PLEASE READ', lines: ['PLEASE', 'READ'],
     sub: 'Put Oswin on Your Home Screen', bg: READ_ME_BG, light: true, open: openReadMe },
 
-  { id: 'karla',  kind: 'video', badge: 1, src: 'videos/mobile/karla.mp4',
-    title: 'KARLA IS HERE', lines: ['KARLA', 'IS HERE'], foot: 'visuals by oswin',
-    bg: '#12151b', open: () => location.href = LIVE_ISSUE(1) },
-  { id: 'chris',  kind: 'video', badge: 2, src: 'videos/mobile/chris.mp4',
-    title: 'CHRISTOPHER BISSONNETTE', lines: ['CHRIS-', 'TOPHER', 'BISSON-', 'NETTE'], foot: 'visuals by oswin',
-    bg: '#12151b', open: () => location.href = LIVE_ISSUE(2) },
+  // Newest first: 4, 3, 2, 1 — the order the interviews room reads in.
+  { id: 'oli',    kind: 'video', badge: 4, src: 'videos/mobile/oli.mp4',
+    title: 'OLI GOLDSMITH', lines: ['OLI', 'GOLD-', 'SMITH'], foot: 'audio by karla is here',
+    bg: '#12151b', open: () => openOli() },
   { id: 'arnold', kind: 'slides', badge: 3,
     slides: ['green', 'orange', 'purple', 'red'].map(c => `images/mobile/giftshop-${c}.jpg`),
     title: 'ARNOLD SCHOENBERG', lines: ['ARNOLD', 'SCHOEN-', 'BERG'], foot: 'visuals by oswin',
     bg: '#777777', open: () => location.href = LIVE_ISSUE(3) },
-  { id: 'oli',    kind: 'video', badge: 4, src: 'videos/mobile/oli.mp4',
-    title: 'OLI GOLDSMITH', lines: ['OLI', 'GOLD-', 'SMITH'], foot: 'audio by karla is here',
-    bg: '#12151b', open: () => location.href = 'oli.html' },
+  { id: 'chris',  kind: 'video', badge: 2, src: 'videos/mobile/chris.mp4',
+    title: 'CHRISTOPHER BISSONNETTE', lines: ['CHRIS-', 'TOPHER', 'BISSON-', 'NETTE'], foot: 'visuals by oswin',
+    bg: '#12151b', open: () => location.href = LIVE_ISSUE(2) },
+  { id: 'karla',  kind: 'video', badge: 1, src: 'videos/mobile/karla.mp4',
+    title: 'KARLA IS HERE', lines: ['KARLA', 'IS HERE'], foot: 'visuals by oswin',
+    bg: '#12151b', open: () => location.href = LIVE_ISSUE(1) },
+  // The gallery notice, after Karla — the same board the interviews room ends
+  // on. Its blocks mirror that card's: label, name, then a bold caps line.
+  { id: 'oswin-gallery', kind: 'plain', title: 'OSWIN GALLERY', lines: ['OSWIN', 'GALLERY'],
+    bg: '#FFFFFF',
+    notes: [
+      { label: 'currently showing', lines: ['No Beginning,', 'No End'], foot: 'Alex Taves' },
+      { label: 'upcoming', lines: ['Oli Goldsmith'], small: true, foot: 'Feb 12, 2027' },
+    ] },
 
   // Same treatment as the Oswin Journal card — flat ground, title, caption — on
   // the site's own yellow, the one the badges and the masthead already use.
@@ -422,6 +572,148 @@ function openInterview(iv) {
   mountSheet(sh, () => openInterviews(false))
 }
 
+// Oli's room. The ring's version of this page is a carousel; on a phone it is
+// the lobby's own grid again, so the way through the site stays one gesture
+// rather than two. No badge in here: the issues' square carries an issue
+// number, and these cards have none — the title is already set across the card
+// in the largest type on the page, so the corner stays empty.
+const OLI_ROOM = [
+  // Black here, where the ring's version is paper. `light` is buildCard's name
+  // for light INK, not a light ground — it is what puts the type in white.
+  { id: 'foreword', kind: 'plain', title: 'FOREWORD', lines: ['FORE-', 'WORD'],
+    sub: 'by alex taves', bg: '#111111', light: true },
+  { id: 'pieces', kind: 'image', title: 'SELECTED PIECES', lines: ['SELECTED', 'PIECES'],
+    src: 'images/oli_pieces/boysintown.jpg', bg: '#12151b', room: () => openPieces() },
+  { id: 'sketchbook', kind: 'image', title: 'SKETCHBOOK', lines: ['SKETCH-', 'BOOK'],
+    src: 'images/oli_sketches/sketch-09.jpg', bg: '#15151a', room: () => openSketchbook() },
+  { id: 'sitting', kind: 'image', title: 'SITTING BOY', lines: ['SITTING', 'BOY'],
+    src: 'images/oli_sitting/sitting-09.jpg', bg: '#15151a', room: () => openSitting() },
+  { id: 'moving', kind: 'video', title: 'MOVING PIECES', lines: ['MOVING', 'PIECES'],
+    src: 'videos/oli_loops/loop-13.mp4', bg: '#15151a', room: () => openLoops() },
+  { id: 'ethernity', kind: 'video', title: 'OLI GOLDSMITH', lines: ['OLI', 'GOLD-', 'SMITH'],
+    src: 'videos/mobile/oli.mp4', foot: 'audio by karla is here',
+    bg: '#12151b', href: 'https://ethernity.space/' },
+  { id: 'interview', kind: 'image', title: 'INTERVIEW', lines: ['INTER-', 'VIEW'],
+    src: 'images/interviews/oli.jpg', sub: 'Latest \u00b7 Oli Goldsmith',
+    bg: '#1a1a1a', room: () => openInterview(INTERVIEWS.find((x) => x.id === 'oli')) },
+]
+
+// ── Rooms of work ────────────────────────────────────────────────────────────
+// On a phone there is no carousel anywhere: every body of work opens as the
+// lobby's own grid. The ring versions of these pages still exist and are what
+// the desktop uses — these are the same contents, laid flat.
+// One band for every room: the journal's yellow with black type. A room used
+// to tint its masthead to its own contents, which made the header part of the
+// work; a single band makes it part of the furniture instead, and the disc in
+// it means the same thing wherever you are.
+function openWorkRoom({ title, items, back }, push = true) {
+  const sh = document.createElement('div')
+  sh.className = 'sheet room'
+  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">${title}` +
+                 '<button type="button" class="home" aria-label="Back to Oli Goldsmith"></button></div>' +
+                 '<div class="grid"></div>' +
+                 '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
+  const g = sh.querySelector('.grid')
+  items.forEach((it) => g.appendChild(buildCard(it)))
+  // Same band the lobby wears. Without this a room's masthead keeps the
+  // element's default height and renders as a thin sliver of tiny type.
+  applyMastheadMetrics(sh.querySelector('.masthead'))
+  // One step back is the entry that opened this room, and `back` remounts Oli
+  // on it — so the disc returns to the grid of choices, not to the lobby. Both
+  // the disc and CLOSE make the same move; the disc is just where the thumb is.
+  const up = () => history.back()
+  sh.querySelector('.home').addEventListener('click', up)
+  sh.querySelector('.close').addEventListener('click', up)
+  mountSheet(sh, back || null, push)
+}
+
+const PIECE_TITLES = [
+  ['i-know-a-place', 'I Know a Place'], ['air-bag', 'Air Bag'], ['boysintown', 'Boys in Town'],
+  ['camel', 'Camel'], ['pass-go', 'Pass Go'], ['polo-for-polio', 'Polo for Polio'],
+  ['pushpull', 'Push Pull'], ['scotty', 'Scotty'], ['seven-steps', 'Seven Steps'],
+  ['toilent-toll', 'Toilent Toll'], ['tvtaste', 'TV Taste'],
+]
+
+function openPieces(push = true) {
+  openWorkRoom({
+    title: 'SELECTED PIECES',
+    back: () => openOli(false),
+    // 800x900 — the paintings' own proportion, so each fills its card rather
+    // than sitting letterboxed in the grid's taller 3:4.
+    items: PIECE_TITLES.map(([file, t]) => ({
+      kind: 'image', whole: true, ar: '8 / 9',
+      src: `images/oli_pieces/${file}.jpg`, bg: '#12151b', foot: t,
+    })),
+  }, push)
+}
+
+function openSketchbook(push = true) {
+  const sheets = Array.from({ length: 13 }, (_, i) => ({
+    kind: 'image', whole: true, bg: '#FCFCFC',
+    src: 'images/oli_sketches/sketch-' + String(i + 1).padStart(2, '0') + '.jpg',
+  }))
+  openWorkRoom({
+    title: 'SKETCHBOOK',
+    back: () => openOli(false),
+    items: sheets.concat([{
+      kind: 'plain', title: 'more oli', lines: ['more oli'], bg: '#FCFCFC', light: false,
+      open: () => openLoops(),
+    }]),
+  }, push)
+}
+
+function openSitting(push = true) {
+  openWorkRoom({
+    title: 'SITTING BOY',
+    back: () => openOli(false),
+    items: Array.from({ length: 9 }, (_, i) => ({
+      kind: 'image', whole: true, bg: '#FFFFFF',
+      src: 'images/oli_sitting/sitting-' + String(i + 1).padStart(2, '0') + '.jpg',
+    })),
+  }, push)
+}
+
+function openLoops(push = true) {
+  // loop-04 is skipped here too, so the set matches the ring's.
+  const loops = Array.from({ length: 19 }, (_, i) => i + 1).filter((n) => n !== 4).map((n) => ({
+    kind: 'video', whole: true, bg: '#15151a',
+    src: 'videos/oli_loops/loop-' + String(n).padStart(2, '0') + '.mp4',
+  }))
+  openWorkRoom({
+    title: 'MOVING PIECES',
+    back: () => openOli(false),
+    items: loops.concat([{
+      kind: 'plain', title: 'more oli', lines: ['more oli'], bg: '#FCFCFC', light: false,
+      open: () => openPieces(),
+    }]),
+  }, push)
+}
+
+function openOli(push = true) {
+  const sh = document.createElement('div')
+  sh.className = 'sheet room'
+  // Yellow with black type, like every room below it. The disc means the same
+  // thing here as it does in those rooms — one level up — and from the grid of
+  // choices that level is the lobby.
+  sh.innerHTML = `<div class="masthead" style="background:${BADGE_YELLOW};color:#111111">OLI GOLDSMITH` +
+                 '<button type="button" class="home" aria-label="Home"></button></div>' +
+                 '<div class="grid"></div>' +
+                 '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
+  const g = sh.querySelector('.grid')
+  OLI_ROOM.forEach((c) => g.appendChild(buildCard(Object.assign({}, c, {
+    // `room` opens another grid in place; `href` is only for somewhere that is
+    // genuinely off this site, like Oli's own ETHERNITY.
+    open: c.room || (c.href ? () => { location.href = c.href } : undefined),
+  }))))
+  applyMastheadMetrics(sh.querySelector('.masthead'))
+  // Oli always sits on exactly one pushed entry — the deeper rooms remount it
+  // without pushing — so one step back is the lobby, however far in you went.
+  const home = () => history.back()
+  sh.querySelector('.home').addEventListener('click', home)
+  sh.querySelector('.close').addEventListener('click', home)
+  mountSheet(sh, null, push)
+}
+
 function openInterviews(push = true) {
   const sh = document.createElement('div')
   sh.className = 'sheet room'
@@ -429,7 +721,9 @@ function openInterviews(push = true) {
                  '<div class="grid"></div>' +
                  '<div class="actions"><button type="button" class="close">CLOSE</button></div>'
   const g = sh.querySelector('.grid')
-  INTERVIEWS_BY_ISSUE.forEach((iv) => g.appendChild(buildCard({
+  // Copied before reversing: INTERVIEWS_BY_ISSUE is shared with the interviews
+  // room, and reverse() mutates — turning it over here would flip that too.
+  ;[...INTERVIEWS_BY_ISSUE].reverse().forEach((iv) => g.appendChild(buildCard({
     id: iv.id, kind: 'image', src: iv.portrait,
     lines: iv.cardLines, sub: iv.sub, bg: '#1a1a1a',
     open: () => openInterview(iv),
@@ -483,7 +777,7 @@ function fitTitle(lines) {
 const BADGE_STYLES = [
   { kind: 'hash',   bg: '#111111', fg: '#FFFFFF' },
   { kind: 'number', bg: BADGE_YELLOW, fg: '#111111' },
-  { kind: 'circle', bg: '#FFFFFF', fg: BADGE_YELLOW },
+  { kind: 'circle', bg: '#FFFFFF', fg: '#111111' },
 ]
 const BADGE_HOLD_MS = 3000
 const badgeEls = []
@@ -492,8 +786,12 @@ let badgeIdx = 0
 function paintTile(tile, style, num) {
   tile.style.background = style.bg
   tile.style.color = style.fg
-  tile.innerHTML = style.kind === 'circle' ? '<i></i>' : (style.kind === 'hash' ? '#' : String(num))
+  tile.innerHTML = style.kind === 'circle' ? '<i></i>'
+    : style.kind === 'hash' ? '#'
+    : String(num)
 }
+
+
 
 function makeBadge(num) {
   const el = document.createElement('div')
@@ -504,15 +802,15 @@ function makeBadge(num) {
   b.style.transform = 'translateX(-100%)'
   paintTile(a, BADGE_STYLES[0], num)
   el.append(a, b)
-  badgeEls.push({ el, num, tiles: [a, b], live: 0 })
+  badgeEls.push({ el, num, tiles: [a, b], live: 0, phase: 0 })
   return el
 }
 
 // Turn every badge together: paint the incoming tile, park it off to the left
 // without a transition, then let both run.
 function turnBadges(toIdx) {
-  const st = BADGE_STYLES[toIdx]
   badgeEls.forEach((b) => {
+    const st = BADGE_STYLES[toIdx]
     const cur = b.tiles[b.live]
     const next = b.tiles[1 - b.live]
     paintTile(next, st, b.num)
@@ -536,7 +834,8 @@ const grid = document.getElementById('grid')
 
 function buildCard(card) {
   const el = document.createElement('div')
-  el.className = 'card'
+  el.className = 'card' + (card.whole ? ' whole' : '')
+  if (card.ar) el.style.setProperty('--ar', card.ar)
   el.style.background = card.bg
   const overPhoto = card.kind === 'video' || card.kind === 'photo' || card.kind === 'image' || card.kind === 'slides'
   const ink = card.ink || (overPhoto || card.light ? 'rgba(255,255,255,0.94)' : 'rgba(0,0,0,0.88)')
@@ -599,6 +898,14 @@ function buildCard(card) {
     el.insertAdjacentHTML('beforeend', '<div class="static"></div>')
   }
 
+  // A card of pure artwork carries no type at all — nothing is laid over
+  // someone's work, the same rule the rings follow.
+  if (!card.lines) {
+    if (card.badge) el.appendChild(makeBadge(card.badge))
+    if (card.open) el.addEventListener('click', card.open)
+    return el
+  }
+
   const head = document.createElement('div')
   head.className = 'head'
   head.innerHTML =
@@ -610,6 +917,18 @@ function buildCard(card) {
         + card.subLines.map(l => `<span>${l}</span>`).join('') + '</h3>'
       : card.sub ? `<p class="sub" style="color:${card.subColor || inkSub}">${card.sub}</p>` : '')
   el.appendChild(head)
+
+  if (card.notes) {
+    const n = document.createElement('div')
+    n.className = 'notes'
+    n.innerHTML = card.notes.map((b) =>
+      '<div class="note">' +
+      `<span class="noteLabel" style="color:${inkSub}">${b.label}</span>` +
+      b.lines.map((l) => `<span class="noteName${b.small ? ' small' : ''}" style="color:${ink}">${l}</span>`).join('') +
+      (b.foot ? `<span class="noteFoot" style="color:${inkSub}">${b.foot.toUpperCase()}</span>` : '') +
+      '</div>').join('')
+    el.appendChild(n)
+  }
 
   if (card.foot) {
     el.insertAdjacentHTML('beforeend', `<div class="foot" style="color:${inkSub}">${card.foot}</div>`)
@@ -800,6 +1119,71 @@ function openEnquiries() {
 }
 
 document.getElementById('subscribeBtn').addEventListener('click', openSubscribe)
+
+// ── Lobby audio ───────────────────────────────────────────────────────────────
+// The same bed the ring plays, and the same file — on the ring it is a Web Audio
+// graph because the track has to run backwards when you scrub the carousel the
+// other way. There is no carousel here and nothing to run backwards, so a plain
+// looping element is the whole requirement.
+//
+// It starts silent: a browser will not sound anything until the reader has
+// asked for it, which is why ON is the grey state on arrival rather than a
+// purple one that would be lying.
+const LOBBY_SRC = 'audio/ethernity_lobby.mp3'
+const AUD_FADE_MS = 600          // the ring's FADE_TOGGLE, in milliseconds
+const audOn = document.getElementById('audOn')
+const audOff = document.getElementById('audOff')
+let lobbyEl = null, audFade = null, audWanted = false
+
+function paintAudio() {
+  audOn.className = audWanted ? 'on' : 'off'
+  audOff.className = audWanted ? 'off' : 'on'
+}
+
+// Nothing on this site cuts, so the bed arrives and leaves on a ramp. The
+// element's own volume is the only gain available without a Web Audio graph.
+function fadeAudio(to, after) {
+  if (audFade) cancelAnimationFrame(audFade)
+  const from = lobbyEl.volume, t0 = performance.now()
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / AUD_FADE_MS)
+    lobbyEl.volume = from + (to - from) * k
+    if (k < 1) { audFade = requestAnimationFrame(step) }
+    else { audFade = null; if (after) after() }
+  }
+  audFade = requestAnimationFrame(step)
+}
+
+async function audioOn() {
+  if (audWanted) return
+  audWanted = true; paintAudio()        // optimistic, as the ring's PLAY is
+  if (!lobbyEl) {
+    lobbyEl = new Audio(LOBBY_SRC)
+    lobbyEl.loop = true
+    lobbyEl.preload = 'none'
+  }
+  lobbyEl.volume = 0
+  try {
+    await lobbyEl.play()
+  } catch (e) {
+    // Blocked, or the file would not play — say so by going back to OFF rather
+    // than leaving a purple ON over silence.
+    audWanted = false; paintAudio()
+    return
+  }
+  if (!audWanted) return                // turned off again while it loaded
+  fadeAudio(1)
+}
+
+function audioOff() {
+  if (!audWanted) return
+  audWanted = false; paintAudio()
+  if (lobbyEl) fadeAudio(0, () => { if (!audWanted) lobbyEl.pause() })
+}
+
+audOn.addEventListener('click', audioOn)
+audOff.addEventListener('click', audioOff)
+paintAudio()
 </script>
 </body>
 </html>

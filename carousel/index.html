@@ -332,7 +332,19 @@
   // Size still bounds the tablet tier (iPad Pro 12.9" is 1024x1366, the largest
   // we care about), but a device must identify as a tablet to enter it at all —
   // so no desktop window, at any size, can fall in.
-  var isPhone  = q ? q === 'phone'  : (isPhoneDevice || (shortSide < 600 && longSide < 1200))
+  // A view the visitor picked in the menu outranks detection — that is the
+  // point of offering the choice. An explicit ?tier= still outranks both, so a
+  // forced tier stays a way to check any of them whatever is remembered.
+  var pref = null
+  try { pref = localStorage.getItem('oswinView') } catch (e) {}
+  if (!q && pref === 'mobile' && !location.pathname.endsWith('/mobile.html')) {
+    location.replace('mobile.html')
+    return
+  }
+
+  var isPhone  = q ? q === 'phone'
+               : pref === 'carousel' ? false
+               : (isPhoneDevice || (shortSide < 600 && longSide < 1200))
   var isTablet = q ? q === 'tablet' : (!isPhone && isTabletDevice && shortSide <= 1024)
 
   window.__TIER = { isPhone: isPhone, isTablet: isTablet }
@@ -616,7 +628,12 @@ const PORTALS = [
   // moves the cards they point at.
   { image: 'images/interviews/oli.jpg', title: 'INTERVIEWS', sub: 'Latest \u00b7 Oli Goldsmith',
     bg: '#9285c7', titleColor: '#FFFFFF', iframe: 'interviews.html?i=oli',
-    tonal: { alpha: 0.85, grayscale: 1, tint: '#9285c7', shadow: '#2c234d' } },
+    tonal: { alpha: 0.85, grayscale: 1, tint: '#9285c7', shadow: '#2c234d' },
+    // Seconds per transition, and the stops it moves through on a loop. Two
+    // stops at 5s each is a 10s round trip: 5s draining to grey, 5s coming back.
+    // The sequencer takes any number of stops, so adding one is a list edit.
+    tonalCycle: 5,
+    tonalStops: ['#9285c7', 'grey'] },
 ]
 const LANDING_INDEX = 3   // Oli — the card the ring lands on
 const COUNT = PORTALS.length
@@ -866,6 +883,41 @@ function makePortalReflTex(bgHex) {
   fade.addColorStop(1,    'rgba(14,11,8,0.82)')
   ctx.fillStyle = fade; ctx.fillRect(0, 0, W, H)
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
+}
+
+// Luminance-matched grey: same perceived brightness, no colour. Matching the
+// luminance is what keeps the crossfade from also looking like a brightness
+// change — only the colour should move.
+function desaturateHex(hex) {
+  if (!hex || hex[0] !== '#' || hex.length < 7) return hex
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  const l = Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b)
+  const h = l.toString(16).padStart(2, '0')
+  return '#' + h + h + h
+}
+
+// The shadow end for a given highlight: same hue and saturation, taken down to
+// the lightness the periwinkle pair already used (65% highlight / 22% shadow).
+// Derived rather than declared so a new stop only has to name one colour.
+function shadeFor(hex) {
+  const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255
+  const mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx - mn
+  const l = (mx + mn) / 2
+  let h = 0, sat = 0
+  if (d) {
+    sat = d / (1 - Math.abs(2*l - 1))
+    h = mx === r ? ((g-b)/d) % 6 : mx === g ? (b-r)/d + 2 : (r-g)/d + 4
+    h *= 60; if (h < 0) h += 360
+  }
+  const L = 0.22, a = sat * Math.min(L, 1-L)
+  const f = (n) => {
+    const k = (n + h/30) % 12
+    const v = L - a * Math.max(-1, Math.min(k-3, Math.min(9-k, 1)))
+    return Math.round(255*v).toString(16).padStart(2,'0')
+  }
+  return '#' + f(0) + f(8) + f(4)
 }
 
 // ── Duotone trace — a faint single-hue impression of a video frame or still
@@ -1537,7 +1589,7 @@ const BADGE_YELLOW = '#F9FF45'
 const BADGE_STYLES = [
   { kind: 'hash',   bg: '#111111',    fg: '#FFFFFF' },   // a hash, white on black
   { kind: 'number', bg: BADGE_YELLOW, fg: '#111111' },   // the issue number
-  { kind: 'circle', bg: '#FFFFFF',    fg: BADGE_YELLOW },// the Journal mark
+  { kind: 'circle', bg: '#FFFFFF',    fg: '#111111' },   // the Journal mark
 ]
 const BADGE_S = 256
 const BADGE_TRANS_MS = 550   // slide duration
@@ -1872,6 +1924,63 @@ for (let i = 0; i < COUNT; i++) {
   const baseCanvas = document.createElement('canvas'); baseCanvas.width = 600; baseCanvas.height = 800
   const baseCtx = baseCanvas.getContext('2d')
   drawCardBase(baseCtx, portal, 600, 800, drawTrace)
+
+  // A card with tonalCycle is drawn TWICE at build: once as it is, and once with
+  // every colour on it desaturated. The render loop then crossfades the two.
+  //
+  // Baked rather than computed per frame on purpose. The alternative — re-running
+  // the duotone with an interpolated tint on every frame — means decoding and
+  // recolouring the portrait sixty times a second to animate a hue. Two cached
+  // bitmaps and an alpha cost one extra drawImage.
+  //
+  // Both ends come from the SAME drawCardBase with the same trace, so the two
+  // images register pixel for pixel and the fade cannot show a seam or a shift.
+  // A card with tonalStops is baked once PER STOP, and the render loop
+  // crossfades between consecutive bakes. 'grey' is a stop like any other: the
+  // card's own colours desaturated, which is what makes the fade read as colour
+  // draining rather than as a different picture.
+  //
+  // Baked rather than computed per frame on purpose. Re-running the duotone with
+  // an interpolated tint would mean recolouring the portrait sixty times a
+  // second to animate a hue; this is one extra drawImage. Every bake comes from
+  // the SAME drawCardBase with the same trace, so they register pixel for pixel
+  // and no fade can show a seam or a shift.
+  let baseStops = null, stopColours = null
+  let renderStopBases = () => {}
+  if (portal.tonalStops) {
+    baseStops = portal.tonalStops.map(() => {
+      const c = document.createElement('canvas'); c.width = 600; c.height = 800; return c
+    })
+    stopColours = portal.tonalStops.map((st) => st === 'grey' ? desaturateHex(portal.bg) : st)
+    // A function, not inline: the card's image decodes AFTER this build pass and
+    // the colour base is re-rendered when it lands (see applyImg). Every stop
+    // has to be re-baked at that same moment, or they stay as first baked —
+    // flat slabs with no portrait in them.
+    renderStopBases = () => {
+      const keep = { bg: portal.bg, titleColor: portal.titleColor, subColor: portal.subColor, tonal: portal.tonal }
+      portal.tonalStops.forEach((stop, si) => {
+        if (stop === 'grey') {
+          portal.bg = desaturateHex(keep.bg)
+          portal.titleColor = desaturateHex(keep.titleColor)
+          if (keep.subColor) portal.subColor = desaturateHex(keep.subColor)
+          portal.tonal = Object.assign({}, keep.tonal, {
+            tint: desaturateHex(keep.tonal.tint || keep.bg),
+            shadow: keep.tonal.shadow ? desaturateHex(keep.tonal.shadow) : null,
+          })
+        } else {
+          portal.bg = stop
+          portal.titleColor = keep.titleColor
+          portal.subColor = keep.subColor
+          portal.tonal = Object.assign({}, keep.tonal, { tint: stop, shadow: shadeFor(stop) })
+        }
+        const sctx = baseStops[si].getContext('2d')
+        sctx.clearRect(0, 0, 600, 800)
+        drawCardBase(sctx, portal, 600, 800, drawTrace)
+      })
+      Object.assign(portal, keep)
+    }
+    renderStopBases()
+  }
   if (i === MOVING_IMAGES_INDEX) {
     movingImagesFaceTex = faceTex
     movingImagesFaceCtx = faceTex.image.getContext('2d')
@@ -1922,6 +2031,7 @@ for (let i = 0; i < COUNT; i++) {
     const applyImg = () => {
       portal._bw = null   // force the TV card to re-bake its B&W photo
       drawCardBase(baseCtx, portal, 600, 800, drawTrace)
+      renderStopBases()   // keep every colour stop in step with the live base
       const fctx = faceTex.image.getContext('2d')
       fctx.clearRect(0, 0, 600, 800)
       fctx.drawImage(baseCanvas, 0, 0)
@@ -1974,7 +2084,7 @@ for (let i = 0; i < COUNT; i++) {
   // Every card redraws each frame so they all wear the same live static. Only
   // video cards need their base re-rendered per frame (live footage); the rest
   // reuse their cached base and just get a fresh static pass over it.
-  animatedFaceTexes.push({ idx: i, portal, faceTex, ctx: faceTex.image.getContext('2d'), baseCanvas, baseCtx, drawTrace, live: !!portal._video || !!portal.slideshow || i === ENQUIRIES_INDEX })
+  animatedFaceTexes.push({ idx: i, portal, faceTex, ctx: faceTex.image.getContext('2d'), baseCanvas, baseCtx, baseStops, stopColours, mesh, drawTrace, live: !!portal._video || !!portal.slideshow || i === ENQUIRIES_INDEX })
 
   scene.add(mesh)
   panels.push(mesh)
@@ -2867,7 +2977,34 @@ function render(now) {
       if (!v || v.readyState >= 2) drawCardBase(vc.baseCtx, vc.portal, 600, 800, vc.drawTrace)
     }
     vc.ctx.clearRect(0, 0, 600, 800)
-    vc.ctx.drawImage(vc.baseCanvas, 0, 0)
+    if (vc.baseStops) {
+      // Walk the stop list on a loop, holding nothing: every moment is somewhere
+      // between two bakes. tonalCycle is seconds PER TRANSITION, so the full
+      // round trip is that times the number of stops.
+      const n = vc.baseStops.length
+      const t = (now / 1000) / vc.portal.tonalCycle
+      const i0 = Math.floor(t) % n
+      const i1 = (i0 + 1) % n
+      // Raised cosine, not linear: slope zero at both ends, so the fade eases
+      // out of one stop and into the next with no visible turn between them.
+      const f = 0.5 - 0.5 * Math.cos((t - Math.floor(t)) * Math.PI)
+      vc.ctx.drawImage(vc.baseStops[i0], 0, 0)
+      vc.ctx.globalAlpha = f
+      vc.ctx.drawImage(vc.baseStops[i1], 0, 0)
+      vc.ctx.globalAlpha = 1
+      // The slab is not the face: its edges, its glass and the glow it throws on
+      // the floor are materials built once from bg, so without this the card
+      // would change colour while the object around it stayed periwinkle.
+      if (vc.mesh && vc.stopColours) {
+        const ca = new THREE.Color(vc.stopColours[i0]), cb = new THREE.Color(vc.stopColours[i1])
+        const lerped = ca.clone().lerp(cb, f)
+        const m = vc.mesh.material
+        m[0].color.copy(lerped); m[1].color.copy(lerped)   // sides
+        m[2].color.copy(lerped); m[3].color.copy(lerped)   // glass
+      }
+    } else {
+      vc.ctx.drawImage(vc.baseCanvas, 0, 0)
+    }
     applyTvStatic(vc.ctx, 600, 800)
     vc.faceTex.needsUpdate = true
   })
@@ -2971,7 +3108,13 @@ const noteBase = document.createElement('canvas'); noteBase.width = 600; noteBas
 const noteBaseCtx = noteBase.getContext('2d')
 const noteFaceCanvas = document.createElement('canvas'); noteFaceCanvas.width = 600; noteFaceCanvas.height = 800
 const noteFaceCtx = noteFaceCanvas.getContext('2d')
-const noteHits = { play: null, close: null }
+const noteHits = { play: null, close: null, view: null }
+
+// Which view the visitor has chosen, remembered across visits. Read by the tier
+// script in <head> too, so the choice survives a reload rather than being
+// overruled by detection the moment they come back.
+const VIEW_KEY = 'oswinView'
+function setView(v) { try { localStorage.setItem(VIEW_KEY, v) } catch (e) {} }
 
 // Type is 2/3 the size of a card title (titleLayout tops out at 74px on this
 // same 600x800 face), matching the proportion agreed for the old HTML box.
@@ -2992,11 +3135,32 @@ function drawNoteBase() {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H)
   ctx.textAlign = 'left'; ctx.textBaseline = 'top'
 
+  // ── View toggle ───────────────────────────────────────────────────────────
+  // Set across the head of the menu, opposite the close. Purple states what is
+  // true — the view you are in — and grey what is merely available, which is the
+  // reading the grid's own pair uses for its audio state too. So the colour
+  // means one thing across the site rather than carrying the affordance here and
+  // the state there.
+  const vs = 22
+  ctx.font = `700 ${vs}px ${FONT}`
+  ctx.letterSpacing = '0.14em'
+  const vy = 52
+  ctx.fillStyle = NOTE_PURPLE
+  ctx.fillText('CAROUSEL', lm, vy)
+  const wCar = ctx.measureText('CAROUSEL').width
+  ctx.fillStyle = 'rgba(17,17,17,0.28)'
+  ctx.fillText('/', lm + wCar + 14, vy)
+  const wSlash = ctx.measureText('/').width
+  const mx = lm + wCar + 14 + wSlash + 14
+  ctx.fillStyle = 'rgba(17,17,17,0.38)'
+  ctx.fillText('GRID', mx, vy)
+  noteHits.view = [mx - 12, vy - 12, ctx.measureText('GRID').width + 24, vs + 24]
+
   ctx.font = `700 ${size}px ${FONT}`
   ctx.letterSpacing = '-0.01em'
   ctx.fillStyle = '#111111'
   const lines = wrapText(ctx, NOTE_COPY.toUpperCase(), maxW)
-  let y = 116
+  let y = 150
   lines.forEach((l) => { ctx.fillText(l, lm, y); y += size * 1.18 })
 
   y += 22
@@ -3226,6 +3390,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   const inRect = (r) => r && px >= r[0] && px <= r[0] + r[2] && py >= r[1] && py <= r[1] + r[3]
   if (inRect(noteHits.close)) { noteOpen = false; return }
   if (inRect(noteHits.play)) { toggleLobby(); drawNoteBase(); return }
+  // Remembered before navigating, so mobile.html is not bounced straight back
+  // here by this page's own detection on the next load.
+  if (inRect(noteHits.view)) { setView('mobile'); location.href = 'mobile.html'; return }
   for (const m of noteHits.menu || []) {
     if (!inRect(m.rect)) continue
     if (m.id === 'enquiries') { focusCard(ENQUIRIES_INDEX); noteOpen = false }

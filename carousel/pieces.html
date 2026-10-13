@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Oswin Journal — Oli Goldsmith, Selected Pieces</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <style>
   html, body { margin:0; min-height:100vh; background:#0a0a0a; color:#fff;
                font-family:'Helvetica Neue', Helvetica, Arial, sans-serif; }
@@ -55,6 +57,11 @@ const PIECES = [
   { src: 'images/oli_pieces/seven-steps.jpg',    title: 'Seven Steps' },
   { src: 'images/oli_pieces/toilent-toll.jpg',   title: 'Toilent Toll' },
   { src: 'images/oli_pieces/tvtaste.jpg',        title: 'TV Taste' },
+  // Not a painting: a spine. Same height as the works, a fifth of their width,
+  // with the word turned on its side. It carries the ring's TV static, which
+  // the paintings deliberately do not — nothing is laid over someone's work,
+  // but this board is ours.
+  { spine: 'INTERVIEW', href: 'interviews.html?i=oli', title: 'Interview' },
 ]
 
 const SLOTS = PIECES.length
@@ -73,11 +80,43 @@ const FOV = 55
 const vFOV = (FOV * Math.PI) / 180
 const panelH = CARD_FOV_FRAC * 2 * NEAR * Math.tan(vFOV / 2)
 const panelW = panelH * ASPECT
+// The spine is a fifth of a painting's width at the same height. Declared here
+// with the other dimensions rather than down with the geometry, because the
+// ring's spacing is worked out before that point.
+const SPINE_ASPECT = ASPECT / 5
 const THICK = 0.16 * (CARD_FOV_FRAC / 0.9)
 const REFL_FRAC = 0.55
 const reflH = panelH * REFL_FRAC
-const RADIUS = (panelW * (1 + GAP_FRAC)) / (2 * Math.sin(Math.PI / SLOTS))
+// Cards are NOT evenly spaced. Even spacing divides the turn into equal slots
+// and sizes them for the widest card, which is right when everything is the
+// same shape — but the spine is a fifth of a painting's width and was sitting
+// in a painting-sized slot, marooned between two gaps.
+//
+// Instead each card is given an arc of its OWN width plus one constant gap, and
+// the radius is whatever makes those arcs close the circle. The space between
+// any two neighbours is then the same everywhere, whatever they are.
+const GAP = panelW * GAP_FRAC                 // constant edge-to-edge space
+// Each card contributes HALF of GAP to each of its sides, so a pair of ordinary
+// neighbours makes one full GAP between them. The spine contributes NONE of its
+// own, which leaves only its neighbours' halves — exactly half the space either
+// side of it, with every other gap untouched.
+const ARCS = PIECES.map((p) => p.spine
+  ? panelH * SPINE_ASPECT          // no padding of its own
+  : panelW + GAP)
+const CIRCUM = ARCS.reduce((a, b) => a + b, 0)
+const RADIUS = CIRCUM / (Math.PI * 2)
 const CAM_Z = RADIUS + NEAR
+
+// Each card's resting angle: the centre of its own arc, measured round from the
+// first. Precomputed once — the ring's whole layout is this list.
+const SLOT_ANGLE = (() => {
+  const out = []
+  let acc = 0
+  ARCS.forEach((w) => { out.push(((acc + w / 2) / CIRCUM) * Math.PI * 2); acc += w })
+  return out
+})()
+// What a uniform step would have been, used only for drag feel and arrow keys.
+const MEAN_STEP = (Math.PI * 2) / SLOTS
 
 const scene = new THREE.Scene()
 const bgC = document.createElement('canvas'); bgC.width = 4; bgC.height = 512
@@ -122,6 +161,60 @@ scene.add(keyLight, rimLight)
 
 const panelGeo = new THREE.BoxGeometry(panelW, panelH, THICK)
 const reflGeo = new THREE.PlaneGeometry(panelW, reflH)
+
+const spineGeo = new THREE.BoxGeometry(panelH * SPINE_ASPECT, panelH, THICK)
+const spineReflGeo = new THREE.PlaneGeometry(panelH * SPINE_ASPECT, reflH)
+
+// ── TV static — index.html's, verbatim ──────────────────────────────────────
+const _noiseCanvas = document.createElement('canvas')
+_noiseCanvas.width = 220; _noiseCanvas.height = 293
+const _noiseCtx = _noiseCanvas.getContext('2d')
+function regenNoise() {
+  const id = _noiseCtx.createImageData(_noiseCanvas.width, _noiseCanvas.height)
+  const d = id.data
+  for (let i = 0; i < d.length; i += 4) {
+    const v = (Math.random() * 255) | 0
+    d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255
+  }
+  _noiseCtx.putImageData(id, 0, 0)
+}
+const GRAIN_LIGHTEN = 0.088, GRAIN_MULTIPLY = 0.06
+function applyTvStatic(ctx, W, H) {
+  ctx.save()
+  ctx.imageSmoothingEnabled = false
+  ctx.globalCompositeOperation = 'lighten'; ctx.globalAlpha = GRAIN_LIGHTEN
+  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = GRAIN_MULTIPLY
+  ctx.drawImage(_noiseCanvas, 0, 0, W, H)
+  ctx.restore()
+  ctx.save()
+  ctx.globalAlpha = 0.16; ctx.fillStyle = '#000'
+  for (let y = 0; y < H; y += 3) ctx.fillRect(0, y, W, 1)
+  ctx.restore()
+}
+
+// The spine's content, cached once so the loop can re-lay fresh static over it
+// each frame without re-rendering the type.
+const SPINE_W = 160, SPINE_H = Math.round(SPINE_W / SPINE_ASPECT)
+const SPINE_BG = '#FFFFFF'
+const SPINE_INK = '#111111'
+function drawSpineBase(ctx, word) {
+  ctx.fillStyle = SPINE_BG
+  ctx.fillRect(0, 0, SPINE_W, SPINE_H)
+  ctx.save()
+  // A quarter turn clockwise about the centre, so the baseline runs top to
+  // bottom and the word reads downward.
+  ctx.translate(SPINE_W / 2, SPINE_H / 2)
+  ctx.rotate(Math.PI / 2)
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  // The interview card's own face: Helvetica Neue at 700, tightened the same way.
+  ctx.font = "700 74px 'Helvetica Neue', Helvetica, Arial, sans-serif"
+  ctx.letterSpacing = '-0.01em'
+  ctx.fillStyle = SPINE_INK
+  ctx.fillText(word, 0, 0)
+  ctx.restore()
+}
 
 const roundedAlphaMap = (() => {
   const AW = 128, AH = Math.round(AW / ASPECT)
@@ -191,32 +284,54 @@ PIECES.forEach((piece, i) => {
   })
   const reflMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.38 })
 
-  const im = new Image()
-  im.onload = () => {
-    faceTex.image = im
+  if (piece.spine) {
+    // Its own base canvas, kept so the loop can re-lay static without redrawing
+    // the type. The face texture is a separate canvas the loop composites into.
+    const base = document.createElement('canvas')
+    base.width = SPINE_W; base.height = SPINE_H
+    drawSpineBase(base.getContext('2d'), piece.spine)
+    const face = document.createElement('canvas')
+    face.width = SPINE_W; face.height = SPINE_H
+    piece._base = base
+    piece._faceCtx = face.getContext('2d')
+    faceTex.image = face
     faceTex.needsUpdate = true
-    // Edges and glass take the painting's own average, so the slab reads as part
-    // of the work rather than as a dark box someone taped a picture to.
-    const s = document.createElement('canvas'); s.width = 1; s.height = 1
-    s.getContext('2d').drawImage(im, 0, 0, 1, 1)
-    const [r, g, b] = s.getContext('2d').getImageData(0, 0, 1, 1).data
-    const col = new THREE.Color('rgb(' + r + ',' + g + ',' + b + ')')
+    // The slab follows the face: a white board should not have near-black
+    // edges. Converted in, like the sketchbook's — handed straight to a
+    // material the renderer encodes it out again and a white washes brighter
+    // than intended against the dark room.
+    const col = new THREE.Color(SPINE_BG).convertSRGBToLinear()
     glassMat.color.copy(col); sideMat.color.copy(col)
-    reflMat.map = reflTexFromImage(im); reflMat.needsUpdate = true
+  } else {
+    const im = new Image()
+    im.onload = () => {
+      faceTex.image = im
+      faceTex.needsUpdate = true
+      // Edges and glass take the painting's own average, so the slab reads as
+      // part of the work rather than a dark box someone taped a picture to.
+      const s = document.createElement('canvas'); s.width = 1; s.height = 1
+      s.getContext('2d').drawImage(im, 0, 0, 1, 1)
+      const [r, g, b] = s.getContext('2d').getImageData(0, 0, 1, 1).data
+      const col = new THREE.Color('rgb(' + r + ',' + g + ',' + b + ')')
+      glassMat.color.copy(col); sideMat.color.copy(col)
+      reflMat.map = reflTexFromImage(im); reflMat.needsUpdate = true
+    }
+    im.src = piece.src
   }
-  im.src = piece.src
 
-  const mesh = new THREE.Mesh(panelGeo, [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
+  const mesh = new THREE.Mesh(piece.spine ? spineGeo : panelGeo,
+    [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
   mesh.frustumCulled = false
   mesh.userData.piece = piece
 
-  const reflMesh = new THREE.Mesh(reflGeo, reflMat)
+  const reflMesh = new THREE.Mesh(piece.spine ? spineReflGeo : reflGeo, reflMat)
   reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
   reflMesh.frustumCulled = false
   mesh.add(reflMesh)
 
   ring.add(mesh)
   piece._mesh = mesh
+  piece._faceTex = faceTex
 })
 
 // Each panel is set from its CURRENT orbit position: rotation.y = atan2(x, z)
@@ -224,14 +339,14 @@ PIECES.forEach((piece, i) => {
 // is straight at the camera.
 function placePanels() {
   PIECES.forEach((piece) => {
-    const a = (piece._slot / SLOTS) * Math.PI * 2 + spin
+    const a = SLOT_ANGLE[piece._slot] + spin
     const x = Math.cos(a) * RADIUS, z = Math.sin(a) * RADIUS
     piece._mesh.position.set(x, 0, z)
     piece._mesh.rotation.set(0, Math.atan2(x, z), 0)
   })
 }
 
-function slotSpin(piece) { return Math.PI / 2 - (piece._slot / SLOTS) * Math.PI * 2 }
+function slotSpin(piece) { return Math.PI / 2 - SLOT_ANGLE[piece._slot] }
 
 let spin = slotSpin(PIECES[Math.floor((PIECES.length - 1) / 2)]), target = spin
 let dragging = false, dragFrom = 0, spinFrom = 0, moved = 0, activeId = null
@@ -265,7 +380,7 @@ addEventListener('pointermove', (e) => {
   moved = Math.max(moved, Math.abs(dx))
   // Negated so the ring travels WITH the hand: drag left and the piece that was
   // on the right comes to the centre.
-  spin = target = spinFrom - (dx / (innerWidth / 3)) * ((Math.PI * 2) / SLOTS)
+  spin = target = spinFrom - (dx / (innerWidth / 3)) * MEAN_STEP
 })
 
 function endDrag(e) {
@@ -291,11 +406,17 @@ cv.addEventListener('click', (e) => {
   const hit = raycaster.intersectObjects(ring.children, false)[0]
   if (!hit) return
   const piece = hit.object.userData.piece
-  if (piece) target = nearest(slotSpin(piece))
+  if (!piece) return
+  // Off-centre it turns to face you first; only a centred card acts.
+  if (Math.abs(slotSpin(piece) - spin) < 0.01 && piece.href) {
+    location.replace(piece.href)
+    return
+  }
+  target = nearest(slotSpin(piece))
 })
 
 addEventListener('keydown', (e) => {
-  const step = (Math.PI * 2) / SLOTS
+  const step = MEAN_STEP
   if (e.key === 'ArrowLeft')  target = nearest(target + step * 0.6)
   if (e.key === 'ArrowRight') target = nearest(target - step * 0.6)
   if (e.key === 'Escape') history.back()
@@ -311,6 +432,17 @@ const captionEl = document.getElementById('caption')
 let shownTitle = null
 
 function frame() {
+  // One fresh noise field per frame, blitted over the spine's cached content.
+  // Only the spine asks for it: the paintings carry no static, by choice.
+  regenNoise()
+  PIECES.forEach((piece) => {
+    if (!piece._faceCtx) return
+    piece._faceCtx.clearRect(0, 0, SPINE_W, SPINE_H)
+    piece._faceCtx.drawImage(piece._base, 0, 0)
+    applyTvStatic(piece._faceCtx, SPINE_W, SPINE_H)
+    piece._faceTex.needsUpdate = true
+  })
+
   spin += (target - spin) * 0.16
   if (Math.abs(target - spin) < 0.0001) spin = target
   placePanels()
