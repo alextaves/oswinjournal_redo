@@ -1323,7 +1323,10 @@ function openReader(card) {
   } else {
     ;((card.read && card.read.body) || []).forEach((t) => { para(t); wrote = true })
   }
-  if (!wrote) para('[ copy to come ]', 'pending')
+  // Reader-facing, not scaffolding: a card whose piece is not written yet says
+  // so in the voice the rest of the site uses. Same words as the interview,
+  // which carries its own copy now.
+  if (!wrote) para('Coming shortly.', 'pending')
 
   o.appendChild(inner)
 
