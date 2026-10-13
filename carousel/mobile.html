@@ -96,10 +96,24 @@
   .viewtoggle .pair { display: flex; align-items: center; gap: 10px; }
   .viewtoggle .pair + .pair { margin-left: 26px; }
   .viewtoggle .lab { color: rgba(17,17,17,0.38); }
+  /* The ring is built for a large screen, and below the 12.9" iPad's 1024pt
+     portrait width it is not offered — so the pair that would take you there is
+     not shown either. Measured on width alone: a narrow window on a desktop is
+     as unsuited to the ring as the device is, and `--measure` already treats
+     1024 as the largest screen this view was drawn for.
+     The margin goes with it, or the audio pair would start 26px in from an
+     element that is no longer there. */
+  @media (max-width: 1023px) {
+    .viewtoggle .pair.views { display: none; }
+    .viewtoggle .pair + .pair { margin-left: 0; }
+  }
 
   .masthead {
     position: relative;
     display: flex; align-items: center; justify-content: center;
+    /* One line, always — fitMastheadLine() below shrinks the type to hold it
+       rather than letting the name break across two. */
+    white-space: nowrap;
     margin-bottom: 10px;
     border-radius: 6px;
     background: #F9FF45; color: #111111;
@@ -118,7 +132,16 @@
      the row always divides the full width exactly and never leaves a gutter. */
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap); }
   @media (min-width: 900px) {
-    .grid { grid-template-columns: repeat(auto-fill, minmax(var(--card), 1fr)); }
+    /* The floor is --card OR half the row, whichever is smaller — so a width
+       that cannot seat two full cards seats two narrower ones instead of
+       dropping to a single column. At 1024 (the large iPad, portrait) the plain
+       minmax(507px) asked for 1024px of track inside 1004 and fell back to one
+       card per row, which is the widest this view ever renders and the reason
+       the masthead needed two lines to hold its name. */
+    .grid {
+      grid-template-columns:
+        repeat(auto-fill, minmax(min(var(--card), (100% - var(--gap)) / 2), 1fr));
+    }
   }
 
   .card {
@@ -380,7 +403,7 @@
   <!-- The ring's menu carries the same pair at its head; this is its other
        half, so the choice can be undone from the side it lands on. -->
   <div class="viewtoggle">
-    <span class="pair">
+    <span class="pair views">
       <a id="toCarousel" class="off" href="index.html?tier=desktop">CAROUSEL</a>
       <span class="sep">/</span>
       <span class="on">GRID</span>
@@ -971,7 +994,32 @@ function applyMastheadMetrics(el) {
   const title = grid.querySelector('.card .title')
   if (!title || !el) return
   el.style.height = title.getBoundingClientRect().height + 'px'
-  el.style.fontSize = getComputedStyle(title).fontSize
+  const base = parseFloat(getComputedStyle(title).fontSize)
+  el.style.fontSize = base + 'px'
+  fitMastheadLine(el, base)
+}
+
+// The card title is what the band WANTS to be; this is what it can be. A name
+// is one line or it is not a masthead, so when the cards' size would push it
+// onto two the type gives way instead. Measured off the rendered text with
+// nowrap already applied, so the width is the true single-line width rather
+// than that of a block that has already wrapped.
+function fitMastheadLine(el, base) {
+  const node = [...el.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim())
+  if (!node) return
+  // Keep clear of the home disc, and by the same amount on the other side so
+  // the title keeps the centre of the band rather than the centre of what is
+  // left of it.
+  const disc = el.querySelector('.home')
+  const reserve = disc
+    ? 2 * (el.getBoundingClientRect().right - disc.getBoundingClientRect().left + 10)
+    : 0
+  const avail = el.clientWidth - reserve
+  if (avail <= 0) return
+  const range = document.createRange()
+  range.selectNodeContents(node)
+  const w = range.getBoundingClientRect().width
+  if (w > avail) el.style.fontSize = Math.max(8, base * (avail / w)) + 'px'
 }
 function sizeMastheads() {
   document.querySelectorAll('.masthead').forEach(applyMastheadMetrics)
