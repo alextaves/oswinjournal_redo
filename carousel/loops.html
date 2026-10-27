@@ -356,7 +356,7 @@ addEventListener('keydown', (e) => {
   const step = (Math.PI * 2) / COUNT
   if (e.key === 'ArrowLeft')  target = nearest(target + step * 0.6)
   if (e.key === 'ArrowRight') target = nearest(target - step * 0.6)
-  if (e.key === 'Escape') history.back()
+  if (e.key === 'Escape') goBack()
 })
 
 addEventListener('resize', () => {
@@ -417,7 +417,17 @@ function frame() {
   requestAnimationFrame(frame)
 }
 
-document.getElementById('backBtn').onclick = () => { history.back() }
+// Embedded in the ring's card overlay, history.back() drives the PARENT's
+// history, which trips its popstate handler and closes the overlay — the same
+// contract oli.html's own BACK keeps. Standalone, though — opened directly or
+// refreshed into — there is no entry behind this page and back() did nothing
+// at all, which is the bug this replaces.
+const BACK_TO = 'oli.html'
+function goBack() {
+  if (window !== window.top) { try { window.parent.history.back(); return } catch (e) {} }
+  if (history.length > 1) history.back(); else location.replace(BACK_TO)
+}
+document.getElementById('backBtn').onclick = goBack
 
 placePanels()
 frame()

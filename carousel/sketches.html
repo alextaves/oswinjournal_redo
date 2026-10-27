@@ -15,18 +15,49 @@
   #backBtn {
     position:fixed; top:20px; left:22px; z-index:20;
     padding:6px 4px; border:none; background:none; cursor:pointer;
-    color:rgba(255,255,255,0.55); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color:var(--ink-dim); font:500 14px/1 'Helvetica Neue', Helvetica, Arial, sans-serif;
     letter-spacing:0.22em; transition:color 200ms ease;
   }
-  #backBtn:hover { color:rgba(255,255,255,0.92); }
+  #backBtn:hover { color:var(--ink); }
   #counter { position:fixed; left:0; right:0; bottom:26px; z-index:20; text-align:center;
              pointer-events:none; font-size:12px; font-weight:300; letter-spacing:0.26em;
-             color:rgba(255,255,255,0.45); font-variant-numeric:tabular-nums; }
+             color:var(--ink-dim); font-variant-numeric:tabular-nums; }
+
+  /* Ink is the one thing CSS owns across both rooms; everything else in the
+     scene is WebGL and changes through applyTheme(). */
+  :root { --ink: rgba(255,255,255,0.92); --ink-dim: rgba(255,255,255,0.45); --swatch-ring: rgba(255,255,255,0.30); }
+  body.light { --ink: rgba(0,0,0,0.85); --ink-dim: rgba(0,0,0,0.38); --swatch-ring: rgba(0,0,0,0.25); }
+  html, body { transition: background-color 420ms ease; }
+  body.light { background:#ffffff; }
+
+  /* The toggle. Two swatches of the two rooms, nothing else — no label, no
+     track, no shadow. The ring says which you are in. */
+  #theme {
+    position:fixed; top:20px; right:22px; z-index:21;
+    display:flex; gap:7px; padding:6px; border-radius:999px;
+    opacity:0; transform:translateY(-4px); pointer-events:none;
+    transition: opacity 420ms ease, transform 420ms ease;
+  }
+  #theme.awake { opacity:1; transform:none; pointer-events:auto; }
+  #theme button {
+    width:15px; height:15px; padding:0; border-radius:50%; cursor:pointer;
+    border:1px solid var(--swatch-ring); background:#0A0A0C;
+    box-shadow:0 0 0 0 transparent; transition: box-shadow 220ms ease, transform 220ms ease;
+  }
+  #theme button[data-t="light"] { background:#FFFFFF; }
+  #theme button:hover { transform:scale(1.14); }
+  /* The selected swatch gets a gap then a ring, so it reads as chosen rather
+     than as merely bigger. */
+  #theme button[aria-pressed="true"] { box-shadow:0 0 0 2px var(--ink-dim); }
 </style>
 </head>
 <body>
 
 <button id="backBtn" aria-label="Back">&larr;&nbsp;&nbsp;BACK</button>
+<div id="theme" role="group" aria-label="Background">
+  <button data-t="dark"  aria-label="Black background" aria-pressed="true"></button>
+  <button data-t="light" aria-label="White background" aria-pressed="false"></button>
+</div>
 <div id="counter"></div>
 
 <script src="vendor/three.min.js"></script>
@@ -40,8 +71,8 @@
 // the rounded corner mask are all per-aspect, and the ring is not built until
 // the images have decoded — their real dimensions are the input, rather than a
 // ratio declared up front and hoped for.
-// Thirteen sheets and one card that is not a sheet: a way on to the animations
-// once you have been through the book. It is built as a canvas rather than a
+// Thirteen sheets and one card that is not a sheet: a way on to the rectangles,
+// and through them the squares and the animations. It is built as a canvas rather than a
 // file so its board matches the sheets' matt exactly — same colour value, not a
 // second export to keep in step.
 const MATT_COLOUR = '#FCFCFC'
@@ -49,7 +80,7 @@ const ENTRIES = [
   ...Array.from({ length: 13 }, (_, i) => ({
     src: 'images/oli_sketches/sketch-' + String(i + 1).padStart(2, '0') + '.jpg',
   })),
-  { label: 'more oli', href: 'loops.html', aspect: 3 / 4 },
+  { label: 'more oli', href: 'rectangles.html', aspect: 3 / 4 },
 ]
 const COUNT = ENTRIES.length
 
@@ -88,12 +119,41 @@ const THICK = 0.16 * (CARD_FOV_FRAC / 0.9)
 const REFL_FRAC = 0.55
 const reflH = panelH * REFL_FRAC
 
+// ── The two rooms ───────────────────────────────────────────────────────────
+// Everything that differs between black and white, in one table, so the toggle
+// has a single thing to read and nothing is left behind on a switch. These are
+// not inversions of each other: the dark room LIGHTS the sheets and throws
+// their own colour on the floor, the white room can only SHADE them, so the
+// reflection plane changes job rather than changing colour.
+const THEMES = {
+  dark: {
+    bg: ['#0A0A0C', '#000000'], fog: '#050506', env: '#050507',
+    hemi: ['#2a1a0a', '#0e0806', 0.15], rim: ['#ffcf90', 0.5], key: 1.1,
+    exposure: 1.2,
+    edge: '#009CD3', edgeGlow: 0.5, edgeFace: 0.62, edgeSide: 0.85, back: '#FFFFFF',
+    face: 0.92, faceEnv: 0.12, shadow: 0,
+    refl: 'glow', reflOpacity: 0.52,
+  },
+  light: {
+    bg: ['#FFFFFF', '#E8E8E6'], fog: '#F4F4F2', env: '#F2F2F0',
+    hemi: ['#ffffff', '#d8d8d6', 0.55], rim: ['#ffffff', 0.35], key: 0.85,
+    exposure: 1.0,
+    edge: '#000000', edgeGlow: 0, edgeFace: 0.88, edgeSide: 0.94, back: '#E5E2DA',
+    face: 1.0, faceEnv: 0.03, shadow: 0.5,
+    refl: 'shadow', reflOpacity: 0.60,
+  },
+}
+let THEME = THEMES.dark
+
 const scene = new THREE.Scene()
 const bgC = document.createElement('canvas'); bgC.width = 4; bgC.height = 512
 const bgCtx = bgC.getContext('2d')
-const bgG = bgCtx.createLinearGradient(0, 0, 0, 512)
-bgG.addColorStop(0, '#16110d'); bgG.addColorStop(1, '#0a0704')
-bgCtx.fillStyle = bgG; bgCtx.fillRect(0, 0, 4, 512)
+function paintBg(t) {
+  const g = bgCtx.createLinearGradient(0, 0, 0, 512)
+  g.addColorStop(0, t.bg[0]); g.addColorStop(1, t.bg[1])
+  bgCtx.fillStyle = g; bgCtx.fillRect(0, 0, 4, 512)
+}
+paintBg(THEME)
 const bgTex = new THREE.CanvasTexture(bgC); bgTex.encoding = THREE.sRGBEncoding
 scene.background = bgTex
 
@@ -103,11 +163,11 @@ renderer.setSize(innerWidth, innerHeight)
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
 renderer.outputEncoding = THREE.sRGBEncoding
 renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.2
+renderer.toneMappingExposure = THEME.exposure
 document.body.appendChild(renderer.domElement)
 
 const envScene = new THREE.Scene()
-envScene.background = new THREE.Color('#0e0b08')
+envScene.background = new THREE.Color(THEME.env)
 ;[
   [0, 8, 0, 8, 8, 1.6], [6, 2, 0, 4, 8, 0.02],
   [-6, 2, 0, 4, 8, 0.02], [0, -6, 0, 12, 12, 0.0],
@@ -117,10 +177,15 @@ envScene.background = new THREE.Color('#0e0b08')
   m.position.set(x, y, z); m.lookAt(0, 0, 0); envScene.add(m)
 })
 const pmrem = new THREE.PMREMGenerator(renderer)
-scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
-scene.add(new THREE.HemisphereLight('#2a1a0a', '#0e0806', 0.15))
-const keyLight = new THREE.DirectionalLight('#ffffff', 1.1); keyLight.position.set(4, 6, 5)
-const rimLight = new THREE.DirectionalLight('#ffcf90', 0.5); rimLight.position.set(-5, 2, -4)
+function rebuildEnv() {
+  if (scene.environment) scene.environment.dispose()
+  scene.environment = pmrem.fromScene(envScene, 0, 0.1, 200).texture
+}
+rebuildEnv()
+const hemi = new THREE.HemisphereLight(THEME.hemi[0], THEME.hemi[1], THEME.hemi[2])
+scene.add(hemi)
+const keyLight = new THREE.DirectionalLight('#ffffff', THEME.key); keyLight.position.set(4, 6, 5)
+const rimLight = new THREE.DirectionalLight(THEME.rim[0], THEME.rim[1]); rimLight.position.set(-5, 2, -4)
 scene.add(keyLight, rimLight)
 
 // Cached by ratio: several pages happen to share one, and there is no reason to
@@ -156,42 +221,95 @@ function avgColour(img) {
   return { r, g, b }
 }
 
-function reflTexFrom(img) {
-  const { r, g, b } = avgColour(img)
-  const c = document.createElement('canvas'); c.width = 256; c.height = 160
+// ── The white room's drop shadow ────────────────────────────────────────────
+// Face-on at the centre of the ring a card shows no depth at all: its sides go
+// edge-on and a white sheet on a white ground has nothing to separate it. The
+// slab's black edges solve this for every card BUT the one you are looking at.
+// So the white room gets a soft shadow sitting just behind each card, reaching
+// a little past its silhouette — the only place it can be seen. Dropped a touch
+// low, as if the room's light were overhead. The dark room has no use for it:
+// a black halo on black is nothing, and the edges already read there.
+const SHADOW_PAD = 0.10          // how far it reaches past the card, as a fraction
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.arcTo(x + w, y,     x + w, y + h, r)
+  ctx.arcTo(x + w, y + h, x,     y + h, r)
+  ctx.arcTo(x,     y + h, x,     y,     r)
+  ctx.arcTo(x,     y,     x + w, y,     r)
+  ctx.closePath()
+}
+
+function shadowTex(aspect) {
+  const H = 512, W = Math.max(8, Math.round(H * aspect))
+  const c = document.createElement('canvas'); c.width = W; c.height = H
   const ctx = c.getContext('2d')
-  const grd = ctx.createRadialGradient(128, 0, 0, 128, 0, 184)
-  grd.addColorStop(0,    'rgba(' + r + ',' + g + ',' + b + ',0.55)')
-  grd.addColorStop(0.35, 'rgba(' + r + ',' + g + ',' + b + ',0.22)')
-  grd.addColorStop(0.7,  'rgba(' + r + ',' + g + ',' + b + ',0.06)')
-  grd.addColorStop(1,    'rgba(' + r + ',' + g + ',' + b + ',0.0)')
-  ctx.fillStyle = grd; ctx.fillRect(0, 0, 256, 160)
-  const fade = ctx.createLinearGradient(0, 0, 0, 160)
-  fade.addColorStop(0,    'rgba(14,11,8,0.55)')
-  fade.addColorStop(0.12, 'rgba(14,11,8,0.0)')
-  fade.addColorStop(0.7,  'rgba(14,11,8,0.0)')
-  fade.addColorStop(1,    'rgba(14,11,8,0.82)')
-  ctx.fillStyle = fade; ctx.fillRect(0, 0, 256, 160)
+  // The card's own footprint inside the oversized plane.
+  const inset = SHADOW_PAD / (1 + 2 * SHADOW_PAD)
+  const px = W * inset, py = H * inset
+  ctx.filter = 'blur(' + Math.round(H * 0.030) + 'px)'
+  ctx.fillStyle = 'rgba(0,0,0,0.62)'
+  roundRectPath(ctx, px, py + H * 0.014, W - 2 * px, H - 2 * py, Math.min(W, H) * 0.018)
+  ctx.fill()
   const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; return t
 }
 
-// Authored sRGB, converted for the linear pipeline. Handed straight to a
-// material the renderer encodes it out again on the way to the canvas and a
-// pale tint washes to near-white; converting in means it lands as the colour
-// that was picked.
-// Deepened from the pale #FFF5BC: same hue, same full saturation, taken down in
-// lightness. A near-white cream has nowhere to go to become more intense — it
-// can only get brighter, which is whiter. Lowering the lightness is what
-// actually puts more colour in it.
-const EDGE_COLOUR = new THREE.Color('#FFE87A').convertSRGBToLinear()
-// The edge is a lit material in a deliberately dim room, so it renders well
-// below the colour that was picked — the scene eats most of it. Emissive adds
-// the colour back as light the material carries itself, so the depth reads at
-// the chosen strength instead of whatever the key light leaves of it. 0 is
-// fully lit-only (what it was), 1 is the flat colour ignoring the room.
-// Kept modest: at 0.75 the emissive and the lit colour summed past white and
-// the yellow blew out altogether — brighter is not the same as more saturated.
-const EDGE_GLOW = 0.35
+// Two different jobs, not two colourways. In the dark room the plane is the
+// sheet's own colour thrown on the floor — it LIGHTS. In the white room pale on
+// pale is invisible, so the same plane becomes a contact shadow: the sheet is
+// shaded onto the ground instead of glowing onto it. That is why the white room
+// does not consult avgColour at all.
+function reflTexFrom(img, t) {
+  const c = document.createElement('canvas'); c.width = 256; c.height = 160
+  const ctx = c.getContext('2d')
+  const grd = ctx.createRadialGradient(128, 0, 0, 128, 0, 184)
+  if (t.refl === 'glow') {
+    const { r, g, b } = avgColour(img)
+    const rgb = r + ',' + g + ',' + b
+    grd.addColorStop(0, 'rgba(' + rgb + ',0.74)')
+    grd.addColorStop(0.35, 'rgba(' + rgb + ',0.34)')
+    grd.addColorStop(0.7, 'rgba(' + rgb + ',0.12)')
+    grd.addColorStop(1, 'rgba(' + rgb + ',0.0)')
+  } else {
+    grd.addColorStop(0, 'rgba(0,0,0,0.34)')
+    grd.addColorStop(0.35, 'rgba(0,0,0,0.15)')
+    grd.addColorStop(0.7, 'rgba(0,0,0,0.05)')
+    grd.addColorStop(1, 'rgba(0,0,0,0.0)')
+  }
+  ctx.fillStyle = grd; ctx.fillRect(0, 0, 256, 160)
+  // Dissolving into whatever the floor is: into black in the dark room, into
+  // the floor's own grey in the white one. A black smear on white reads as dirt.
+  const fade = ctx.createLinearGradient(0, 0, 0, 160)
+  if (t.refl === 'glow') {
+    fade.addColorStop(0, 'rgba(0,0,0,0.58)')
+    fade.addColorStop(0.12, 'rgba(0,0,0,0.0)')
+    fade.addColorStop(0.7, 'rgba(0,0,0,0.0)')
+    fade.addColorStop(1, 'rgba(0,0,0,0.94)')
+  } else {
+    fade.addColorStop(0, 'rgba(232,232,230,0.0)')
+    fade.addColorStop(0.55, 'rgba(232,232,230,0.35)')
+    fade.addColorStop(1, 'rgba(232,232,230,0.95)')
+  }
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, 256, 160)
+  const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; return tex
+}
+
+// Authored sRGB, converted for the linear pipeline — handed straight to a
+// material the renderer encodes it out again and the tint washes pale.
+// In the dark room this is #009CD3 at full lightness: the slab's depth is the
+// one coloured thing there. In the white room it is black, and doing the whole
+// job of separating one sheet from the next.
+function edgeColour(t) { return new THREE.Color(t.edge).convertSRGBToLinear() }
+// The reverse of a sheet tints what shows through it. Left white in the dark
+// room, where the sheet is lit and any tint would read as dirt; in the white
+// room it is #E5E2DA, so the back of a card is paper against the room's white
+// rather than the same flat value as the wall behind it.
+function backColour(t) { return new THREE.Color(t.back).convertSRGBToLinear() }
+// Emissive adds the edge's colour back as light the material carries itself,
+// so the depth reads at the chosen strength rather than whatever the key light
+// leaves of it. 0.5 in the dark room — a black ground gives the blue room to
+// travel before it blows out. 0 in the white room: black emits nothing.
 
 const ring = new THREE.Group()
 scene.add(ring)
@@ -231,7 +349,7 @@ function build(sources) {
   CAM_Z = RADIUS + NEAR
   camera.position.set(0, 0, CAM_Z)
   camera.lookAt(0, 0, 0)
-  scene.fog = new THREE.Fog('#0e0b08', CAM_Z - 2, CAM_Z + RADIUS * 2.6)
+  scene.fog = new THREE.Fog('#050506', CAM_Z - 2, CAM_Z + RADIUS * 2.6)
 
   CARDS = sources.map((src, i) => {
     const im = src.el
@@ -247,39 +365,59 @@ function build(sources) {
     // here rather than each sheet's own average, so the stack reads as one set
     // of mounted boards rather than as thirteen differently-edged objects. The
     // floor glow below still comes from the individual sheet.
-    const edge = EDGE_COLOUR.clone()
+    const edge = edgeColour(THEME)
 
+    // Opacity and envMap are both theme business, and both are about the ink.
+    // At 0.92 the ground shows through every pixel: on black that is invisible,
+    // on white it floors the darkest ink at about 20/255 however black the file
+    // is — so the white room runs the face fully opaque. The environment is
+    // pulled back there too: a bright room throws a specular sheen across the
+    // face, and a sheen on black line work is exactly what reads as faded.
     const faceMat = new THREE.MeshPhysicalMaterial({
-      map: tex, transparent: true, opacity: 0.92, side: THREE.FrontSide,
-      roughness: 0.55, metalness: 0.0, envMapIntensity: 0.12,
+      map: tex, transparent: true, opacity: THEME.face, side: THREE.FrontSide,
+      roughness: 0.55, metalness: 0.0, envMapIntensity: THEME.faceEnv,
       color: new THREE.Color(0xffffff), alphaMap,
     })
     const glassMat = new THREE.MeshStandardMaterial({
-      color: edge, transparent: true, opacity: 0.42, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
-      emissive: EDGE_COLOUR.clone(), emissiveIntensity: EDGE_GLOW,
+      color: edge, transparent: true, opacity: THEME.edgeFace, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+      emissive: edgeColour(THEME), emissiveIntensity: THEME.edgeGlow,
     })
     const backMat = new THREE.MeshPhysicalMaterial({
       map: tex, transparent: true, opacity: 0.72,
-      roughness: 0.6, metalness: 0.0, color: new THREE.Color(0xffffff), alphaMap,
+      roughness: 0.6, metalness: 0.0, color: backColour(THEME), alphaMap,
     })
     const sideMat = new THREE.MeshStandardMaterial({
-      color: edge, transparent: true, opacity: 0.65, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
-      emissive: EDGE_COLOUR.clone(), emissiveIntensity: EDGE_GLOW,
+      color: edge, transparent: true, opacity: THEME.edgeSide, roughness: 0.6, metalness: 0.0, envMapIntensity: 0.1,
+      emissive: edgeColour(THEME), emissiveIntensity: THEME.edgeGlow,
     })
 
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, panelH, THICK),
       [sideMat, sideMat, glassMat, glassMat, faceMat, backMat])
     mesh.frustumCulled = false
 
+    const shadowMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * (1 + 2 * SHADOW_PAD), panelH * (1 + 2 * SHADOW_PAD)),
+      new THREE.MeshBasicMaterial({ map: shadowTex(aspect), transparent: true,
+                                    opacity: THEME.shadow, depthWrite: false }))
+    shadowMesh.position.set(0, 0, -THICK / 2 - 0.004)
+    shadowMesh.visible = THEME.shadow > 0
+    shadowMesh.frustumCulled = false
+    mesh.add(shadowMesh)
+
     const reflMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, reflH),
-      new THREE.MeshBasicMaterial({ map: reflTexFrom(im), transparent: true, opacity: 0.38 }))
+      new THREE.MeshBasicMaterial({ map: reflTexFrom(im, THEME), transparent: true, opacity: THEME.reflOpacity }))
     reflMesh.position.set(0, -(panelH + reflH) / 2, THICK / 2 + 0.002)
     reflMesh.frustumCulled = false
     mesh.add(reflMesh)
 
     ring.add(mesh)
     mesh.userData.restOpacity = mesh.material.map((m) => m.opacity)
-    const card = { _slot: i, _mesh: mesh, entry: src.entry }
+    // The image and the two theme-driven meshes ride along: a switch has to
+    // repaint the floor plane and recolour the slab, and neither is reachable
+    // from the mesh alone once the ring is built.
+    const card = { _slot: i, _mesh: mesh, entry: src.entry, _img: im, _refl: reflMesh,
+                   _glass: glassMat, _side: sideMat, _back: backMat, _face: faceMat,
+                   _shadow: shadowMesh }
     mesh.userData.card = card
     return card
   })
@@ -345,7 +483,7 @@ addEventListener('keydown', (e) => {
   const step = (Math.PI * 2) / COUNT
   if (e.key === 'ArrowLeft')  target = nearest(target + step * 0.6)
   if (e.key === 'ArrowRight') target = nearest(target - step * 0.6)
-  if (e.key === 'Escape') history.back()
+  if (e.key === 'Escape') goBack()
 })
 
 addEventListener('resize', () => {
@@ -390,7 +528,109 @@ function frame() {
   requestAnimationFrame(frame)
 }
 
-document.getElementById('backBtn').onclick = () => { history.back() }
+// ── Switching rooms ─────────────────────────────────────────────────────────
+// Everything the scene was given at build time has to be handed back: the
+// background canvas, the fog, the environment map the materials sample, the
+// lights, the exposure, and then per card the slab's two materials and the
+// floor plane's texture. restOpacity is rewritten too — the frame loop eases
+// each card from its resting opacity toward solid, so a stale rest value would
+// leave the ring easing toward the OTHER room's edge.
+function applyTheme(name) {
+  THEME = THEMES[name] || THEMES.dark
+  document.body.classList.toggle('light', name === 'light')
+
+  paintBg(THEME); bgTex.needsUpdate = true
+  if (scene.fog) scene.fog.color.set(THEME.fog)
+  envScene.background.set(THEME.env); rebuildEnv()
+  hemi.color.set(THEME.hemi[0]); hemi.groundColor.set(THEME.hemi[1]); hemi.intensity = THEME.hemi[2]
+  rimLight.color.set(THEME.rim[0]); rimLight.intensity = THEME.rim[1]
+  keyLight.intensity = THEME.key
+  renderer.toneMappingExposure = THEME.exposure
+
+  const edge = edgeColour(THEME)
+  CARDS.forEach((card) => {
+    ;[['_glass', 'edgeFace'], ['_side', 'edgeSide']].forEach(([k, op]) => {
+      const m = card[k]
+      if (!m) return
+      m.color.copy(edge)
+      m.emissive.copy(edge)
+      m.emissiveIntensity = THEME.edgeGlow
+      m.opacity = THEME[op]
+      m.needsUpdate = true
+    })
+    if (card._shadow) {
+      card._shadow.material.opacity = THEME.shadow
+      card._shadow.visible = THEME.shadow > 0
+    }
+    if (card._face) {
+      card._face.opacity = THEME.face
+      card._face.envMapIntensity = THEME.faceEnv
+      card._face.needsUpdate = true
+    }
+    if (card._back) { card._back.color.copy(backColour(THEME)); card._back.needsUpdate = true }
+    if (card._refl) {
+      card._refl.material.map.dispose()
+      card._refl.material.map = reflTexFrom(card._img, THEME)
+      card._refl.material.opacity = THEME.reflOpacity
+      card._refl.material.needsUpdate = true
+    }
+    // Re-read AFTER the opacities above, or the ring eases toward stale values.
+    card._mesh.userData.restOpacity = card._mesh.material.map((m) => m.opacity)
+  })
+
+  try { localStorage.setItem('oswin.sketchbook.theme', name) } catch (e) {}
+  document.querySelectorAll('#theme button').forEach((b) => {
+    b.setAttribute('aria-pressed', String(b.dataset.t === name))
+  })
+}
+
+// ── The control, and its sleep ──────────────────────────────────────────────
+// Shown on any sign of life, gone two and a half seconds after the last one, so
+// the room is what you are looking at rather than the furniture. Hovering it
+// counts as activity, which is what stops it fading out from under the cursor.
+const themeEl = document.getElementById('theme')
+let sleepT = 0
+function wake() {
+  themeEl.classList.add('awake')
+  clearTimeout(sleepT)
+  sleepT = setTimeout(() => themeEl.classList.remove('awake'), 2500)
+}
+;['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((ev) =>
+  addEventListener(ev, wake, { passive: true }))
+themeEl.addEventListener('pointerenter', wake)
+themeEl.addEventListener('pointermove', (e) => e.stopPropagation())
+themeEl.querySelectorAll('button').forEach((b) =>
+  b.addEventListener('click', () => { applyTheme(b.dataset.t); wake() }))
+
+// Restored before the ring is built so the first frame is already the right
+// room — switching after paint would flash the other one.
+let startTheme = 'dark'
+try { startTheme = localStorage.getItem('oswin.sketchbook.theme') || 'dark' } catch (e) {}
+if (!THEMES[startTheme]) startTheme = 'dark'
+THEME = THEMES[startTheme]
+document.body.classList.toggle('light', startTheme === 'light')
+paintBg(THEME); bgTex.needsUpdate = true
+envScene.background.set(THEME.env); rebuildEnv()
+hemi.color.set(THEME.hemi[0]); hemi.groundColor.set(THEME.hemi[1]); hemi.intensity = THEME.hemi[2]
+rimLight.color.set(THEME.rim[0]); rimLight.intensity = THEME.rim[1]
+keyLight.intensity = THEME.key
+renderer.toneMappingExposure = THEME.exposure
+document.querySelectorAll('#theme button').forEach((b) => {
+  b.setAttribute('aria-pressed', String(b.dataset.t === startTheme))
+})
+wake()
+
+// Embedded in the ring's card overlay, history.back() drives the PARENT's
+// history, which trips its popstate handler and closes the overlay — the same
+// contract oli.html's own BACK keeps. Standalone, though — opened directly or
+// refreshed into — there is no entry behind this page and back() did nothing
+// at all, which is the bug this replaces.
+const BACK_TO = 'oli.html'
+function goBack() {
+  if (window !== window.top) { try { window.parent.history.back(); return } catch (e) {} }
+  if (history.length > 1) history.back(); else location.replace(BACK_TO)
+}
+document.getElementById('backBtn').onclick = goBack
 
 // Built only once every page has decoded: the ring's radius depends on the
 // widest of them, and each card's geometry on its own dimensions, so none of it
